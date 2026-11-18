@@ -217,7 +217,7 @@ window.MODELS = {
     {n:"King of the Hill",d:"Matrix",img:null},
     {n:"Racer",d:"Briefs",img:null},
     {n:"Sno-ball",d:"Briefs",img:null}],
- 2:[{n:"Fire Fly No. 12",d:"Planet Jr (matrix #2), per Jonathan Spangler · hand-painted leaf-vine deck · photo supplied by Jonathan",img:"images/ff-fire-fly-no12.jpg"}],
+ 2:[{n:"Fire Fly No. 12",brand:"Fire Fly",d:"Fire Fly brand of S. L. Allen & Co., per Jonathan Spangler · hand-painted leaf-vine deck · photo supplied by Jonathan",img:"images/ff-fire-fly-no12.jpg"}],
  6:[{n:"Fleetwing Steering Sled No. 100 & Racer No. 210",d:"Auto-Wheel catalog p. 19 · Rosebud collection",img:"images/ad-auto-wheel-fleetwing-p19.jpg"},
     {n:"Fleetwing Spring Top Flash (#41)",d:"1940 catalog photo, Jonathan Spangler",img:"images/fleetwing-spring-top-flash-1940.jpg"},
     {n:"Electric steering sled",d:"Buffalo Sled Co. ad (year not printed)",img:"images/ad-buffalo-sled-co-electric.jpg"},
@@ -279,3 +279,10 @@ window.STATE_CENTROIDS = {AL:[32.8,-86.8],AK:[64.7,-152.0],AZ:[34.3,-111.7],AR:[
  NY:[42.9,-75.5],NC:[35.6,-79.4],ND:[47.5,-100.5],OH:[40.3,-82.8],OK:[35.6,-97.5],OR:[43.9,-120.6],PA:[40.9,-77.8],RI:[41.7,-71.5],
  SC:[33.9,-80.9],SD:[44.4,-100.2],TN:[35.9,-86.4],TX:[31.5,-99.3],UT:[39.3,-111.7],VT:[44.1,-72.7],VA:[37.5,-78.9],WA:[47.4,-120.5],
  WV:[38.6,-80.6],WI:[44.6,-89.9],WY:[43.0,-107.6],DC:[38.9,-77.0]};
+
+/* Companies with several brands. Per Jonathan Spangler, S. L. Allen & Co. (the Planet Jr. company)
+   made three sled brands. Matrix rows #1 and #2 stay as separate rows but are cross-linked as one company.
+   Brand access follows its matrix row: #1 is free, #2 is premium (pending Jonathan's decision). */
+window.COMPANIES=[{name:"S. L. Allen & Co. (Planet Jr.)",note:"Per Jonathan Spangler, S. L. Allen & Co., the Planet Jr. company, made three sled brands.",
+  brands:[{name:"Flexible Flyer",maker:1},{name:"Fire Fly",maker:2},{name:"Yankee Clipper",maker:2}]}];
+window.MAKER_LABELS={2:"Fire Fly / Yankee Clipper (S. L. Allen & Co.)"};

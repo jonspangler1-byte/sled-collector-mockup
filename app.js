@@ -5,7 +5,12 @@ const MAKERS=window.MAKERS_RAW.map(r=>({id:r[0],name:r[1],type:r[2],years:r[3],m
 const M=id=>MAKERS.find(m=>m.id==id);
 const FREE=window.FREE_MAKERS||{};
 const isFree=m=>!!m&&Object.prototype.hasOwnProperty.call(FREE,m.id);
-const disp=m=>m?(FREE[m.id]||m.name):"Unknown maker";
+const disp=m=>m?(FREE[m.id]||(window.MAKER_LABELS||{})[m.id]||m.name):"Unknown maker";
+const companyOf=m=>m&&(window.COMPANIES||[]).find(c=>c.brands.some(b=>b.maker==m.id));
+const brandsOf=m=>{const c=companyOf(m);return c?c.brands.filter(b=>b.maker==m.id):[]};
+const brandBox=m=>{const c=companyOf(m);if(!c)return "";const seen={};
+  return `<h3 class="sec">Company & brands</h3><div class="card brandbox"><div class="bb-h"><b>${esc(c.name)}</b><div class="small muted">${esc(c.note)}</div></div>${c.brands.map(b=>{const bm=M(b.maker),here=b.maker==m.id,lk=!premium()&&!isFree(bm);
+   return `<a class="bb-r${here?" here":""}" href="#/maker/${b.maker}"><span class="tx"><span class="n">${esc(b.name)}</span><span class="small muted"> · matrix #${b.maker}${here?" · this page":""}</span></span>${isFree(bm)?'<span class="free-pill">Free</span>':(lk?'<span class="lock-pill">🔒 Premium</span>':'<span class="lock-pill">Premium</span>')}</a>`}).join("")}</div>`};
 const models=m=>(window.MODELS||{})[m.id]||[];
 const mImgs=x=>x.imgs&&x.imgs.length?x.imgs:(x.img?[x.img]:[]);
 const firstSentence=t=>{const m=t.match(/^.*?(?:[a-z0-9)”"]{3}|\d)\.(?=\s+[A-Z“"])/);return m?m[0]:t};
@@ -169,7 +174,7 @@ R.sled=id=>{const s=allSleds().find(x=>x.id==id);if(!s)return R.home();const m=M
 };
 R.makers=()=>{bar("Makers",{sub:"61 American sled companies",act:'<a class="act" href="#/map" aria-label="Map">🗺</a>'});tab("makers");
   setTimeout(()=>{const i=$("#mq");i.oninput=()=>{const q=i.value.toLowerCase();document.querySelectorAll(".mrow").forEach(r=>r.style.display=r.dataset.s.includes(q)?"":"none")}});
-  const row=m=>`<a class="mrow" href="#/maker/${m.id}" data-s="${esc((disp(m)+" "+m.name+" "+m.area+" "+m.models).toLowerCase())}"><span class="num">${m.id}</span><span class="tx"><div class="n">${esc(disp(m))}</div><div class="d"><span class="dot ${m.book?"blk":"grn"}"></span>${esc(m.area||"Location unknown")}${m.years?" · "+esc(m.years):""}</div></span>${isFree(m)?'<span class="free-pill">Free</span>':(premium()?'<span class="lk">›</span>':'<span class="lk">🔒</span>')}</a>`;
+  const row=m=>`<a class="mrow" href="#/maker/${m.id}" data-s="${esc((disp(m)+" "+m.name+" "+m.area+" "+m.models+" "+(companyOf(m)?companyOf(m).name+" "+companyOf(m).brands.map(b=>b.name).join(" "):"")).toLowerCase())}"><span class="num">${m.id}</span><span class="tx"><div class="n">${esc(disp(m))}</div><div class="d"><span class="dot ${m.book?"blk":"grn"}"></span>${esc(m.area||"Location unknown")}${m.years?" · "+esc(m.years):""}</div>${companyOf(m)?`<div class="d co">Brand of ${esc(companyOf(m).name)}</div>`:""}</span>${isFree(m)?'<span class="free-pill">Free</span>':(premium()?'<span class="lk">›</span>':'<span class="lk">🔒</span>')}</a>`;
   const free=MAKERS.filter(isFree),rest=MAKERS.filter(m=>!isFree(m));
   return `<div class="search"><span>⌕</span><input id="mq" placeholder="Search 61 makers, towns, models"></div>
   <p class="legend"><span class="dot blk"></span>Listed in Joan Palicia's books &nbsp; <span class="dot grn"></span>Jonathan Spangler's finds</p>
@@ -187,7 +192,7 @@ R.maker=id=>{const m=M(id);if(!m)return R.makers();const p=m.p,free=isFree(m),P=
     body=`${p&&p.img?`<figure class="fig"><img src="${p.img}" alt=""><figcaption>${esc(p.cap)}</figcaption></figure>`:""}
     ${p?`<div class="mp-head" style="padding-top:6px"><div class="small" style="font-weight:600">${esc(p.head)}</div><div class="conf" style="margin-top:4px">Confidence: ${esc(p.conf)}</div></div><div class="prose">${p.text.map(t=>`<p>${esc(t)}</p>`).join("")}</div>`:`<div class="prose"><p class="muted">[History coming soon] No written history for this maker yet.</p></div>`}
     <h3 class="sec">Models & brands (matrix)</h3><div class="prose"><p>${esc(m.models||"—")}</p></div>
-    ${ms.length?`<h3 class="sec">Model gallery (${ms.length})</h3><div class="grid2">${ms.map(mcard).join("")}</div>`:""}
+    ${brandsOf(m).length>1?brandsOf(m).map(b=>{const bi=ms.map((x,i)=>[x,i]).filter(([x])=>x.brand===b.name);return `<h3 class="sec">${esc(b.name)} models (${bi.length})</h3>${bi.length?`<div class="grid2">${bi.map(([x,i])=>mcard(x,i)).join("")}</div>`:'<p class="small muted" style="padding:0 16px">No models catalogued yet.</p>'}`}).join(""):(ms.length?`<h3 class="sec">Model gallery (${ms.length})</h3><div class="grid2">${ms.map(mcard).join("")}</div>`:"")}
     ${p&&p.ad?`<h3 class="sec">Period advertisement</h3><figure class="fig"><img src="${p.ad}" alt=""><figcaption>${esc(p.adcap)}</figcaption></figure>`:""}
     <p class="src">${p?"History condensed from the Rosebud Sled Museum company briefs (Jonathan Spangler, Nov 2026), which list full sources.":"Name, place and dates from Jonathan Spangler's sled manufacturer matrix."}</p>`;
   }else if(free){
@@ -199,7 +204,7 @@ R.maker=id=>{const m=M(id);if(!m)return R.makers();const p=m.p,free=isFree(m),P=
   }else{
     body=`<div class="prose"><p class="muted">Free members see the name, place and dates. Premium unlocks the history, model gallery and period ads.</p></div>${lockBox("Premium maker","History, model gallery and period advertisements.")}`;
   }
-  return `<div class="mp-head"><p class="eyebrow">Maker #${m.id} of 61 ${free?'· <span class="free-pill">Free</span>':""}</p><h1>${esc(disp(m))}</h1>${disp(m)!==m.name?`<div class="small muted">Matrix entry: ${esc(m.name)}</div>`:""}</div>${facts}${body}
+  return `<div class="mp-head"><p class="eyebrow">Maker #${m.id} of 61 ${free?'· <span class="free-pill">Free</span>':""}</p><h1>${esc(disp(m))}</h1>${disp(m)!==m.name?`<div class="small muted">Matrix entry: ${esc(m.name)}</div>`:""}</div>${facts}${brandBox(m)}${body}
   <h3 class="sec">Collectors' sleds by model</h3>${(()=>{const G={};allSleds().filter(s=>s.maker==m.id&&(s.shared||isOwn(s))).forEach(s=>{(G[modelKey(s)]=G[modelKey(s)]||[]).push(s)});const ks=Object.keys(G);
     return ks.length?ks.map(k=>{const g=G[k];return `<p class="grp-h"><b>${esc(disp(m))} ${esc(g[0].model)}</b> · ${g.length} collector${g.length==1?"":"s"}</p>${groupList(g)}`}).join(""):'<p class="small muted" style="padding:0 16px">No shared sleds yet.</p>'})()}<div style="height:20px"></div>`;
 };
@@ -311,7 +316,7 @@ R.map=()=>{bar("Sled Map",{back:true,sub:"Shared sleds · town level"});tab("mak
 R.mphotos=(arg)=>{const [mid,idx]=String(arg).split(",");const m=M(mid),x=m&&models(m)[+idx];if(!x)return R.makers();
   const ok=premium()||(isFree(m)&&+idx<(window.FREE_GALLERY_COUNT||5));if(!ok)return R.upgrade("Extra model photos are part of Premium.");
   bar(x.n,{back:true,sub:disp(m)});tab("makers");
-  return `${gallery(mImgs(x),false)}<div class="title-block"><h1>${esc(disp(m))} ${esc(x.n)}</h1><p class="small muted" style="margin:6px 0 0">${esc(x.d)}</p></div><div class="pad"><a class="btn pine" href="#/maker/${m.id}">Back to ${esc(disp(m))}</a></div>`;
+  return `${gallery(mImgs(x),false)}<div class="title-block"><h1>${x.brand?esc(x.n):esc(disp(m))+" "+esc(x.n)}</h1>${x.brand?`<p class="small muted" style="margin:4px 0 0">${esc(x.brand)} brand · ${esc(companyOf(m)?companyOf(m).name:disp(m))}</p>`:""}<p class="small muted" style="margin:6px 0 0">${esc(x.d)}</p></div><div class="pad"><a class="btn pine" href="#/maker/${m.id}">Back to ${esc(disp(m))}</a></div>`;
 };
 window.__toast=toast;
 function route(){

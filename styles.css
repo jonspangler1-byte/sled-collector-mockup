@@ -274,3 +274,10 @@ h3.sec a{font-family:var(--sans);font-size:.72rem;font-weight:600;letter-spacing
 .form input[type=radio],.form input[type=checkbox]{width:auto;flex:none}
 .seg label{justify-content:flex-start!important;text-align:left}
 .seg input[type=radio]{width:16px!important;height:16px;padding:0!important;margin:0;flex:0 0 16px;border:0}
+
+.brandbox{margin:4px 16px 8px;padding:0;overflow:hidden}
+.bb-h{padding:10px 12px;border-bottom:1px solid var(--line)}
+.bb-r{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line);color:inherit;text-decoration:none}
+.bb-r:last-child{border-bottom:0}.bb-r.here{background:#f6f1e6}.bb-r .n{font-weight:600}
+.lock-pill{font-size:.58rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:10px;padding:2px 6px;white-space:nowrap}
+.mrow .d.co{font-size:.68rem;color:var(--muted);margin-top:1px}
