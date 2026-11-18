@@ -18,16 +18,22 @@ function bar(title,{back=false,sub="",act=""}={}){
   '<h2>'+esc(title)+(sub?'<span class="sub">'+esc(sub)+'</span>':"")+'</h2>'+(premium()?'<span class="badge-prem">Premium</span>':"")+act;
 }
 function tab(t){document.querySelectorAll(".tabbar a").forEach(a=>a.classList.toggle("on",a.dataset.tab===t))}
+const isOwn=s=>!!(s.mine||s.userAdded);
+const hidden=s=>{const m=M(s.maker);return !premium()&&!isOwn(s)&&!!m&&!isFree(m)};
+const lockedPh=(cls,tag="a")=>`<${tag} class="${cls} lockph"${tag==="a"?' href="#/upgrade"':""}><span class="lk">🔒</span><span class="lt">Premium maker. Upgrade to see</span></${tag}>`;
+const tileHref=s=>hidden(s)?"#/upgrade":"#/sled/"+s.id;
+const tileTh=s=>hidden(s)?lockedPh("th","div"):`<div class="th" style="background-image:url('${s.img}')"></div>`;
+const nudge=s=>{const m=M(s.maker);return isOwn(s)&&m&&!isFree(m)&&!premium()?`<a class="nudge" href="#/upgrade">🔒 Unlock the full history of ${esc(m.name)} →</a>`:""};
 const makerName=id=>{const m=M(id);return m?m.name:"Unknown maker"};
 const sampleTag=s=>s.user&&!s.userAdded?' <span class="sample-tag">Example data</span>':"";
 const initials=u=>u.replace(/[^a-z]/gi," ").trim().split(/\s+/).map(w=>w[0]).join("").slice(0,2).toUpperCase();
 
 function postCard(s){
   const L=liked()[s.id];
-  return `<article class="card post"><a href="#/sled/${s.id}"><div class="ph" style="background-image:url('${s.img}')"></div></a>
+  return `<article class="card post">${hidden(s)?lockedPh("ph"):`<a href="#/sled/${s.id}"><div class="ph" style="background-image:url('${s.img}')"></div></a>`}
   <div class="meta"><div class="who"><span class="av">${initials(s.user)}</span>@${esc(s.user)}${sampleTag(s)}</div>
   <a href="#/sled/${s.id}" style="text-decoration:none"><div class="t">${esc(makerName(s.maker))} ${esc(s.model)}</div>
-  <div class="m">${esc(s.year)} · ${esc(s.condition)}</div></a>
+  <div class="m">${esc(s.year)} · ${esc(s.condition)}</div></a>${nudge(s)}
   <div class="bar"><button data-like="${s.id}">${L?"♥":"♡"} ${s.likes+(L?1:0)}</button><span>💬 Comment</span><span>↗ Share</span></div></div></article>`;
 }
 function bindLikes(){document.querySelectorAll("[data-like]").forEach(b=>b.onclick=()=>{const l=liked();l[b.dataset.like]=!l[b.dataset.like];LS.set("liked",l);route()})}
@@ -51,7 +57,7 @@ R.collection=()=>{bar("My Collection",{sub:"@sample_collector",act:'<a class="ac
   const makers=new Set(mine.map(s=>s.maker));
   return `<div class="stats"><div><b>${mine.length}</b><span>Sleds</span></div><div><b>${makers.size}</b><span>Makers</span></div><div><b>${mine.filter(s=>s.shared).length}</b><span>Shared</span></div></div>
   <div class="chips"><span class="chip on">All</span><span class="chip">Shared</span><span class="chip">Private</span><span class="chip">By maker</span><a class="chip" href="#/upgrade">🖨 Insurance list ${premium()?"":"🔒"}</a></div>
-  <div class="grid2">${mine.map(s=>`<a class="card tile" href="#/sled/${s.id}"><div class="th" style="background-image:url('${s.img}')"></div><span class="vis">${s.shared?"Shared":"🔒 Private"}</span><div class="n">${esc(makerName(s.maker))}</div><div class="d">${esc(s.model)} · ${esc(s.year)}</div></a>`).join("")}</div>
+  <div class="grid2">${mine.map(s=>`<a class="card tile" href="#/sled/${s.id}"><div class="th" style="background-image:url('${s.img}')"></div><span class="vis">${s.shared?"Shared":"🔒 Private"}</span><div class="n">${esc(makerName(s.maker))}</div><div class="d">${esc(s.model)} · ${esc(s.year)}</div>${M(s.maker)&&!isFree(M(s.maker))&&!premium()?'<div class="d" style="color:var(--red);font-weight:600">🔒 Unlock full history</div>':""}</a>`).join("")}</div>
   <p class="legend" style="margin-bottom:20px">Sleds marked as samples are example data for this mockup. Sleds you add here are stored only in this browser.</p>`;
 };
 R.add=()=>{bar("Add a Sled",{sub:"Free · unlimited"});tab("add");
@@ -78,9 +84,9 @@ R.add=()=>{bar("Add a Sled",{sub:"Free · unlimited"});tab("add");
 };
 R.sled=id=>{const s=allSleds().find(x=>x.id==id);if(!s)return R.home();const m=M(s.maker);
   bar(m?m.name:"Sled",{back:true,sub:s.model});tab(s.mine||s.userAdded?"collection":"home");
-  return `<div class="detail-ph" style="background-image:url('${s.img}')"></div>
+  return `${hidden(s)?lockedPh("detail-ph"):`<div class="detail-ph" style="background-image:url('${s.img}')"></div>`}
   <div class="title-block"><h1>${esc(makerName(s.maker))} ${esc(s.model)}</h1><div class="small muted" style="margin-top:4px">@${esc(s.user)}${sampleTag(s)} · ${s.shared?"Shared":"🔒 Private"}</div></div>
-  <dl class="dl"><div><dt>Maker</dt><dd>${m?`<a href="#/maker/${m.id}">${esc(m.name)}</a>`:"Unknown"}</dd></div><div><dt>Model</dt><dd>${esc(s.model)}</dd></div><div><dt>Year</dt><dd>${esc(s.year)}</dd></div><div><dt>Size</dt><dd>${esc(s.size)}</dd></div><div><dt>Condition</dt><dd>${esc(s.condition)}</dd></div><div><dt>Where found</dt><dd>${esc(s.found)}</dd></div><div><dt>Notes</dt><dd>${esc(s.notes)}</dd></div></dl>
+  ${nudge(s)?`<div style="padding:8px 16px 0">${nudge(s)}</div>`:""}<dl class="dl"><div><dt>Maker</dt><dd>${m?`<a href="#/maker/${m.id}">${esc(m.name)}</a>`:"Unknown"}</dd></div><div><dt>Model</dt><dd>${esc(s.model)}</dd></div><div><dt>Year</dt><dd>${esc(s.year)}</dd></div><div><dt>Size</dt><dd>${esc(s.size)}</dd></div><div><dt>Condition</dt><dd>${esc(s.condition)}</dd></div><div><dt>Where found</dt><dd>${esc(s.found)}</dd></div><div><dt>Notes</dt><dd>${esc(s.notes)}</dd></div></dl>
   <div style="padding:16px;display:flex;flex-direction:column;gap:10px">${m?`<a class="btn pine" href="#/maker/${m.id}">About ${esc(m.name)}</a>`:""}${s.mine||s.userAdded?'<button class="btn" onclick="toast&&0" id="edit">Edit sled</button>':""}</div>`;
 };
 R.makers=()=>{bar("Makers",{sub:"61 American sled companies"});tab("makers");
@@ -111,7 +117,7 @@ R.maker=id=>{const m=M(id);if(!m)return R.makers();const p=m.p,open=isFree(m)||p
     body=`<div class="prose"><p class="muted">Free members see the name, place and dates. Premium unlocks the full profile.</p></div>${lockBox("Full history is Premium","History, model guide and period advertisements for all 61 makers.")}`;
   }
   return `<div class="mp-head"><p class="eyebrow">Maker #${m.id} of 61 ${isFree(m)?'· <span class="free-pill">Free</span>':""}</p><h1>${esc(m.name)}</h1></div>${facts}${body}
-  <h3 class="sec">Collectors' sleds</h3><div class="grid2">${allSleds().filter(s=>s.maker==m.id&&s.shared).map(s=>`<a class="card tile" href="#/sled/${s.id}"><div class="th" style="background-image:url('${s.img}')"></div><div class="n">${esc(s.model)}</div><div class="d">@${esc(s.user)}</div></a>`).join("")||'<p class="small muted">No shared sleds yet.</p>'}</div>`;
+  <h3 class="sec">Collectors' sleds</h3><div class="grid2">${allSleds().filter(s=>s.maker==m.id&&s.shared).map(s=>`<a class="card tile" href="${tileHref(s)}">${tileTh(s)}<div class="n">${esc(s.model)}</div><div class="d">@${esc(s.user)}</div></a>`).join("")||'<p class="small muted">No shared sleds yet.</p>'}</div>`;
 };
 R.search=()=>{bar("Search",{back:true,sub:"Makers, models, collectors"});tab("home");
   setTimeout(()=>{const i=$("#q"),out=$("#res");const run=()=>{const q=i.value.trim().toLowerCase();
@@ -119,7 +125,7 @@ R.search=()=>{bar("Search",{back:true,sub:"Makers, models, collectors"});tab("ho
     const mk=MAKERS.filter(m=>(m.name+" "+m.models+" "+m.area).toLowerCase().includes(q));
     const sl=allSleds().filter(s=>s.shared||s.mine||s.userAdded).filter(s=>(makerName(s.maker)+" "+s.model+" "+s.user).toLowerCase().includes(q));
     out.innerHTML=`<h3 class="sec">Makers (${mk.length})</h3><div class="list card">${mk.map(m=>`<a class="mrow" href="#/maker/${m.id}"><span class="num">${m.id}</span><span class="tx"><div class="n">${esc(m.name)}</div><div class="d">${esc(m.area)} · ${esc(m.models||"")}</div></span>${isFree(m)?'<span class="free-pill">Free</span>':premium()?"›":"🔒"}</a>`).join("")||'<div class="mrow">No makers</div>'}</div>
-    <h3 class="sec">Collectors' sleds (${sl.length})</h3><div class="grid2">${sl.map(s=>`<a class="card tile" href="#/sled/${s.id}"><div class="th" style="background-image:url('${s.img}')"></div><div class="n">${esc(makerName(s.maker))}</div><div class="d">${esc(s.model)} · @${esc(s.user)}</div></a>`).join("")}</div>`};
+    <h3 class="sec">Collectors' sleds (${sl.length})</h3><div class="grid2">${sl.map(s=>`<a class="card tile" href="${tileHref(s)}">${tileTh(s)}<div class="n">${esc(makerName(s.maker))}</div><div class="d">${esc(s.model)} · @${esc(s.user)}</div></a>`).join("")}</div>`};
     i.oninput=run;i.value=LS.get("lastq","Paris");run();i.addEventListener("change",()=>LS.set("lastq",i.value))});
   return `<div class="search"><span>⌕</span><input id="q" placeholder="Search makers, models, collectors" autofocus></div><div id="res"></div>`;
 };

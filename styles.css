@@ -206,3 +206,12 @@ h3.sec a{font-family:var(--sans);font-size:.72rem;font-weight:600;letter-spacing
   .statusbar span{display:none}
   .tabbar{padding-bottom:max(10px,env(safe-area-inset-bottom))}
 }
+/* locked photos (premium makers, other collectors) */
+.lockph{display:flex!important;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-decoration:none;text-align:center;color:#f5f2ec;background:linear-gradient(135deg,#2a3b33,#1d3328 60%,#3a2a22)!important;position:relative;overflow:hidden}
+.lockph::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(255,255,255,.04) 0 10px,transparent 10px 20px)}
+.lockph .lk{position:relative;font-size:1.4rem;line-height:1}
+.lockph .lt{position:relative;font-size:.72rem;font-weight:600;letter-spacing:.02em;padding:0 10px}
+.post .ph.lockph{aspect-ratio:4/3}
+.detail-ph.lockph{aspect-ratio:4/3}
+.tile .th.lockph .lt{font-size:.64rem}
+.nudge{display:inline-block;margin-top:8px;font-size:.74rem;font-weight:600;color:var(--red);text-decoration:none;background:#f8ece8;border:1px solid #ecd0c8;border-radius:10px;padding:6px 9px}
