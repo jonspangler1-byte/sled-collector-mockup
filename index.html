@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Vintage Runner: Sled Collector — clickable mockup</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1d3328">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="stage">
+  <aside class="side-note">
+    <p class="eyebrow">Clickable mockup · not a real app</p>
+    <h1 id="sideTitle">Vintage Runner: Sled Collector</h1>
+    <p>A design preview for Jonathan Spangler, Rosebud Sled Museum (Schaumburg, IL). Tap around inside the phone. Nothing is saved to a server, there are no real accounts, and no payment is taken.</p>
+    <p>Collector names and finds marked <b>sample</b> or <b>example</b> are made-up demo data. Maker names, places and dates come from Jonathan's 61-company matrix; histories come from the Rosebud company briefs.</p>
+    <p class="small"><a href="#/home">Home</a> · <a href="#/makers">Makers</a> · <a href="#/maker/1">Free profile</a> · <a href="#/maker/25">Locked profile</a> · <a href="#/upgrade">Paywall</a> · <a href="#/add">Add a sled</a></p>
+    <p class="small"><button id="resetDemo" class="linkbtn">Reset demo</button></p>
+  </aside>
+  <div class="phone">
+    <div class="notch"></div>
+    <div class="screen">
+      <div class="statusbar"><span>9:41</span><span class="sb-r">●●●● ▮</span></div>
+      <header class="appbar" id="appbar"></header>
+      <main id="view" class="view"></main>
+      <nav class="tabbar" id="tabbar">
+        <a href="#/home" data-tab="home"><span class="ic">❄</span>Home</a>
+        <a href="#/collection" data-tab="collection"><span class="ic">▤</span>My Sleds</a>
+        <a href="#/add" data-tab="add" class="add"><span class="ic">＋</span>Add</a>
+        <a href="#/makers" data-tab="makers"><span class="ic">⚑</span>Makers</a>
+        <a href="#/profile" data-tab="profile"><span class="ic">◉</span>Profile</a>
+      </nav>
+      <div id="toast" class="toast"></div>
+    </div>
+  </div>
+</div>
+<script src="data.js"></script>
+<script src="timeline.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
