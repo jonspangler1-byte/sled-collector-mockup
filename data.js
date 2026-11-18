@@ -1,6 +1,6 @@
 // ===== Editable app name =====
-window.APP_NAME = "Vintage Runner: Sled Collector";
-window.APP_SHORT = "Sled Collector";
+window.APP_NAME = "Sled Finder";   // name chosen by Jonathan, 18 Nov 2026
+window.APP_SHORT = "Sled Finder";
 
 // ===== 61 American sled makers =====
 // Source: "List of American Sled Manufacturers (1850-1990)" matrix (American_Sled_Manufacturers_Matrix.pdf),

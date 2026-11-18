@@ -75,7 +75,7 @@ function teaser(m){
   ${p&&(p.ad||p.img)?`<div class="tad" style="background-image:url('${p.ad||p.img}')"><span>🔒 Period ad &amp; photos</span></div>`:""}
   <a class="btn gold" href="#/upgrade" style="margin-top:10px">Unlock ${esc(disp(m))} · $15/yr</a></div>`;
 }
-R.home=()=>{bar(window.APP_SHORT,{sub:"Vintage Runner",act:'<a class="act" href="#/search" aria-label="Search">⌕</a>'});tab("home");
+R.home=()=>{bar(window.APP_SHORT,{sub:"Rosebud Sled Museum",act:'<a class="act" href="#/search" aria-label="Search">⌕</a>'});tab("home");
   const feed=allSleds().filter(s=>s.shared);
   const free=MAKERS.filter(isFree);
   return `<div class="hero" style="background-image:url(images/hero-flexible-flyer-3c-deck-p60.jpg)"><div class="in"><b>Coasting Through History</b><span>American sled makers, 1850–1990 · tap for the timeline</span></div><a href="#/timeline" style="position:absolute;inset:0;z-index:2" aria-label="Timeline"></a></div>
@@ -205,12 +205,12 @@ R.magazine=()=>{if(!premium())return paywall("Vintage Runner Magazine is include
   <p class="legend">Print copies are still sold separately; Apple only allows digital content in an in-app subscription.</p></div>`;
 };
 function paywall(reason){return R.upgrade(reason)}
-R.upgrade=(reason)=>{bar("Premium",{back:true,sub:"Mock paywall"});tab("");
+R.upgrade=(reason)=>{bar(window.APP_NAME+" Premium",{back:true,sub:"Mock paywall"});tab("");
   if(premium()){return `<div class="mock-banner">MOCKUP · no real payment was taken</div><div class="pad" style="text-align:center"><p style="font-family:var(--serif);font-size:1.6rem;margin:20px 0 6px">You're previewing Premium</p><p class="small muted">All 61 makers, model lists, ads, the timeline, the magazine and selling are unlocked in this demo.</p><div style="display:flex;flex-direction:column;gap:10px;margin-top:18px"><a class="btn pine" href="#/makers">Browse all 61 makers</a><a class="btn" href="#/timeline">Open the timeline</a><button class="btn" id="cancelP">End preview (back to Free)</button></div></div>`}
   setTimeout(()=>{$("#buy").onclick=()=>{LS.set("premium",true);toast("Mockup: Premium unlocked, no payment taken");location.hash="#/makers"}});
   const r=(t,f,p)=>`<div class="r"><span>${t}</span><span class="${f?"yes":"no"}">${f===true?"✓":f||"—"}</span><span class="yes">✓</span></div>`;
   return `<div class="mock-banner">MOCKUP · no real payment · nothing is charged</div>
-  <div class="pw-hero"><p class="eyebrow" style="color:#e7b7a5">Vintage Runner Premium</p><h1>All 61 makers. Every model. Sell your sleds.</h1><p>${esc(typeof reason==="string"?reason:"Your research library for antique sleds.")}</p></div>
+  <div class="pw-hero"><p class="eyebrow" style="color:#e7b7a5">${esc(window.APP_NAME)} Premium</p><h1>All 61 makers. Every model. Sell your sleds.</h1><p>${esc(typeof reason==="string"?reason:"Your research library for antique sleds.")}</p></div>
   <div class="compare"><div class="r h"><span>What you get</span><span>Free</span><span>Premium</span></div>
   ${r("Catalog unlimited sleds",true)}${r("Community feed & “What sled is this?”",true)}${r("Search makers & models",true)}${r("Browse Sleds for Sale",true)}${r("Maker profiles",`${Object.keys(FREE).length} free, limited`)}${r("Model galleries","Limited")}${r("All 61 company histories",false)}${r("Complete model lists & extra photos",false)}${r("Period advertisements",false)}${r("Sell your sleds",false)}${r("Edit & delete your own submissions",false)}${r("Coasting Through History timeline",false)}${r("Vintage Runner Magazine (digital)",false)}${r("Printable insurance list",false)}</div>
   <div class="price"><div><div class="small muted">Yearly · renews automatically</div><b>$15.00 / year</b></div><span class="badge-prem">Best value</span></div>
