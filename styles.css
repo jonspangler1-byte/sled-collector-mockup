@@ -281,3 +281,22 @@ h3.sec a{font-family:var(--sans);font-size:.72rem;font-weight:600;letter-spacing
 .bb-r:last-child{border-bottom:0}.bb-r.here{background:#f6f1e6}.bb-r .n{font-weight:600}
 .lock-pill{font-size:.58rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:10px;padding:2px 6px;white-space:nowrap}
 .mrow .d.co{font-size:.68rem;color:var(--muted);margin-top:1px}
+
+/* membership gates, roles, edits, unconfirmed makers */
+.gate{margin:10px 16px 16px;padding:20px 18px;border:1px solid var(--line);border-radius:16px;background:#fff;text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center}
+.gate .gl{font-size:1.6rem}.gate b{font-family:var(--serif);font-size:1.3rem}.gate p{margin:0;font-size:.84rem;color:var(--ink-soft);line-height:1.5}
+.gate .btn{width:100%}.gate a.small{color:var(--muted)}
+.lapsed-ghost{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:14px 16px 0;filter:blur(3px);opacity:.5}
+.lapsed-ghost .lgt{height:110px;border-radius:12px;background:linear-gradient(135deg,#d8cbb3,#efe6d3)}
+.edited{display:inline-block;margin-top:6px;font-size:.66rem;font-weight:600;color:#7a5413;background:#fdf0d9;border:1px solid #ecd6a6;border-radius:8px;padding:2px 7px}
+.edited-s{color:#7a5413!important;font-weight:600}
+.unconf{font-size:.6rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#7a5413;background:#fdf0d9;border-radius:6px;padding:1px 5px;margin-left:4px}
+.form label.ack{flex-direction:row;align-items:flex-start;gap:10px;text-transform:none;letter-spacing:0;font-weight:400;font-size:.8rem;line-height:1.45;background:#fff;border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.form label.ack input{margin-top:3px;width:18px!important;height:18px;flex:0 0 18px}
+.form .hint{text-transform:none;letter-spacing:0;font-weight:400;color:var(--muted)}
+.form .inl{display:flex;gap:8px;align-items:stretch}.form .inl input{flex:1}
+.btn.sm{width:auto;padding:8px 12px;font-size:.72rem;flex:none}
+.hide{display:none!important}
+.menu.roles label{display:flex;justify-content:space-between;align-items:center}
+.menu.roles input{width:18px;height:18px;accent-color:var(--pine)}
+.side-note select{font:inherit;padding:6px 8px;border-radius:8px;border:1px solid #ccc;margin-left:6px}
