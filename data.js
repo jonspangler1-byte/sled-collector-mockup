@@ -191,12 +191,14 @@ window.FREE_GALLERY_COUNT = 5;   // models a free user sees per free maker
 // Real model names come from the matrix or the company briefs. img:null = no photo on file yet.
 // Entries marked sample:true are placeholders, not real models.
 window.MODELS = {
- 1:[{n:"No. 3C",d:"c. 1915–1920 · Rosebud collection",img:"images/flexible-flyer-3c-p60.jpg"},
-    {n:"No. 3C (deck view)",d:"Rosebud collection",img:"images/hero-flexible-flyer-3c-deck-p60.jpg"},
-    {n:"No. 3C (second view)",d:"Rosebud collection",img:"images/flexible-flyer-3c-b.jpg"},
-    {n:"Flexible Flyer (1911 ad)",d:"Youth's Companion, 7 Dec 1911",img:"images/ad-flexible-flyer-youths-companion-1911.jpg"},
-    {n:"Flexible Flyer (1915 ad)",d:"Evening World, 10 Dec 1915",img:"images/ad-flexible-flyer-evening-world-1915.jpg"},
-    {n:"Tuxedo Racer",d:"Top of the line from 1908 (briefs)",img:"images/vintage-runner-tuxedo-racer-cover-p1.jpg"},
+ 1:[{n:"Racer (1st generation)",d:"Per Jonathan Spangler · “Flexible Flyer Racer” stencil · photos supplied by Jonathan",imgs:["images/ff-racer-1stgen.jpg","images/ff-racer-1stgen-stencil.jpg"]},
+    {n:"Flexy Racer 200",d:"Wheeled Flexy coaster, made by Flexible Flyer per Jonathan Spangler · photo supplied by Jonathan",img:"images/ff-flexy-racer-200.jpg"},
+    {n:"No. 1",d:"Per Jonathan Spangler · eagle decal · photo supplied by Jonathan",img:"images/ff-no1.jpg"},
+    {n:"No. 3C",d:"c. 1915–1920 · Rosebud collection (3 photos)",imgs:["images/flexible-flyer-3c-p60.jpg","images/flexible-flyer-3c-b.jpg","images/hero-flexible-flyer-3c-deck-p60.jpg"]},
+    {n:"Fire Fly No. 12",d:"Hand-painted leaf-vine deck · per Jonathan Spangler · photo supplied by Jonathan",img:"images/ff-fire-fly-no12.jpg"},
+    {n:"Tuxedo Racer",d:"Top of the line from 1908 (briefs) · Vintage Runner cover",img:"images/vintage-runner-tuxedo-racer-cover-p1.jpg"},
+    {n:"Flexible Flyer (1911 ad)",d:"Youth's Companion, 7 Dec 1911 · period ad",img:"images/ad-flexible-flyer-youths-companion-1911.jpg"},
+    {n:"Flexible Flyer (1915 ad)",d:"Evening World, 10 Dec 1915 · period ad",img:"images/ad-flexible-flyer-evening-world-1915.jpg"},
     {n:"Fairy Coaster",d:"Earlier Allen sled (collector's book)",img:null},
     {n:"Phantom",d:"Earlier Allen sled (collector's book)",img:null},
     {n:"Fleetwing (1884)",d:"Earlier Allen sled (collector's book)",img:null},
