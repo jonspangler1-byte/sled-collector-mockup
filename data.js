@@ -168,14 +168,13 @@ window.ID_POSTS = [
  {id:"q3", user:"example_runner_fan", img:"images/collection-red-swirl-deck-photos-p28.jpg", q:"[sample] Red swirl deck on steel runners – maker?", answers:[]}
 ];
 
-// ===== Free makers (exactly 6) =====
+// ===== Free makers (7; confirmed by Jonathan 18 Nov 2026) =====
 // Matrix row -> display label. Everyone else (55) is Premium.
-// NOTE: "Lightning Guider" is listed under Standard Novelty Works (matrix #4) in both the matrix and the company briefs,
-// not Paris (#3, whose models are Paris Racer, Yankee Flyer, Speedster). To make Paris the free maker instead, change
-// the 4 line below to:  3:"Paris Mfg. Co.",
+// "Lightning Guider" = Standard Novelty Works (matrix #4), confirmed by Jonathan. Paris Mfg. Co. (#3) is also free.
 window.FREE_MAKERS = {
   1:"Flexible Flyer (S. L. Allen & Co.)",
   4:"Lightning Guider (Standard Novelty Works)",
+  3:"Paris Mfg. Co.",
   6:"Auto Coaster (Buffalo Sled Co. / Auto-Wheel Coaster Co.)",
   7:"Garton Toy Company",
   8:"Pratt Mfg. Co.",
@@ -197,6 +196,13 @@ window.MODELS = {
     {n:"Phantom",d:"Earlier Allen sled (collector's book)",img:null},
     {n:"Fleetwing (1884)",d:"Earlier Allen sled (collector's book)",img:null},
     {n:"Ariel",d:"Earlier Allen sled (collector's book)",img:null}],
+ 3:[{n:"Speedster",d:"c. 1920–1930 · Rosebud collection",img:"images/paris-speedster-full.jpg"},
+    {n:"Speedster (deck)",d:"Rosebud collection",img:"images/paris-speedster-deck-p53.jpg"},
+    {n:"Dirigo Clipper",d:"Date unknown · Rosebud collection",img:"images/paris-dirigo-clipper-p56.jpg"},
+    {n:"Dirigo Clipper (deck)",d:"Rosebud collection",img:"images/paris-dirigo-clipper-deck-p56.jpg"},
+    {n:"Paris Racer",d:"Matrix",img:null},
+    {n:"Yankee Flyer",d:"Matrix",img:null},
+    {n:"Speedway",d:"First steering sled, 1912 (collector's books)",img:null}],
  4:[{n:"Lightning Guider",d:"Hardware Age ad, 20 Jan 1917",img:"images/ad-standard-novelty-works-hardware-age-1917.jpg"},
     {n:"Streamlined Lightning Guider",d:"Dealer flyer, probably late 1960s · Rosebud collection",img:"images/standard-lightning-guider-dealer-flyer.jpg"},
     {n:"Master Bomber",d:"Matrix",img:null},
