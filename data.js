@@ -75,55 +75,55 @@ window.MAKERS_RAW = [
 // Text condensed from "America's Antique Sleds and the Companies That Made Them" (Rosebud Sled Museum company briefs,
 // Nov 12 2026 print edition), which cites its sources and confidence ratings. Nothing here is new research.
 window.PROFILES = {
-1:{free:true, head:"S. L. Allen & Co. · Philadelphia, Pennsylvania · sleds 1889–1968 (brand continues)", conf:"High",
+1:{head:"S. L. Allen & Co. · Philadelphia, Pennsylvania · sleds 1889–1968 (brand continues)", conf:"High",
  img:"images/flexible-flyer-3c-p60.jpg", cap:"Flexible Flyer No. 3C, c. 1915–1920. Rosebud Sled Museum collection.",
  ad:"images/ad-flexible-flyer-hardware-1894.jpg", adcap:"“A Sled that Steers / A Sled that Sells.” Hardware, 10 Oct 1894. Public domain.",
  text:["Samuel Leeds Allen's S. L. Allen & Co., incorporated in 1871 to make farm and garden equipment, received U.S. Patent 408,681 on August 13, 1889, for the Flexible Flyer: a wooden crossbar flexed the spring-steel runners so the rider could steer.",
  "Sales were slow until the sled went into department-store toy departments; about 120,000 were sold in 1915. The Tuxedo Racer topped the line from 1908, and the five-millionth sled came in 1939.",
  "Leisure Group bought S. L. Allen in 1968 and moved production to Medina, Ohio. Later owners included Blazon-Flexible Flyer and Roadmaster (Olney, Illinois, 1993). Since 2005 the trademark has belonged to Paricon of South Paris, Maine."]},
-3:{free:true, head:"Paris Manufacturing Co. · South Paris, Maine · 1861–1989", conf:"High",
+3:{head:"Paris Manufacturing Co. · South Paris, Maine · 1861–1989", conf:"High",
  img:"images/paris-speedster-deck-p53.jpg", cap:"Speedster, Paris Mfg. Co., c. 1920–1930. Rosebud Sled Museum collection.",
  text:["Henry Franklin Morton and his wife, Lucilla Forbes, started the business in 1861 in Sumner, Maine, later moving to Paris Hill and then South Paris. By the early 1900s Paris employed hundreds of workers making sleds and toboggans, and later furniture and skis.",
  "The collector's books say its first steering sled, the Speedway, came in 1912, the same year it switched from wood to metal runners. Rosebud examples include the Speedster and the Dirigo Clipper.",
  "Gladding bought Paris in 1970 and sold the business in 1978. The company closed in 1989. Hank Morton founded the successor, Paricon, in 1991."]},
-4:{free:true, head:"Standard Novelty Works · Duncannon, Pennsylvania · 1904–1990", conf:"High",
+4:{head:"Standard Novelty Works · Duncannon, Pennsylvania · 1904–1990", conf:"High",
  img:"images/ad-standard-novelty-works-hardware-age-1917.jpg", cap:"Lightning Guider ad, Hardware Age, 20 Jan 1917. Public domain.",
  text:["William Wills and P. F. Duncan founded Standard Novelty Works in 1904 at Duncannon, on the Susquehanna River. Its signature product was the Lightning Guider steering sled, made from 1904 to 1988.",
  "In 1920 the plant was credited with producing more children's sleds than any other U.S. factory, at 1,600 to 1,800 a day.",
  "The factory officially closed in October 1990; in 1992 it became a State Historical Site, and the building now houses the Old Sled Works market."]},
-5:{free:true, head:"American Acme Co. · York and Emigsville, Pennsylvania · sleds 1917–early 1960s", conf:"High",
+5:{head:"American Acme Co. · York and Emigsville, Pennsylvania · sleds 1917–early 1960s", conf:"High",
  img:"images/american-acme-iceplane-owner.jpg", cap:"American Acme Iceplane. Rosebud Sled Museum collection.",
  text:["Casper Oermann opened American Toy and Novelty Works in York in 1917, making cider mills, berry presses and boys' sleds. In 1927 it merged with Acme Wagon Works of Emigsville to form American Acme Co., and a newspaper that year reported sales of more than 150,000 sleds.",
  "Model names included the Iceplane, Royal Plane, Sky Plane, Rocket Plane, Monoplane and Speedplane.",
  "A fire on April 1, 1950, did $600,000 in damage. In the early 1960s, after a rival underbid it on a big order and plastic saucers ate into sales, the company left the sled business."]},
-6:{free:true, head:"Auto-Wheel Coaster Co. (Buffalo Sled Co.) · North Tonawanda, New York · 1899–1964", conf:"High",
+6:{head:"Auto-Wheel Coaster Co. (Buffalo Sled Co.) · North Tonawanda, New York · 1899–1964", conf:"High",
  img:"images/ad-auto-wheel-fleetwing-p19.jpg", cap:"Fleetwing steering sleds and racers, Auto-Wheel Coaster Co. catalog p. 19 (year not printed). Rosebud Sled Museum collection.",
  ad:"images/ad-auto-wheel-coaster-toys-novelties-1920.jpg", adcap:"Auto-Wheel Coaster Co. ad, Toys and Novelties, Aug 1920. Public domain.",
  text:["Buffalo Sled Co. was in business by 1899 and in 1909 bought a factory in North Tonawanda, where it made sleds and snow shovels, adding coaster wagons in 1912.",
  "After a fire in April 1920 it renamed itself the Auto-Wheel Coaster Co., after its best-selling wagons.",
  "Auto-Wheel filed for bankruptcy in July 1964. The old plant burned on May 29, 1972."]},
-7:{free:true, head:"Garton Toy Company · Sheboygan, Wisconsin · 1879–1973 (book: 1889–1975)", conf:"High (company) / Medium (sled models)",
+7:{head:"Garton Toy Company · Sheboygan, Wisconsin · 1879–1973 (book: 1889–1975)", conf:"High (company) / Medium (sled models)",
  img:"images/garton-dragon-head-sleigh-p52.jpg", cap:"Dragon Head Sleigh, c. 1902–1913. Rosebud Sled Museum collection.",
  text:["Eusebius Bassingdale Garton started the business in Sheboygan; local sources say 1879, a collector's book says 1889. At first he made cigar boxes, washboards and fish boxes.",
  "Garton went on to make sleds, wagons, tricycles, scooters and pedal cars. The collector's book says its first steerable sleds, the Eskimo and the Dreadnaught, came in 1916.",
  "Four generations of Gartons ran the firm before the family sold it in 1973."]},
-8:{free:true, head:"Pratt Manufacturing Co. · Coldwater, Michigan · 1882–1952", conf:"High",
+8:{head:"Pratt Manufacturing Co. · Coldwater, Michigan · 1882–1952", conf:"High",
  img:"images/pratt-chieftain-red-rocket-p55.jpg", cap:"“Chieftain” Red Rocket, c. 1940–1952. Rosebud Sled Museum collection.",
  text:["Pratt & Chase was organized in 1882 in Coldwater by Wellington Chase and J. F. Pratt, making horse-drawn cutters and children's sleds from the cutter scraps. After Chase died in 1890 the firm became The Pratt Manufacturing Company.",
  "Known sleds include the Flyaway steering sled and the “Chieftain” Red Rocket. During World War II the plant made only cots for the armed services.",
  "Production ceased in 1952, and the assets went to auction that November."]},
-11:{free:true, head:"Kalamazoo Sled Company · Kalamazoo, Michigan · 1894–1972", conf:"High",
+11:{head:"Kalamazoo Sled Company · Kalamazoo, Michigan · 1894–1972", conf:"High",
  img:"images/kalamazoo-speed-demon-p58.jpg", cap:"Speed Demon, c. 1938. Rosebud Sled Museum collection.",
  ad:"images/ad-kalamazoo-dealer.jpg", adcap:"Kalamazoo Sled Co. dealer ad (year not printed). Photo supplied by Jonathan Spangler.",
  text:["The firm began as the Page Manufacturing Co., a maker of wooden buggy parts, and was reorganized as the Kalamazoo Sled Company on February 14, 1894.",
  "Its Champion line included low racers, high-sided girls' sleds and a baby sled; in 1956 it launched the Champion Flying Disc saucer.",
  "It became Kalamazoo Sled and Toys in 1962. Gladding Corp. bought the company in 1968, and operations moved to Maine in 1972."]},
-16:{free:true, head:"Wagner Manufacturing Co. · Cedar Falls, Iowa · sleds c. 1904–1923", conf:"Medium",
+16:{head:"Wagner Manufacturing Co. · Cedar Falls, Iowa · sleds c. 1904–1923", conf:"Medium",
  img:"images/wagner-winner-pair-p61.jpg", cap:"Wagner Winner sleds, c. 1911–1919. Rosebud Sled Museum collection.",
  text:["Adam Wagner opened a one-room shop in 1902 and incorporated in 1904. Wagner received a patent for a steel hand sled on June 28, 1904, and the wood-decked Winner became its signature sled.",
  "The latest Wagner sled ads found date from 1923, after which the company went on to elevator-door and garage-door hardware.",
  "Most of these facts come from one source, the Vintage Runner Magazine article."]},
-17:{free:true, head:"Hunt, Helm, Ferris & Co. (Starline) · Harvard, Illinois · founded 1883; sleds documented 1920s", conf:"High (company) / Medium (sled models)",
+17:{head:"Hunt, Helm, Ferris & Co. (Starline) · Harvard, Illinois · founded 1883; sleds documented 1920s", conf:"High (company) / Medium (sled models)",
  img:"images/ad-hunt-helm-ferris-hardware-age-1925.jpg", cap:"“Cannon Ball Beats ’Em All.” Hardware Age, 8 Oct 1925. Public domain.",
  text:["Henry L. Ferris patented a hay carrier in 1883, backed by Harvard hardware merchants Charles E. Hunt and Nathan B. Helm. It made barn equipment in its “Star” line and, under the Cannon Ball division, children's vehicles.",
  "Documented sleds include the Star steel sled, the Cannon Ball Skee-Bob, and the Skeeboggan, patented by Howard J. Ferris in 1926.",
@@ -150,20 +150,118 @@ window.PROFILES = {
 
 // ===== Sample collector data (EXAMPLE DATA – not real users) =====
 window.SAMPLE_SLEDS = [
- {id:"s1", user:"sample_collector", maker:1, model:"No. 3C", year:"c. 1915–1920", size:"[sample]", condition:"Good", found:"[sample] Estate sale, Illinois", notes:"Example entry using a Rosebud Sled Museum photo.", shared:true, img:"images/flexible-flyer-3c-p60.jpg", likes:24, mine:true},
- {id:"s2", user:"sample_collector", maker:3, model:"Dirigo Clipper", year:"Date unknown", size:"[sample]", condition:"Fair", found:"[sample] Antique mall", notes:"Example entry.", shared:true, img:"images/paris-dirigo-clipper-deck-p56.jpg", likes:17, mine:true},
- {id:"s3", user:"sample_collector", maker:32, model:"Sled Master", year:"c. 1947", size:"[sample]", condition:"Very good", found:"[sample] Flea market", notes:"Example entry.", shared:true, img:"images/quasi-sled-master-chicago-p54.jpg", likes:6, mine:true},
- {id:"s4", user:"sample_collector", maker:7, model:"Dragon Head Sleigh", year:"c. 1902–1913", size:"[sample]", condition:"Good", found:"[sample] Auction", notes:"Example entry.", shared:true, img:"images/garton-dragon-head-sleigh-p52.jpg", likes:31, mine:true},
- {id:"s5", user:"example_runner_fan", maker:14, model:"Streamline Klipper", year:"c. 1939–1941", size:"[sample]", condition:"Good", found:"[sample] Barn find", notes:"Example entry.", shared:true, img:"images/johnson-streamline-klipper-p57.jpg", likes:12},
- {id:"s6", user:"demo_flyer_hunter", maker:11, model:"Speed Demon", year:"c. 1938", size:"[sample]", condition:"Restored", found:"[sample] Garage sale", notes:"Example entry.", shared:true, img:"images/kalamazoo-speed-demon-p58.jpg", likes:9},
- {id:"s7", user:"example_runner_fan", maker:8, model:"Chieftain Red Rocket", year:"c. 1940–1952", size:"[sample]", condition:"Fair", found:"[sample] Online listing", notes:"Example entry.", shared:true, img:"images/pratt-chieftain-red-rocket-p55.jpg", likes:15},
- {id:"s8", user:"demo_flyer_hunter", maker:16, model:"Winner (pair)", year:"c. 1911–1919", size:"[sample]", condition:"Good", found:"[sample] Estate sale", notes:"Example entry.", shared:true, img:"images/wagner-winner-pair-p61.jpg", likes:20},
- {id:"s10", user:"demo_flyer_hunter", maker:32, model:"Sled Master", year:"[sample]", size:"[sample]", condition:"Fair", found:"[sample] Flea market", notes:"Example entry.", shared:true, img:"images/quasi-sled-master-chicago-p54.jpg", likes:8},
- {id:"s11", user:"example_new_collector", maker:31, model:"Flying Arrow", year:"[sample]", size:"[sample]", condition:"Good", found:"[sample] Garage sale", notes:"Example entry. [sample] maker attribution for demo only.", shared:true, img:"images/collection-flying-arrow-photos-p32.jpg", likes:5},
- {id:"s9", user:"sample_collector", maker:5, model:"Iceplane", year:"[sample]", size:"[sample]", condition:"Good", found:"[sample] Auction", notes:"Example entry.", shared:true, img:"images/american-acme-iceplane-owner.jpg", likes:11, mine:true}
+ {id:"s1", locType:"found", town:"Schaumburg, IL", lat:42.03, lng:-88.08, user:"sample_collector", maker:1, model:"No. 3C", year:"c. 1915–1920", size:"[sample]", condition:"Good", found:"[sample] Estate sale, Illinois", notes:"Example entry using a Rosebud Sled Museum photo.", shared:true, img:"images/flexible-flyer-3c-p60.jpg", likes:24, mine:true},
+ {id:"s2", locType:"now", town:"Elgin, IL", lat:42.04, lng:-88.28, user:"sample_collector", maker:3, model:"Dirigo Clipper", year:"Date unknown", size:"[sample]", condition:"Fair", found:"[sample] Antique mall", notes:"Example entry.", shared:true, img:"images/paris-dirigo-clipper-deck-p56.jpg", likes:17, mine:true},
+ {id:"s3", locType:"now", town:"Schaumburg, IL", lat:42.03, lng:-88.08, user:"sample_collector", maker:32, model:"Sled Master", year:"c. 1947", size:"[sample]", condition:"Very good", found:"[sample] Flea market", notes:"Example entry.", shared:true, img:"images/quasi-sled-master-chicago-p54.jpg", likes:6, mine:true},
+ {id:"s4", locType:"found", town:"Sheboygan, WI", lat:43.75, lng:-87.71, user:"sample_collector", maker:7, model:"Dragon Head Sleigh", year:"c. 1902–1913", size:"[sample]", condition:"Good", found:"[sample] Auction", notes:"Example entry.", shared:true, img:"images/garton-dragon-head-sleigh-p52.jpg", likes:31, mine:true},
+ {id:"s5", locType:"found", town:"Bradford, PA", lat:41.96, lng:-78.64, user:"example_runner_fan", maker:14, model:"Streamline Klipper", year:"c. 1939–1941", size:"[sample]", condition:"Good", found:"[sample] Barn find", notes:"Example entry.", shared:true, img:"images/johnson-streamline-klipper-p57.jpg", likes:12},
+ {id:"s6", locType:"now", town:"Kalamazoo, MI", lat:42.29, lng:-85.59, user:"demo_flyer_hunter", maker:11, model:"Speed Demon", year:"c. 1938", size:"[sample]", condition:"Restored", found:"[sample] Garage sale", notes:"Example entry.", shared:true, img:"images/kalamazoo-speed-demon-p58.jpg", likes:9},
+ {id:"s7", locType:"found", town:"Coldwater, MI", lat:41.94, lng:-85.0, user:"example_runner_fan", maker:8, model:"Chieftain Red Rocket", year:"c. 1940–1952", size:"[sample]", condition:"Fair", found:"[sample] Online listing", notes:"Example entry.", shared:true, img:"images/pratt-chieftain-red-rocket-p55.jpg", likes:15},
+ {id:"s8", locType:"now", town:"Cedar Falls, IA", lat:42.53, lng:-92.45, user:"demo_flyer_hunter", maker:16, model:"Winner (pair)", year:"c. 1911–1919", size:"[sample]", condition:"Good", found:"[sample] Estate sale", notes:"Example entry.", shared:true, img:"images/wagner-winner-pair-p61.jpg", likes:20},
+ {id:"s10", locType:"now", town:"Naperville, IL", lat:41.75, lng:-88.15, user:"demo_flyer_hunter", maker:32, model:"Sled Master", year:"[sample]", size:"[sample]", condition:"Fair", found:"[sample] Flea market", notes:"Example entry.", shared:true, img:"images/quasi-sled-master-chicago-p54.jpg", likes:8},
+ {id:"s11", locType:"found", town:"Detroit, MI", lat:42.33, lng:-83.05, user:"example_new_collector", maker:31, model:"Flying Arrow", year:"[sample]", size:"[sample]", condition:"Good", found:"[sample] Garage sale", notes:"Example entry. [sample] maker attribution for demo only.", shared:true, img:"images/collection-flying-arrow-photos-p32.jpg", likes:5},
+ {id:"s9", locType:"found", town:"York, PA", lat:39.96, lng:-76.73, user:"sample_collector", maker:5, model:"Iceplane", year:"[sample]", size:"[sample]", condition:"Good", found:"[sample] Auction", notes:"Example entry.", shared:true, img:"images/american-acme-iceplane-owner.jpg", likes:11, mine:true}
 ];
 window.ID_POSTS = [
  {id:"q1", user:"example_new_collector", img:"images/collection-flying-arrow-photos-p32.jpg", q:"[sample] Found this at a garage sale – deck says Flying Arrow. Who made it?", answers:["[sample] The matrix lists Flying Arrow under Firms Inc (Detroit) and possibly Kalamazoo – check the runner stamp."]},
  {id:"q2", user:"demo_flyer_hunter", img:"images/collection-pictorial-deck-photos-p31.jpg", q:"[sample] Painted pictorial deck, no markings. Any ideas?", answers:[]},
  {id:"q3", user:"example_runner_fan", img:"images/collection-red-swirl-deck-photos-p28.jpg", q:"[sample] Red swirl deck on steel runners – maker?", answers:[]}
 ];
+
+// ===== Free makers (exactly 6) =====
+// Matrix row -> display label. Everyone else (55) is Premium.
+// NOTE: "Lightning Guider" is listed under Standard Novelty Works (matrix #4) in both the matrix and the company briefs,
+// not Paris (#3, whose models are Paris Racer, Yankee Flyer, Speedster). To make Paris the free maker instead, change
+// the 4 line below to:  3:"Paris Mfg. Co.",
+window.FREE_MAKERS = {
+  1:"Flexible Flyer (S. L. Allen & Co.)",
+  4:"Lightning Guider (Standard Novelty Works)",
+  6:"Auto Coaster (Buffalo Sled Co. / Auto-Wheel Coaster Co.)",
+  7:"Garton Toy Company",
+  8:"Pratt Mfg. Co.",
+  11:"Kalamazoo Sled Company"
+};
+window.FREE_GALLERY_COUNT = 5;   // models a free user sees per free maker
+
+// ===== Model galleries =====
+// Real model names come from the matrix or the company briefs. img:null = no photo on file yet.
+// Entries marked sample:true are placeholders, not real models.
+window.MODELS = {
+ 1:[{n:"No. 3C",d:"c. 1915–1920 · Rosebud collection",img:"images/flexible-flyer-3c-p60.jpg"},
+    {n:"No. 3C (deck view)",d:"Rosebud collection",img:"images/hero-flexible-flyer-3c-deck-p60.jpg"},
+    {n:"No. 3C (second view)",d:"Rosebud collection",img:"images/flexible-flyer-3c-b.jpg"},
+    {n:"Flexible Flyer (1911 ad)",d:"Youth's Companion, 7 Dec 1911",img:"images/ad-flexible-flyer-youths-companion-1911.jpg"},
+    {n:"Flexible Flyer (1915 ad)",d:"Evening World, 10 Dec 1915",img:"images/ad-flexible-flyer-evening-world-1915.jpg"},
+    {n:"Tuxedo Racer",d:"Top of the line from 1908 (briefs)",img:"images/vintage-runner-tuxedo-racer-cover-p1.jpg"},
+    {n:"Fairy Coaster",d:"Earlier Allen sled (collector's book)",img:null},
+    {n:"Phantom",d:"Earlier Allen sled (collector's book)",img:null},
+    {n:"Fleetwing (1884)",d:"Earlier Allen sled (collector's book)",img:null},
+    {n:"Ariel",d:"Earlier Allen sled (collector's book)",img:null}],
+ 4:[{n:"Lightning Guider",d:"Hardware Age ad, 20 Jan 1917",img:"images/ad-standard-novelty-works-hardware-age-1917.jpg"},
+    {n:"Streamlined Lightning Guider",d:"Dealer flyer, probably late 1960s · Rosebud collection",img:"images/standard-lightning-guider-dealer-flyer.jpg"},
+    {n:"Master Bomber",d:"Matrix",img:null},
+    {n:"Challenger",d:"Matrix",img:null},
+    {n:"King of the Hill",d:"Matrix",img:null},
+    {n:"Racer",d:"Briefs",img:null},
+    {n:"Sno-ball",d:"Briefs",img:null}],
+ 6:[{n:"Fleetwing Steering Sled No. 100 & Racer No. 210",d:"Auto-Wheel catalog p. 19 · Rosebud collection",img:"images/ad-auto-wheel-fleetwing-p19.jpg"},
+    {n:"Fleetwing Spring Top Flash (#41)",d:"1940 catalog photo, Jonathan Spangler",img:"images/fleetwing-spring-top-flash-1940.jpg"},
+    {n:"Electric steering sled",d:"Buffalo Sled Co. ad (year not printed)",img:"images/ad-buffalo-sled-co-electric.jpg"},
+    {n:"Auto Wheel Coaster ad",d:"Toys and Novelties, Aug 1920",img:"images/ad-auto-wheel-coaster-toys-novelties-1920.jpg"},
+    {n:"Gliderole",d:"Briefs",img:null},
+    {n:"[sample model]",d:"Placeholder",img:null,sample:true}],
+ 7:[{n:"Dragon Head Sleigh",d:"c. 1902–1913 · Rosebud collection",img:"images/garton-dragon-head-sleigh-p52.jpg"},
+    {n:"Indian Chief stencil",d:"Dragon Head Sleigh detail · Rosebud collection",img:"images/garton-indian-chief-stencil-p52.jpg"},
+    {n:"Dragon Head Sleigh (second view)",d:"Rosebud collection",img:"images/garton-dragon-head-b.jpg"},
+    {n:"Dragon Head Sleigh (third view)",d:"Rosebud collection",img:"images/garton-dragon-head-c.jpg"},
+    {n:"Eskimo",d:"First steerable, 1916 (collector's book)",img:null},
+    {n:"Dreadnaught",d:"First steerable, 1916 (collector's book)",img:null},
+    {n:"Penguin",d:"Matrix",img:null},{n:"Steamliner",d:"Matrix",img:null},
+    {n:"Silver Streak",d:"Matrix / briefs",img:null},{n:"Trailbreaker",d:"Matrix",img:null},{n:"Royal Racer",d:"Briefs",img:null}],
+ 8:[{n:"“Chieftain” Red Rocket",d:"c. 1940–1952 · Rosebud collection",img:"images/pratt-chieftain-red-rocket-p55.jpg"},
+    {n:"“Chieftain” Red Rocket (second view)",d:"Rosebud collection",img:"images/pratt-red-rocket-b.jpg"},
+    {n:"Flyaway",d:"Steering sled, 1910–1920 (collector's book)",img:null},
+    {n:"[sample model]",d:"Placeholder",img:null,sample:true},
+    {n:"[sample model]",d:"Placeholder",img:null,sample:true}],
+ 11:[{n:"Speed Demon",d:"c. 1938 · Rosebud collection",img:"images/kalamazoo-speed-demon-p58.jpg"},
+    {n:"Speed Demon (second view)",d:"Rosebud collection",img:"images/kalamazoo-speed-demon-b.jpg"},
+    {n:"Speed Demon (third view)",d:"Rosebud collection",img:"images/kalamazoo-speed-demon-c.jpg"},
+    {n:"Champion Flying Disc",d:"Saucer, launched 1956 · photo supplied by Jonathan Spangler",img:"images/kalamazoo-champion-flying-disc.jpg"},
+    {n:"Dealer ad",d:"Year not printed · photo supplied by Jonathan Spangler",img:"images/ad-kalamazoo-dealer.jpg"},
+    {n:"Fleet Arrow",d:"Matrix (listed as “possibly”)",img:null},
+    {n:"Flying Arrow",d:"Matrix (listed as “possibly”)",img:null}]
+};
+
+// ===== Sleds for Sale =====
+// Required on a listing: sled name, photo(s), town/state, can ship (Yes/No), contact email. Price and description (max 500 characters) are optional.
+// Who may POST a listing: "all" (anyone) or "premium" (subscribers only). Browsing is always open.
+window.SALE_POSTING = "premium";   // Jonathan, 18 Nov 2026: only paid members can post
+window.SALE_LISTINGS = [
+ {id:"l1", ship:"Yes", email:"seller@example.com", user:"sample_seller", title:"[sample] Flexible Flyer with eagle deck", maker:1, model:"[sample] Eagle deck", condition:"Good", price:"$185", town:"Schaumburg, IL", img:"images/sale-flexible-flyer-eagle-deck.jpg", desc:"[sample] Original eagle-deck Flexible Flyer with light wear on the slats and surface rust on the runners. Steering works. Pickup preferred, will ship at buyer's cost."},
+ {id:"l2", ship:"No", email:"runnerfan@example.com", user:"example_runner_fan", title:"[sample] Garton sled, Indian Chief stencil", maker:7, model:"[sample]", condition:"Fair", price:"$240", town:"Elgin, IL", img:"images/sale-garton-indian-chief.jpg", desc:"[sample] Garton sled with the Indian Chief stencil still visible. Some paint loss on the deck. Local pickup only."},
+ {id:"l3", ship:"No", email:"flyerhunter@example.com", user:"demo_flyer_hunter", title:"[sample] Hand-painted sled, maker unknown", maker:0, model:"Unknown", condition:"Fair", price:"$95", town:"Naperville, IL", img:"images/sale-hand-painted-sled.jpg", desc:"[sample] Hand-painted deck, maker unknown. Would love help identifying it. Local pickup only."},
+ {id:"l4", ship:"Yes", email:"newcollector@example.com", user:"example_new_collector", title:"[sample] Kalamazoo Speed Demon", maker:11, model:"Speed Demon", condition:"Restored", price:"$150", town:"Kalamazoo, MI", img:"images/kalamazoo-speed-demon-c.jpg", desc:"[sample] Speed Demon restored with new paint. Runners straight. Can ship within the US."}
+];
+
+// ===== Map lookup (town level only) =====
+// Sample sled locations above are made-up example towns. User entries are matched against this table
+// (common towns, then state centroids); anything not found falls back to OpenStreetMap Nominatim (low volume, mockup only).
+window.TOWN_COORDS = {
+ "schaumburg, il":[42.03,-88.08],"elgin, il":[42.04,-88.28],"naperville, il":[41.75,-88.15],"chicago, il":[41.88,-87.63],
+ "aurora, il":[41.76,-88.32],"harvard, il":[42.42,-88.61],"rockford, il":[42.27,-89.09],"springfield, il":[39.80,-89.64],
+ "palatine, il":[42.11,-88.03],"arlington heights, il":[42.09,-87.98],"hoffman estates, il":[42.06,-88.12],"libertyville, il":[42.28,-87.95],
+ "milwaukee, wi":[43.04,-87.91],"sheboygan, wi":[43.75,-87.71],"madison, wi":[43.07,-89.40],"kalamazoo, mi":[42.29,-85.59],
+ "coldwater, mi":[41.94,-85.00],"detroit, mi":[42.33,-83.05],"grand rapids, mi":[42.96,-85.67],"cedar falls, ia":[42.53,-92.45],
+ "des moines, ia":[41.59,-93.62],"minneapolis, mn":[44.98,-93.27],"st paul, mn":[44.95,-93.09],"indianapolis, in":[39.77,-86.16],
+ "toledo, oh":[41.65,-83.54],"columbus, oh":[39.96,-83.00],"cleveland, oh":[41.50,-81.69],"philadelphia, pa":[39.95,-75.17],
+ "york, pa":[39.96,-76.73],"duncannon, pa":[40.40,-77.03],"bradford, pa":[41.96,-78.64],"pittsburgh, pa":[40.44,-80.00],
+ "south paris, me":[44.22,-70.51],"portland, me":[43.66,-70.26],"boston, ma":[42.36,-71.06],"new york, ny":[40.71,-74.01],
+ "buffalo, ny":[42.89,-78.88],"north tonawanda, ny":[43.04,-78.86],"binghamton, ny":[42.10,-75.92],"denver, co":[39.74,-104.99]
+};
+window.STATE_CENTROIDS = {AL:[32.8,-86.8],AK:[64.7,-152.0],AZ:[34.3,-111.7],AR:[34.9,-92.4],CA:[37.2,-119.5],CO:[39.0,-105.5],CT:[41.6,-72.7],
+ DE:[39.0,-75.5],FL:[28.6,-82.4],GA:[32.7,-83.4],HI:[20.8,-156.3],ID:[44.4,-114.6],IL:[40.0,-89.2],IN:[39.9,-86.3],IA:[42.1,-93.5],
+ KS:[38.5,-98.4],KY:[37.5,-85.3],LA:[31.1,-92.0],ME:[45.4,-69.2],MD:[39.0,-76.8],MA:[42.3,-71.8],MI:[44.3,-85.4],MN:[46.3,-94.3],
+ MS:[32.7,-89.7],MO:[38.4,-92.5],MT:[47.0,-109.6],NE:[41.5,-99.8],NV:[39.3,-116.6],NH:[43.7,-71.6],NJ:[40.2,-74.7],NM:[34.4,-106.1],
+ NY:[42.9,-75.5],NC:[35.6,-79.4],ND:[47.5,-100.5],OH:[40.3,-82.8],OK:[35.6,-97.5],OR:[43.9,-120.6],PA:[40.9,-77.8],RI:[41.7,-71.5],
+ SC:[33.9,-80.9],SD:[44.4,-100.2],TN:[35.9,-86.4],TX:[31.5,-99.3],UT:[39.3,-111.7],VT:[44.1,-72.7],VA:[37.5,-78.9],WA:[47.4,-120.5],
+ WV:[38.6,-80.6],WI:[44.6,-89.9],WY:[43.0,-107.6],DC:[38.9,-77.0]};

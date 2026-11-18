@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -18,7 +19,7 @@
     <h1 id="sideTitle">Vintage Runner: Sled Collector</h1>
     <p>A design preview for Jonathan Spangler, Rosebud Sled Museum (Schaumburg, IL). Tap around inside the phone. Nothing is saved to a server, there are no real accounts, and no payment is taken.</p>
     <p>Collector names and finds marked <b>sample</b> or <b>example</b> are made-up demo data. Maker names, places and dates come from Jonathan's 61-company matrix; histories come from the Rosebud company briefs.</p>
-    <p class="small"><a href="#/home">Home</a> · <a href="#/makers">Makers</a> · <a href="#/maker/1">Free profile</a> · <a href="#/maker/25">Locked profile</a> · <a href="#/upgrade">Paywall</a> · <a href="#/add">Add a sled</a></p>
+    <p class="small"><a href="#/home">Home</a> · <a href="#/makers">Makers</a> · <a href="#/maker/1">Free maker</a> · <a href="#/maker/25">Premium maker</a> · <a href="#/sled/s3">Own premium sled</a> · <a href="#/sale">Sleds for Sale</a> · <a href="#/upgrade">Paywall</a> · <a href="#/add">Add a sled</a></p>
     <p class="small"><button id="resetDemo" class="linkbtn">Reset demo</button></p>
   </aside>
   <div class="phone">
@@ -31,6 +32,7 @@
         <a href="#/home" data-tab="home"><span class="ic">❄</span>Home</a>
         <a href="#/collection" data-tab="collection"><span class="ic">▤</span>My Sleds</a>
         <a href="#/add" data-tab="add" class="add"><span class="ic">＋</span>Add</a>
+        <a href="#/sale" data-tab="sale"><span class="ic">$</span>For Sale</a>
         <a href="#/makers" data-tab="makers"><span class="ic">⚑</span>Makers</a>
         <a href="#/profile" data-tab="profile"><span class="ic">◉</span>Profile</a>
       </nav>
@@ -38,6 +40,7 @@
     </div>
   </div>
 </div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
 <script src="data.js"></script>
 <script src="timeline.js"></script>
 <script src="app.js"></script>
