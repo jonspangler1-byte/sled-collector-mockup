@@ -104,6 +104,7 @@ window.PROFILES = {
  "Auto-Wheel filed for bankruptcy in July 1964. The old plant burned on May 29, 1972."]},
 7:{head:"Garton Toy Company · Sheboygan, Wisconsin · 1879–1973 (book: 1889–1975)", conf:"High (company) / Medium (sled models)",
  img:"images/garton-dragon-head-sleigh-p52.jpg", cap:"Dragon Head Sleigh, c. 1902–1913. Rosebud Sled Museum collection.",
+ ad:"images/ad-garton-catalog-7541.jpg", adcap:"Garton catalog page (per Jonathan Spangler): sled nos. 7541, 7547 and 7553 at 42, 47 and 53 in. Year not shown; the page header is cut off. Supplied by Jonathan Spangler.",
  text:["Eusebius Bassingdale Garton started the business in Sheboygan; local sources say 1879, a collector's book says 1889. At first he made cigar boxes, washboards and fish boxes.",
  "Garton went on to make sleds, wagons, tricycles, scooters and pedal cars. The collector's book says its first steerable sleds, the Eskimo and the Dreadnaught, came in 1916.",
  "Four generations of Gartons ran the firm before the family sold it in 1973."]},
@@ -150,17 +151,20 @@ window.PROFILES = {
 };
 
 // ===== Sample collector data (EXAMPLE DATA – not real users) =====
+// Each entry is one record: one user, one location, one or more photos (imgs[0] = cover).
 window.SAMPLE_SLEDS = [
- {id:"s1", locType:"found", town:"Schaumburg, IL", lat:42.03, lng:-88.08, user:"sample_collector", maker:1, model:"No. 3C", year:"c. 1915–1920", size:"[sample]", condition:"Good", found:"[sample] Estate sale, Illinois", notes:"Example entry using a Rosebud Sled Museum photo.", shared:true, img:"images/flexible-flyer-3c-p60.jpg", likes:24, mine:true},
- {id:"s2", locType:"now", town:"Elgin, IL", lat:42.04, lng:-88.28, user:"sample_collector", maker:3, model:"Dirigo Clipper", year:"Date unknown", size:"[sample]", condition:"Fair", found:"[sample] Antique mall", notes:"Example entry.", shared:true, img:"images/paris-dirigo-clipper-deck-p56.jpg", likes:17, mine:true},
+ {id:"s1", locType:"found", town:"Schaumburg, IL", lat:42.03, lng:-88.08, user:"sample_collector", maker:1, model:"No. 3C", year:"c. 1915–1920", size:"[sample]", condition:"Good", found:"[sample] Estate sale, Illinois", notes:"Example entry using a Rosebud Sled Museum photo.", shared:true, imgs:["images/flexible-flyer-3c-p60.jpg","images/flexible-flyer-3c-b.jpg","images/hero-flexible-flyer-3c-deck-p60.jpg"], likes:24, mine:true},
+ {id:"s2", locType:"now", town:"Elgin, IL", lat:42.04, lng:-88.28, user:"sample_collector", maker:3, model:"Dirigo Clipper", year:"Date unknown", size:"[sample]", condition:"Fair", found:"[sample] Antique mall", notes:"Example entry.", shared:true, imgs:["images/paris-dirigo-clipper-p56.jpg","images/paris-dirigo-clipper-deck-p56.jpg"], likes:17, mine:true},
  {id:"s3", locType:"now", town:"Schaumburg, IL", lat:42.03, lng:-88.08, user:"sample_collector", maker:32, model:"Sled Master", year:"c. 1947", size:"[sample]", condition:"Very good", found:"[sample] Flea market", notes:"Example entry.", shared:true, img:"images/quasi-sled-master-chicago-p54.jpg", likes:6, mine:true},
- {id:"s4", locType:"found", town:"Sheboygan, WI", lat:43.75, lng:-87.71, user:"sample_collector", maker:7, model:"Dragon Head Sleigh", year:"c. 1902–1913", size:"[sample]", condition:"Good", found:"[sample] Auction", notes:"Example entry.", shared:true, img:"images/garton-dragon-head-sleigh-p52.jpg", likes:31, mine:true},
+ {id:"s4", locType:"found", town:"Sheboygan, WI", lat:43.75, lng:-87.71, user:"sample_collector", maker:7, model:"Dragon Head Sleigh", year:"c. 1902–1913", size:"[sample]", condition:"Good", found:"[sample] Auction", notes:"Example entry.", shared:true, imgs:["images/garton-dragon-head-sleigh-p52.jpg","images/garton-dragon-head-b.jpg","images/garton-dragon-head-c.jpg","images/garton-indian-chief-stencil-p52.jpg"], likes:31, mine:true},
  {id:"s5", locType:"found", town:"Bradford, PA", lat:41.96, lng:-78.64, user:"example_runner_fan", maker:14, model:"Streamline Klipper", year:"c. 1939–1941", size:"[sample]", condition:"Good", found:"[sample] Barn find", notes:"Example entry.", shared:true, img:"images/johnson-streamline-klipper-p57.jpg", likes:12},
- {id:"s6", locType:"now", town:"Kalamazoo, MI", lat:42.29, lng:-85.59, user:"demo_flyer_hunter", maker:11, model:"Speed Demon", year:"c. 1938", size:"[sample]", condition:"Restored", found:"[sample] Garage sale", notes:"Example entry.", shared:true, img:"images/kalamazoo-speed-demon-p58.jpg", likes:9},
- {id:"s7", locType:"found", town:"Coldwater, MI", lat:41.94, lng:-85.0, user:"example_runner_fan", maker:8, model:"Chieftain Red Rocket", year:"c. 1940–1952", size:"[sample]", condition:"Fair", found:"[sample] Online listing", notes:"Example entry.", shared:true, img:"images/pratt-chieftain-red-rocket-p55.jpg", likes:15},
+ {id:"s6", locType:"now", town:"Kalamazoo, MI", lat:42.29, lng:-85.59, user:"demo_flyer_hunter", maker:11, model:"Speed Demon", year:"c. 1938", size:"[sample]", condition:"Restored", found:"[sample] Garage sale", notes:"Example entry.", shared:true, imgs:["images/kalamazoo-speed-demon-p58.jpg","images/kalamazoo-speed-demon-b.jpg","images/kalamazoo-speed-demon-c.jpg"], likes:9},
+ {id:"s7", locType:"found", town:"Coldwater, MI", lat:41.94, lng:-85.0, user:"example_runner_fan", maker:8, model:"Red Rocket", year:"c. 1940–1952", size:"[sample]", condition:"Fair", found:"[sample] Online listing", notes:"Example entry.", shared:true, imgs:["images/pratt-chieftain-red-rocket-p55.jpg","images/pratt-red-rocket-b.jpg"], likes:15},
  {id:"s8", locType:"now", town:"Cedar Falls, IA", lat:42.53, lng:-92.45, user:"demo_flyer_hunter", maker:16, model:"Winner (pair)", year:"c. 1911–1919", size:"[sample]", condition:"Good", found:"[sample] Estate sale", notes:"Example entry.", shared:true, img:"images/wagner-winner-pair-p61.jpg", likes:20},
  {id:"s10", locType:"now", town:"Naperville, IL", lat:41.75, lng:-88.15, user:"demo_flyer_hunter", maker:32, model:"Sled Master", year:"[sample]", size:"[sample]", condition:"Fair", found:"[sample] Flea market", notes:"Example entry.", shared:true, img:"images/quasi-sled-master-chicago-p54.jpg", likes:8},
  {id:"s11", locType:"found", town:"Detroit, MI", lat:42.33, lng:-83.05, user:"example_new_collector", maker:31, model:"Flying Arrow", year:"[sample]", size:"[sample]", condition:"Good", found:"[sample] Garage sale", notes:"Example entry. [sample] maker attribution for demo only.", shared:true, img:"images/collection-flying-arrow-photos-p32.jpg", likes:5},
+ {id:"s12", locType:"found", town:"Coldwater, MI", lat:41.94, lng:-85.00, user:"example_new_collector", maker:8, model:"Red Rocket", year:"[sample]", size:"[sample]", condition:"Fair", found:"[sample] Barn find", notes:"Example duplicate entry: same maker + model, different collector and town.", shared:true, imgs:["images/pratt-red-rocket-b.jpg"], likes:4},
+ {id:"s13", locType:"now", town:"Schaumburg, IL", lat:42.03, lng:-88.08, user:"sample_collector", maker:8, model:"Red Rocket", year:"[sample]", size:"[sample]", condition:"Good", found:"[sample] Antique mall", notes:"Example entry using a photo supplied by Jonathan Spangler.", shared:true, imgs:["images/pratt-red-rocket-jonathan.jpg"], likes:10, mine:true},
  {id:"s9", locType:"found", town:"York, PA", lat:39.96, lng:-76.73, user:"sample_collector", maker:5, model:"Iceplane", year:"[sample]", size:"[sample]", condition:"Good", found:"[sample] Auction", notes:"Example entry.", shared:true, img:"images/american-acme-iceplane-owner.jpg", likes:11, mine:true}
 ];
 window.ID_POSTS = [
@@ -217,13 +221,13 @@ window.MODELS = {
     {n:"Auto Wheel Coaster ad",d:"Toys and Novelties, Aug 1920",img:"images/ad-auto-wheel-coaster-toys-novelties-1920.jpg"},
     {n:"Gliderole",d:"Briefs",img:null},
     {n:"[sample model]",d:"Placeholder",img:null,sample:true}],
- 7:[{n:"Dragon Head Sleigh",d:"c. 1902–1913 · Rosebud collection",img:"images/garton-dragon-head-sleigh-p52.jpg"},
-    {n:"Indian Chief stencil",d:"Dragon Head Sleigh detail · Rosebud collection",img:"images/garton-indian-chief-stencil-p52.jpg"},
-    {n:"Dragon Head Sleigh (second view)",d:"Rosebud collection",img:"images/garton-dragon-head-b.jpg"},
-    {n:"Dragon Head Sleigh (third view)",d:"Rosebud collection",img:"images/garton-dragon-head-c.jpg"},
-    {n:"Eskimo",d:"First steerable, 1916 (collector's book)",img:null},
-    {n:"Dreadnaught",d:"First steerable, 1916 (collector's book)",img:null},
-    {n:"Penguin",d:"Matrix",img:null},{n:"Steamliner",d:"Matrix",img:null},
+ 7:[{n:"Streamliner",d:"Photo supplied by Jonathan Spangler (the matrix lists “Steamliner”)",img:"images/garton-streamliner.jpg"},
+    {n:"Eskimo",d:"First steerable, 1916 (collector's book) · photo supplied by Jonathan",img:"images/garton-eskimo.jpg"},
+    {n:"Deluxe Racer",d:"Photo supplied by Jonathan Spangler",img:"images/garton-deluxe-racer.jpg"},
+    {n:"Dreadnaught",d:"First steerable, 1916 (collector's book) · 3-view photo supplied by Jonathan",img:"images/garton-dreadnaught.jpg"},
+    {n:"Trail",d:"Full sled + steering-bar close-up · photos supplied by Jonathan",imgs:["images/garton-trail.jpg","images/garton-trail-closeup.jpg"]},
+    {n:"Dragon Head Sleigh",d:"c. 1902–1913 · Rosebud collection (4 photos)",imgs:["images/garton-dragon-head-sleigh-p52.jpg","images/garton-dragon-head-b.jpg","images/garton-dragon-head-c.jpg","images/garton-indian-chief-stencil-p52.jpg"]},
+    {n:"Penguin",d:"Matrix",img:null},
     {n:"Silver Streak",d:"Matrix / briefs",img:null},{n:"Trailbreaker",d:"Matrix",img:null},{n:"Royal Racer",d:"Briefs",img:null}],
  8:[{n:"Red Rocket",d:"Photo supplied by Jonathan Spangler, Nov 2026",img:"images/pratt-red-rocket-jonathan.jpg"},
     {n:"Commodore",d:"Model name per Jonathan Spangler · photo supplied by Jonathan",img:"images/pratt-commodore.jpg"},
@@ -247,7 +251,7 @@ window.SALE_LISTINGS = [
  {id:"l1", ship:"Yes", email:"seller@example.com", user:"sample_seller", title:"[sample] Flexible Flyer with eagle deck", maker:1, model:"[sample] Eagle deck", condition:"Good", price:"$185", town:"Schaumburg, IL", img:"images/sale-flexible-flyer-eagle-deck.jpg", desc:"[sample] Original eagle-deck Flexible Flyer with light wear on the slats and surface rust on the runners. Steering works. Pickup preferred, will ship at buyer's cost."},
  {id:"l2", ship:"No", email:"runnerfan@example.com", user:"example_runner_fan", title:"[sample] Garton sled, Indian Chief stencil", maker:7, model:"[sample]", condition:"Fair", price:"$240", town:"Elgin, IL", img:"images/sale-garton-indian-chief.jpg", desc:"[sample] Garton sled with the Indian Chief stencil still visible. Some paint loss on the deck. Local pickup only."},
  {id:"l3", ship:"No", email:"flyerhunter@example.com", user:"demo_flyer_hunter", title:"[sample] Hand-painted sled, maker unknown", maker:0, model:"Unknown", condition:"Fair", price:"$95", town:"Naperville, IL", img:"images/sale-hand-painted-sled.jpg", desc:"[sample] Hand-painted deck, maker unknown. Would love help identifying it. Local pickup only."},
- {id:"l4", ship:"Yes", email:"newcollector@example.com", user:"example_new_collector", title:"[sample] Kalamazoo Speed Demon", maker:11, model:"Speed Demon", condition:"Restored", price:"$150", town:"Kalamazoo, MI", img:"images/kalamazoo-speed-demon-c.jpg", desc:"[sample] Speed Demon restored with new paint. Runners straight. Can ship within the US."}
+ {id:"l4", ship:"Yes", email:"newcollector@example.com", user:"example_new_collector", title:"[sample] Kalamazoo Speed Demon", maker:11, model:"Speed Demon", condition:"Restored", price:"$150", town:"Kalamazoo, MI", imgs:["images/kalamazoo-speed-demon-c.jpg","images/kalamazoo-speed-demon-p58.jpg"], desc:"[sample] Speed Demon restored with new paint. Runners straight. Can ship within the US."}
 ];
 
 // ===== Map lookup (town level only) =====

@@ -7,12 +7,34 @@ const FREE=window.FREE_MAKERS||{};
 const isFree=m=>!!m&&Object.prototype.hasOwnProperty.call(FREE,m.id);
 const disp=m=>m?(FREE[m.id]||m.name):"Unknown maker";
 const models=m=>(window.MODELS||{})[m.id]||[];
+const mImgs=x=>x.imgs&&x.imgs.length?x.imgs:(x.img?[x.img]:[]);
 const firstSentence=t=>{const m=t.match(/^.*?(?:[a-z0-9)”"]{3}|\d)\.(?=\s+[A-Z“"])/);return m?m[0]:t};
 const canSell=()=>window.SALE_POSTING!=="premium"||premium();
 const LS={get:(k,d)=>{try{return JSON.parse(localStorage.getItem("svc_"+k))??d}catch(e){return d}},set:(k,v)=>localStorage.setItem("svc_"+k,JSON.stringify(v))};
 const premium=()=>LS.get("premium",false);
 const userSleds=()=>LS.get("sleds",[]);
-const allSleds=()=>{const ov=LS.get("edits",{}),del=LS.get("deleted",[]);return userSleds().concat(window.SAMPLE_SLEDS.map(s=>ov[s.id]?Object.assign({},s,ov[s.id]):s)).filter(s=>!del.includes(s.id))};
+const normPics=s=>{const o=Object.assign({},s);o.imgs=(o.imgs&&o.imgs.length?o.imgs:(o.img?[o.img]:[]));o.img=o.imgs[0]||"";return o};
+const allSleds=()=>{const ov=LS.get("edits",{}),del=LS.get("deleted",[]);return userSleds().concat(window.SAMPLE_SLEDS.map(s=>ov[s.id]?Object.assign({},s,ov[s.id]):s)).filter(s=>!del.includes(s.id)).map(normPics)};
+const allListings=()=>LS.get("listings",[]).concat(window.SALE_LISTINGS).map(normPics);
+// Grouping: each submission is its own record (one user, one location); same maker + model are grouped for display.
+const modelKey=s=>s.maker+"|"+String(s.model||"").toLowerCase().replace(/[“”"']/g,"").replace(/\s+/g," ").trim();
+const sameModel=s=>allSleds().filter(x=>modelKey(x)===modelKey(s)&&(x.shared||isOwn(x)));
+// Swipeable gallery with dots; locked items show the lock tile instead.
+const gallery=(imgs,locked)=>locked?lockedPh("detail-ph"):(imgs.length<2?`<div class="detail-ph" style="background-image:url('${imgs[0]||""}')"></div>`:
+  `<div class="gal"><div class="gal-track">${imgs.map((u,i)=>`<div class="detail-ph gal-slide" style="background-image:url('${u}')" aria-label="Photo ${i+1} of ${imgs.length}"></div>`).join("")}</div><div class="gal-count">1 / ${imgs.length}</div><div class="dots">${imgs.map((u,i)=>`<i class="${i?"":"on"}"></i>`).join("")}</div></div>`);
+function bindGalleries(){document.querySelectorAll(".gal").forEach(g=>{const t=g.querySelector(".gal-track"),d=[...g.querySelectorAll(".dots i")],c=g.querySelector(".gal-count");
+  t.onscroll=()=>{const i=Math.round(t.scrollLeft/t.clientWidth);d.forEach((x,j)=>x.classList.toggle("on",j===i));c.textContent=(i+1)+" / "+d.length};
+  d.forEach((x,j)=>x.onclick=()=>t.scrollTo({left:j*t.clientWidth,behavior:"smooth"}))})}
+// Multi-photo picker: real file upload (resized in the browser) plus demo photos. First photo = cover.
+function resizeFile(file){return new Promise(res=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,700/Math.max(im.width,im.height));const c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.72))};im.src=r.result};r.readAsDataURL(file)})}
+const pickerHTML=(id,req)=>`<div class="picker" id="${id}"><div class="pk-thumbs"></div><div class="row2"><label class="btn pk-up">📷 Add photos${req?" *":""}<input type="file" accept="image/*" multiple hidden></label><button type="button" class="btn pk-demo">＋ Demo photo</button></div><small class="muted pk-help">Add several photos. The first one is the cover; tap a photo to make it the cover.</small></div>`;
+function picker(id,initial,demo){const root=$("#"+id),T=root.querySelector(".pk-thumbs");let pics=(initial||[]).slice();
+  const draw=()=>{T.innerHTML=pics.map((u,i)=>`<div class="pk-t" data-i="${i}" style="background-image:url('${u}')">${i===0?'<span class="pk-cover">Cover</span>':""}<button type="button" class="pk-x" data-x="${i}" aria-label="Remove">×</button></div>`).join("")||'<div class="pk-empty">No photos yet</div>';
+    T.querySelectorAll(".pk-x").forEach(b=>b.onclick=e=>{e.stopPropagation();pics.splice(+b.dataset.x,1);draw()});
+    T.querySelectorAll(".pk-t").forEach(t=>t.onclick=()=>{const i=+t.dataset.i;if(i){const [p]=pics.splice(i,1);pics.unshift(p);draw();toast("Cover photo set")}})};
+  root.querySelector("input[type=file]").onchange=async e=>{for(const f of [...e.target.files].slice(0,10)){pics.push(await resizeFile(f))}e.target.value="";draw()};
+  root.querySelector(".pk-demo").onclick=()=>{const left=demo.filter(u=>!pics.includes(u));pics.push(left.length?left[0]:demo[Math.floor(Math.random()*demo.length)]);draw();toast("Demo photo added (sample image)")};
+  draw();return ()=>pics.slice()}
 // Editing rule: only Premium members, only their OWN submissions. Maker histories and museum content are never editable.
 const canEdit=item=>!!item&&!!(item.mine||item.userAdded)&&premium();
 function saveSled(s){if(String(s.id).startsWith("u")){const u=userSleds().map(x=>x.id===s.id?s:x);LS.set("sleds",u)}else{const ov=LS.get("edits",{});ov[s.id]=s;LS.set("edits",ov)}}
@@ -33,6 +55,7 @@ const hidden=s=>{const m=M(s.maker);return !premium()&&!isOwn(s)&&!!m&&!isFree(m
 const lockedPh=(cls,tag="a")=>`<${tag} class="${cls} lockph"${tag==="a"?' href="#/upgrade"':""}><span class="lk">🔒</span><span class="lt">Premium maker. Upgrade to see</span></${tag}>`;
 const tileHref=s=>hidden(s)?"#/upgrade":"#/sled/"+s.id;
 const tileTh=s=>hidden(s)?lockedPh("th","div"):`<div class="th" style="background-image:url('${s.img}')"></div>`;
+const groupList=(arr,cur)=>`<div class="list card">${arr.map(x=>`<a class="mrow" href="${tileHref(x)}"><span class="gthumb">${hidden(x)?'<span class="glk">🔒</span>':`<span style="background-image:url('${x.img}')"></span>`}</span><span class="tx"><div class="n">@${esc(x.user)}${x.id===cur?" · this entry":""}${isOwn(x)?" (you)":""}</div><div class="d">📍 ${esc(x.locType==="na"?"Location NA":(x.town||"—"))} · ${x.imgs.length} photo${x.imgs.length==1?"":"s"}${hidden(x)?" · Premium maker":""}</div></span><span class="lk">›</span></a>`).join("")}</div>`;
 const nudge=s=>{const m=M(s.maker);return isOwn(s)&&m&&!isFree(m)&&!premium()?`<a class="nudge" href="#/upgrade">🔒 Unlock the full history of ${esc(disp(m))} →</a>`:""};
 const makerName=id=>disp(M(id));
 const sampleTag=s=>s.user&&!s.userAdded?' <span class="sample-tag">Example data</span>':"";
@@ -40,7 +63,7 @@ const initials=u=>u.replace(/[^a-z]/gi," ").trim().split(/\s+/).map(w=>w[0]).joi
 
 function postCard(s){
   const L=liked()[s.id];
-  return `<article class="card post">${hidden(s)?lockedPh("ph"):`<a href="#/sled/${s.id}"><div class="ph" style="background-image:url('${s.img}')"></div></a>`}
+  return `<article class="card post">${hidden(s)?lockedPh("ph"):`<a href="#/sled/${s.id}"><div class="ph" style="background-image:url('${s.img}')">${s.imgs&&s.imgs.length>1?`<span class="pcount">▣ ${s.imgs.length}</span>`:""}</div></a>`}
   <div class="meta"><div class="who"><span class="av">${initials(s.user)}</span>@${esc(s.user)}${sampleTag(s)}</div>
   <a href="#/sled/${s.id}" style="text-decoration:none"><div class="t">${esc(makerName(s.maker))} ${esc(s.model)}</div>
   <div class="m">${esc(s.year)} · ${esc(s.condition)}</div></a>${nudge(s)}
@@ -83,7 +106,7 @@ R.home=()=>{bar(window.APP_SHORT,{sub:"Rosebud Sled Museum",act:'<a class="act" 
   <h3 class="sec">What sled is this? <a href="#/idhelp">See all</a></h3>
   <div style="padding:0 16px">${window.ID_POSTS.slice(0,1).map(q=>`<a class="card idcard" href="#/idhelp"><div class="th" style="background-image:url('${q.img}')"></div><div><div class="small" style="font-weight:600">@${esc(q.user)} <span class="sample-tag">Example</span></div><div style="font-size:.84rem;margin-top:3px">${esc(q.q)}</div><div class="small muted" style="margin-top:3px">${q.answers.length} answer${q.answers.length==1?"":"s"} · Help identify →</div></div></a>`).join("")}</div>
   <h3 class="sec">Free makers <a href="#/makers">All 61</a></h3>
-  <div class="hscroll">${free.map(m=>`<a class="card mk" href="#/maker/${m.id}"><div class="th" style="background-image:url('${(models(m).find(x=>x.img)||{}).img||""}')"></div><div class="n">${esc(disp(m))}</div><div class="d">${esc(m.area)}</div></a>`).join("")}</div>
+  <div class="hscroll">${free.map(m=>`<a class="card mk" href="#/maker/${m.id}"><div class="th" style="background-image:url('${(mImgs(models(m).find(x=>mImgs(x).length)||{})[0])||""}')"></div><div class="n">${esc(disp(m))}</div><div class="d">${esc(m.area)}</div></a>`).join("")}</div>
   ${premium()?"":`<a class="promo" href="#/upgrade"><img class="cv" src="images/vintage-runner-tuxedo-racer-cover-p1.jpg" alt=""><div><b>Unlock all 61 makers</b><span style="display:block;opacity:.8;margin-bottom:2px">${Object.keys(FREE).length} free · ${61-Object.keys(FREE).length} premium</span><span>Full histories, complete model lists, period ads, the timeline, the magazine and selling your sleds. $15/year.</span></div></a>`}
   <h3 class="sec">Sleds for Sale <a href="#/sale">See all</a></h3>
   <div class="hscroll">${window.SALE_LISTINGS.slice(0,4).map(l=>`<a class="card mk" href="#/listing/${l.id}"><div class="th" style="background-image:url('${l.img}')"></div><div class="n">${l.price?esc(l.price)+" · ":""}${esc(l.title.replace("[sample] ",""))}</div><div class="d">${esc(l.town)} · Ships: ${esc(l.ship)}</div></a>`).join("")}</div>
@@ -104,22 +127,21 @@ R.add=(editId)=>{const E=editId?allSleds().find(x=>x.id==editId):null;
   const v=k=>E&&E[k]!=null?esc(E[k]):"";
   const pics=["collection-red-swirl-deck-photos-p28.jpg","collection-pictorial-deck-photos-p31.jpg","sherwood-bros-sled-top-owner-horizontal.jpg","whx-young-america-c1855-p51.jpg","paris-dirigo-clipper-p56.jpg"];
   setTimeout(()=>{
-    let pic=E?E.img:null;const d=$("#drop");if(pic){d.style.backgroundImage=`url('${pic}')`;d.classList.add("has")}
+    const getPics=picker("addpk",E?E.imgs:[],pics.map(p=>"images/"+p));
     if(E){$("#addf").maker.value=E.maker;$("#addf").condition.value=E.condition;const lt=$("#addf").querySelector(`input[name=locType][value=${E.locType||"found"}]`);if(lt)lt.checked=true;$("#addf").shared.checked=!!E.shared}
-    d.onclick=()=>{pic="images/"+pics[Math.floor(Math.random()*pics.length)];d.style.backgroundImage=`url('${pic}')`;d.classList.add("has");toast("Demo photo added (sample image)")};
     $("#addf").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);
       const lt=f.get("locType"),city=f.get("city"),st=f.get("state"),zip=f.get("zip");
       let g=null,town="NA";
       if(lt!=="na"){g=(city||st||zip)?await geocode(city,st,zip):null;town=city?(city+(st?", "+st.toUpperCase():"")):(zip?"ZIP "+zip:(st?st.toUpperCase():""));
         if(!town&&E){town=E.town;g=E.lat!=null?{lat:E.lat,lng:E.lng,how:E.geo}:null}}
       const base=E?Object.assign({},E):{id:"u"+Date.now(),user:"you",userAdded:true,mine:true,likes:0};
-      const s=Object.assign(base,{maker:+f.get("maker"),model:f.get("model")||"Untitled sled",year:f.get("year")||"Unknown",size:f.get("size")||"—",condition:f.get("condition"),found:f.get("found")||"—",notes:f.get("notes")||"",shared:!!f.get("shared"),locType:lt,town:town,lat:g?g.lat:null,lng:g?g.lng:null,geo:g?g.how:null,img:pic||"images/collection-red-swirl-deck-photos-p28.jpg"});
+      const s=Object.assign(base,{maker:+f.get("maker"),model:f.get("model")||"Untitled sled",year:f.get("year")||"Unknown",size:f.get("size")||"—",condition:f.get("condition"),found:f.get("found")||"—",notes:f.get("notes")||"",shared:!!f.get("shared"),locType:lt,town:town,lat:g?g.lat:null,lng:g?g.lng:null,geo:g?g.how:null,imgs:getPics().length?getPics():["images/collection-red-swirl-deck-photos-p28.jpg"],img:undefined});s.img=s.imgs[0];
       if(E){saveSled(s);toast("Changes saved")}else{const u=userSleds();u.unshift(s);LS.set("sleds",u);toast("Sled saved to your collection")}
       location.hash="#/sled/"+s.id};
   });
   const [ci,stt]=(E&&E.town&&E.town!=="NA"&&!/^ZIP /.test(E.town))?E.town.split(/,\s*/):["",""];
   return `<form class="form" id="addf">
-  <div class="photo-drop" id="drop"><span style="font-size:1.6rem">📷</span>Tap to add photos<span class="small">(mockup picks a sample photo)</span></div>
+  ${pickerHTML("addpk",false)}
   <label>Maker<select name="maker"><option value="0">Unknown / not sure</option>${makerOpts()}</select></label>
   <label>Model<input name="model" value="${v("model")}" placeholder="e.g. Speedster, Lightning Guider"></label>
   <div class="row2"><label>Year / era<input name="year" value="${v("year")}" placeholder="c. 1925"></label><label>Size<input name="size" value="${v("size")}" placeholder="e.g. 42 in."></label></div>
@@ -138,10 +160,12 @@ R.add=(editId)=>{const E=editId?allSleds().find(x=>x.id==editId):null;
 R.edit=id=>R.add(id);
 R.sled=id=>{const s=allSleds().find(x=>x.id==id);if(!s)return R.home();const m=M(s.maker);
   bar(m?disp(m):"Sled",{back:true,sub:s.model});tab(s.mine||s.userAdded?"collection":"home");
-  return `${hidden(s)?lockedPh("detail-ph"):`<div class="detail-ph" style="background-image:url('${s.img}')"></div>`}
+  const grp=sameModel(s);
+  return `${gallery(s.imgs,hidden(s))}
   <div class="title-block"><h1>${esc(makerName(s.maker))} ${esc(s.model)}</h1><div class="small muted" style="margin-top:4px">@${esc(s.user)}${sampleTag(s)} · ${s.shared?"Shared":"🔒 Private"}</div></div>
   ${nudge(s)?`<div style="padding:8px 16px 0">${nudge(s)}</div>`:""}<dl class="dl"><div><dt>Maker</dt><dd>${m?`<a href="#/maker/${m.id}">${esc(disp(m))}</a>`:"Unknown"}</dd></div><div><dt>Model</dt><dd>${esc(s.model)}</dd></div><div><dt>Year</dt><dd>${esc(s.year)}</dd></div><div><dt>Size</dt><dd>${esc(s.size)}</dd></div><div><dt>Condition</dt><dd>${esc(s.condition)}</dd></div><div><dt>Where found</dt><dd>${esc(s.found)}</dd></div>${s.town||s.locType==="na"?`<div><dt>Map location</dt><dd>${esc(locLine(s))}${!s.userAdded?" [sample]":""}${s.lat!=null?' · <a href="#/map">Map</a>':""}</dd></div>`:""}<div><dt>Notes</dt><dd>${esc(s.notes)}</dd></div></dl>
-  ${isOwn(s)&&m&&!isFree(m)&&!premium()?teaser(m):""}<div style="padding:16px;display:flex;flex-direction:column;gap:10px">${m?`<a class="btn pine" href="#/maker/${m.id}">About ${esc(disp(m))}</a>`:""}${editBar(s,"#/edit/"+s.id,"sled")}</div>`;
+  ${isOwn(s)&&m&&!isFree(m)&&!premium()?teaser(m):""}<div style="padding:16px;display:flex;flex-direction:column;gap:10px">${m?`<a class="btn pine" href="#/maker/${m.id}">About ${esc(disp(m))}</a>`:""}${editBar(s,"#/edit/"+s.id,"sled")}</div>
+  ${grp.length>1?`<h3 class="sec">${esc(makerName(s.maker))} ${esc(s.model)}: ${grp.length} collectors</h3>${groupList(grp,s.id)}`:""}`;
 };
 R.makers=()=>{bar("Makers",{sub:"61 American sled companies",act:'<a class="act" href="#/map" aria-label="Map">🗺</a>'});tab("makers");
   setTimeout(()=>{const i=$("#mq");i.oninput=()=>{const q=i.value.toLowerCase();document.querySelectorAll(".mrow").forEach(r=>r.style.display=r.dataset.s.includes(q)?"":"none")}});
@@ -157,7 +181,7 @@ function lockBox(title,sub){return `<div class="locked"><div class="blur">Compan
 R.maker=id=>{const m=M(id);if(!m)return R.makers();const p=m.p,free=isFree(m),P=premium(),ms=models(m);
   bar(disp(m),{back:true,sub:P?"Premium profile":(free?"Free · limited":"Premium maker · locked")});tab("makers");
   const facts=`<dl class="facts"><div><dt>Production area</dt><dd>${esc(m.area||"—")}</dd></div><div><dt>Years (matrix)</dt><dd>${esc(m.years||"—")}</dd></div><div><dt>Sled type</dt><dd>${esc(m.type||"—")}</dd></div><div><dt>Source</dt><dd>${m.book?"Palicia's books":"Spangler find"}</dd></div></dl>`;
-  const mcard=x=>`<div class="card tile">${x.img?`<div class="th" style="background-image:url('${x.img}')"></div>`:`<div class="th nophoto">${x.sample?"[sample model]":"No photo yet"}</div>`}<div class="n">${esc(x.n)}${x.sample?' <span class="sample-tag">Placeholder</span>':""}</div><div class="d">${esc(x.d)}</div></div>`;
+  const mcard=(x,i)=>{const im=mImgs(x);return `<${im.length?`a href="#/mphotos/${m.id}/${i}"`:"div"} class="card tile">${im.length?`<div class="th" style="background-image:url('${im[0]}')">${im.length>1?`<span class="pcount">▣ ${im.length}</span>`:""}</div>`:`<div class="th nophoto">${x.sample?"[sample model]":"No photo yet"}</div>`}<div class="n">${esc(x.n)}${x.sample?' <span class="sample-tag">Placeholder</span>':""}</div><div class="d">${esc(x.d)}</div></${im.length?"a":"div"}>`};
   let body="";
   if(P){
     body=`${p&&p.img?`<figure class="fig"><img src="${p.img}" alt=""><figcaption>${esc(p.cap)}</figcaption></figure>`:""}
@@ -176,7 +200,8 @@ R.maker=id=>{const m=M(id);if(!m)return R.makers();const p=m.p,free=isFree(m),P=
     body=`<div class="prose"><p class="muted">Free members see the name, place and dates. Premium unlocks the history, model gallery and period ads.</p></div>${lockBox("Premium maker","History, model gallery and period advertisements.")}`;
   }
   return `<div class="mp-head"><p class="eyebrow">Maker #${m.id} of 61 ${free?'· <span class="free-pill">Free</span>':""}</p><h1>${esc(disp(m))}</h1>${disp(m)!==m.name?`<div class="small muted">Matrix entry: ${esc(m.name)}</div>`:""}</div>${facts}${body}
-  <h3 class="sec">Collectors' sleds</h3><div class="grid2">${allSleds().filter(s=>s.maker==m.id&&(s.shared||isOwn(s))).map(s=>`<a class="card tile" href="${tileHref(s)}">${tileTh(s)}<div class="n">${esc(s.model)}</div><div class="d">@${esc(s.user)}</div></a>`).join("")||'<p class="small muted">No shared sleds yet.</p>'}</div>`;
+  <h3 class="sec">Collectors' sleds by model</h3>${(()=>{const G={};allSleds().filter(s=>s.maker==m.id&&(s.shared||isOwn(s))).forEach(s=>{(G[modelKey(s)]=G[modelKey(s)]||[]).push(s)});const ks=Object.keys(G);
+    return ks.length?ks.map(k=>{const g=G[k];return `<p class="grp-h"><b>${esc(disp(m))} ${esc(g[0].model)}</b> · ${g.length} collector${g.length==1?"":"s"}</p>${groupList(g)}`}).join(""):'<p class="small muted" style="padding:0 16px">No shared sleds yet.</p>'})()}<div style="height:20px"></div>`;
 };
 R.search=()=>{bar("Search",{back:true,sub:"Makers, models, collectors"});tab("home");
   setTimeout(()=>{const i=$("#q"),out=$("#res");const run=()=>{const q=i.value.trim().toLowerCase();
@@ -227,14 +252,14 @@ R.profile=()=>{bar("Profile",{sub:premium()?"Premium (preview)":"Free plan"});ta
   <p class="legend" style="padding-bottom:24px">Clickable mockup for review. No accounts, servers or payments.</p>`;
 };
 R.sale=()=>{bar("Sleds for Sale",{sub:"Collector marketplace",act:`<a class="act" href="${canSell()?"#/sell":"#/upgrade"}" aria-label="Sell">${canSell()?"＋":"🔒"}</a>`});tab("sale");
-  const L=LS.get("listings",[]).concat(window.SALE_LISTINGS);
+  const L=allListings();
   return `<div class="pad" style="padding-bottom:4px">${canSell()?'<a class="btn solid" href="#/sell">＋ Post a sled for sale</a>':'<a class="btn" href="#/upgrade">🔒 Post a sled for sale <span class="small" style="text-transform:none;letter-spacing:0">· Premium members</span></a>'}</div>
   <p class="legend">Browse free. ${window.SALE_POSTING==="premium"?"Posting a listing is a Premium feature.":"Anyone can post a listing."} Locations are shown by town only.</p>
   <div class="feed" style="margin-top:12px">${L.map(l=>`<a class="card post" href="#/listing/${l.id}" style="text-decoration:none"><div class="ph" style="background-image:url('${l.img}')"></div><div class="meta"><div class="who"><span class="av">${initials(l.user)}</span>@${esc(l.user)} ${l.mine?'<span class="sample-tag" style="background:#e5efe9;color:var(--pine);border-color:#bcd3c5">Your listing</span>':'<span class="sample-tag">Example data</span>'}</div><div class="t">${l.price?esc(l.price)+" · ":""}${esc(l.title)}</div><div class="m">${esc(makerName(l.maker))}${l.model?" · "+esc(l.model):""}${l.condition?" · "+esc(l.condition):""}</div><div class="m">📍 ${esc(l.town)} · 📦 Ships: ${esc(l.ship)}</div><div class="m">✉ ${esc(l.email)}</div>${l.desc?`<p class="snip">${esc(l.desc)}</p>`:""}</div></a>`).join("")}</div>`;
 };
-R.listing=id=>{const l=LS.get("listings",[]).concat(window.SALE_LISTINGS).find(x=>x.id==id);if(!l)return R.sale();
+R.listing=id=>{const l=allListings().find(x=>x.id==id);if(!l)return R.sale();
   bar("For Sale",{back:true,sub:l.price||"Price not listed"});tab("sale");
-  return `<div class="detail-ph" style="background-image:url('${l.img}')"></div>
+  return `${gallery(l.imgs,false)}
   <div class="title-block"><h1>${esc(l.title)}</h1><div style="font-family:var(--serif);font-size:1.6rem;font-weight:700;color:var(--red);margin-top:4px">${l.price?esc(l.price):'<span class="muted" style="font-size:1rem">Price not listed · contact seller</span>'}</div><div class="small muted">@${esc(l.user)} ${l.mine?"· Your listing":'<span class="sample-tag">Example data</span>'}</div></div>
   <dl class="dl"><div><dt>Maker</dt><dd>${M(l.maker)?`<a href="#/maker/${l.maker}">${esc(makerName(l.maker))}</a>`:"Unknown"}</dd></div><div><dt>Model</dt><dd>${esc(l.model||"—")}</dd></div><div><dt>Condition</dt><dd>${esc(l.condition)}</dd></div><div><dt>Location</dt><dd>${esc(l.town)}</dd></div><div><dt>Can ship?</dt><dd>${esc(l.ship)}</dd></div><div><dt>Contact</dt><dd><a href="mailto:${esc(l.email)}">${esc(l.email)}</a></dd></div></dl>${l.desc?`<div class="prose" style="padding-top:12px"><p>${esc(l.desc)}</p></div>`:""}
   <div class="pad"><a class="btn solid" href="mailto:${esc(l.email)}?subject=${encodeURIComponent("Your sled listing: "+l.title)}">✉ Email seller</a><div style="margin-top:10px">${editBar(l,"#/editlisting/"+l.id,"listing")}</div><p class="legend" style="margin:10px 0 0">Opens your email app. Sample listings use example.com addresses, which don't reach anyone. No sale happens in the app.</p></div>`;
@@ -245,12 +270,11 @@ R.sell=(editId)=>{const E=editId?LS.get("listings",[]).find(x=>x.id==editId):nul
   if(!canSell())return R.upgrade("Selling your sleds is a Premium feature. Browsing listings stays free.");
   bar(E?"Edit Listing":"Post a Sled for Sale",{back:true,sub:"Saved in this browser only"});tab("sale");
   const pics=["sale-flexible-flyer-eagle-deck.jpg","sale-hand-painted-sled.jpg","collection-red-swirl-deck-photos-p28.jpg","collection-pictorial-deck-photos-p31.jpg"];
-  setTimeout(()=>{let pic=E?E.img:null;const d=$("#sdrop");if(E){const F=$("#sellf");F.title.value=E.title;F.maker.value=E.maker;F.model.value=E.model||"";F.condition.value=E.condition||"Good";F.price.value=(E.price||"").replace(/^\$/,"");F.town.value=E.town;F.ship.value=E.ship;F.email.value=E.email;F.desc.value=E.desc||"";d.style.backgroundImage=`url('${pic}')`;d.classList.add("has");$("#scount").textContent=F.desc.value.length+" / 500"}const ta=$("#sdesc"),sc=$("#scount");ta.oninput=()=>{sc.textContent=ta.value.length+" / 500"};
-    d.onclick=()=>{pic="images/"+pics[Math.floor(Math.random()*pics.length)];d.style.backgroundImage=`url('${pic}')`;d.classList.add("has");toast("Demo photo added (sample image)")};
-    $("#sellf").onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);if(!pic){toast("Please add at least one photo");return}
-      const l={id:"ul"+Date.now(),user:"you",mine:true,title:f.get("title"),ship:f.get("ship"),email:f.get("email"),maker:+f.get("maker"),model:f.get("model"),condition:f.get("condition"),price:f.get("price")?"$"+String(f.get("price")).replace(/^\$/,""):"",town:f.get("town"),img:pic||"images/collection-red-swirl-deck-photos-p28.jpg",desc:String(f.get("desc")||"").slice(0,500)};
+  setTimeout(()=>{const getPics=picker("sellpk",E?normPics(E).imgs:[],pics.map(p=>"images/"+p));if(E){const F=$("#sellf");F.title.value=E.title;F.maker.value=E.maker;F.model.value=E.model||"";F.condition.value=E.condition||"Good";F.price.value=(E.price||"").replace(/^\$/,"");F.town.value=E.town;F.ship.value=E.ship;F.email.value=E.email;F.desc.value=E.desc||"";$("#scount").textContent=F.desc.value.length+" / 500"}const ta=$("#sdesc"),sc=$("#scount");ta.oninput=()=>{sc.textContent=ta.value.length+" / 500"};
+    $("#sellf").onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);const P=getPics();if(!P.length){toast("Please add at least one photo");return}
+      const l={id:"ul"+Date.now(),user:"you",mine:true,title:f.get("title"),ship:f.get("ship"),email:f.get("email"),maker:+f.get("maker"),model:f.get("model"),condition:f.get("condition"),price:f.get("price")?"$"+String(f.get("price")).replace(/^\$/,""):"",town:f.get("town"),imgs:P,img:P[0],desc:String(f.get("desc")||"").slice(0,500)};
       if(E){l.id=E.id;LS.set("listings",LS.get("listings",[]).map(x=>x.id===E.id?l:x));toast("Listing updated")}else{const u=LS.get("listings",[]);u.unshift(l);LS.set("listings",u);toast("Listing posted (mockup)")}location.hash="#/listing/"+l.id}});
-  return `<form class="form" id="sellf"><div class="photo-drop" id="sdrop"><span style="font-size:1.6rem">📷</span>Tap to add photos *<span class="small">(mockup picks a sample photo)</span></div>
+  return `<form class="form" id="sellf">${pickerHTML("sellpk",true)}
   <label>Sled name *<input name="title" required placeholder="e.g. Flexible Flyer No. 3C, original paint"></label>
   <label>Maker<select name="maker"><option value="0">Unknown / not sure</option>${makerOpts()}</select></label>
   <label>Model<input name="model" placeholder="Model name if known"></label>
@@ -284,10 +308,15 @@ R.map=()=>{bar("Sled Map",{back:true,sub:"Shared sleds · town level"});tab("mak
   <div id="map" class="mapbox"></div>
   <p class="legend" style="padding-bottom:16px">Pins are placed at the town only, never a street address. Sample pins are example towns. Premium-maker photos from other collectors stay locked for free members.</p>`;
 };
+R.mphotos=(arg)=>{const [mid,idx]=String(arg).split(",");const m=M(mid),x=m&&models(m)[+idx];if(!x)return R.makers();
+  const ok=premium()||(isFree(m)&&+idx<(window.FREE_GALLERY_COUNT||5));if(!ok)return R.upgrade("Extra model photos are part of Premium.");
+  bar(x.n,{back:true,sub:disp(m)});tab("makers");
+  return `${gallery(mImgs(x),false)}<div class="title-block"><h1>${esc(disp(m))} ${esc(x.n)}</h1><p class="small muted" style="margin:6px 0 0">${esc(x.d)}</p></div><div class="pad"><a class="btn pine" href="#/maker/${m.id}">Back to ${esc(disp(m))}</a></div>`;
+};
 window.__toast=toast;
 function route(){
   const h=(location.hash||"#/home").slice(2).split("/");const fn=R[h[0]]||R.home;
-  $("#view").innerHTML=fn(h[1]);$("#view").scrollTop=0;bindLikes();
+  $("#view").innerHTML=fn(h.length>2?h.slice(1).join(","):h[1]);$("#view").scrollTop=0;bindLikes();bindGalleries();
   const c=$("#cancelP");if(c)c.onclick=()=>{LS.set("premium",false);toast("Back to Free");route()};
   document.querySelectorAll("[data-del]").forEach(b=>b.onclick=()=>{if(!premium())return;if(!confirm("Delete this "+b.dataset.kind+"? (mockup)"))return;
     if(b.dataset.kind==="listing"){LS.set("listings",LS.get("listings",[]).filter(x=>x.id!==b.dataset.del));toast("Listing deleted");location.hash="#/sale"}
