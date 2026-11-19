@@ -501,20 +501,20 @@ R.identify=()=>{
     </div>`;
 };
 
-R.map=()=>{bar("Sled Picker Map",{back:true,sub:"Where picked sleds were found · demo"});tab("makers");
-  if(!premium())return databaseGate()+`<p class="legend">The map spec left membership as an open question. This mockup follows the existing membership pattern: the Sled Picker Map, like the Sled Maker and Model Database and photo ID, is for paid members.</p>`;
-  const userPins=allSleds().filter(s=>s.userAdded&&(s.shared||isOwn(s))&&s.lat!=null&&s.locType!=="na").map(s=>{const key=mapKeyForSled(s);return key?Object.assign({key,fromUser:true},s):null}).filter(Boolean);
+R.map=()=>{const locked=!premium();
+  bar("Sled Picker Map",{back:true,sub:locked?"Preview · members can use the map":"Where picked sleds were found · demo"});tab("makers");
+  const userPins=locked?[]:allSleds().filter(s=>s.userAdded&&(s.shared||isOwn(s))&&s.lat!=null&&s.locType!=="na").map(s=>{const key=mapKeyForSled(s);return key?Object.assign({key,fromUser:true},s):null}).filter(Boolean);
   const demo=window.MAP_DEMO||{count:200,label:"Demo — 200 sample pins, not real finds.",makers:["fflyer","firefly","yclipper","paris","snw","acme","autowheel","garton","pratt","kal"]};
   const demoKeys=new Set(demo.makers||[]);
   const NE_BOUNDS=[[39.7,-80.55],[47.45,-66.95]];
   const showNE=m=>{if(m&&m.fitBounds)m.fitBounds(NE_BOUNDS,{padding:[16,16],maxZoom:7,animate:false})};
   setTimeout(()=>{
     if(!window.L){$("#map").innerHTML='<p class="pad small">Map library could not load (offline?).</p>';return}
-    const map=L.map("map",{zoomControl:true,maxZoom:11});
+    const map=L.map("map",{zoomControl:!locked,attributionControl:true,dragging:!locked,scrollWheelZoom:!locked,doubleClickZoom:!locked,boxZoom:!locked,keyboard:!locked,touchZoom:!locked,maxZoom:11});
     showNE(map);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:11,attribution:"© OpenStreetMap contributors"}).addTo(map);
     const layer=L.layerGroup().addTo(map);
-    const selected=()=>[...document.querySelectorAll(".map-mks input:checked")].map(i=>i.value);
+    const selected=()=>locked?[...demoKeys]:[...document.querySelectorAll(".map-mks input:checked")].map(i=>i.value);
     const draw=()=>{
       layer.clearLayers();
       const on=new Set(selected());
@@ -525,28 +525,51 @@ R.map=()=>{bar("Sled Picker Map",{back:true,sub:"Where picked sleds were found �
         const ent=mapByKey(p.key), color=ent?ent.color:"#555", name=ent?ent.label:p.key;
         counts[p.key]=(counts[p.key]||0)+1;
         const isHome=!!p.home;
-        const html=p.fromUser
-          ? `<div class="mp-card"><a href="#/sled/${p.id}"><div class="mp-ph" style="background-image:url('${p.img||(p.imgs&&p.imgs[0])||""}')"></div></a><b>${esc(mk(p))}</b><br>${esc(p.model)} · Est. ${esc(p.years||"Unknown")}<br><span>📍 ${esc(p.town||"")} · your post</span><br><a href="#/sled/${p.id}">Open →</a></div>`
-          : `<div class="mp-card"><span class="sample-tag">SAMPLE</span>${isHome?' <span class="sample-tag" style="background:#e5efe9;color:var(--pine);border-color:#bcd3c5">Company home</span>':""}<br><b>${esc(name)}</b><br>${p.model?esc(p.model)+" · ":""}Est. ${esc(p.years)}<br><span>${esc(p.town)} · ZIP ${esc(p.zip)}</span><br><span>Sample pin — not a real find.${isHome?" Auto-Wheel Coaster home: North Tonawanda, NY.":""}</span></div>`;
-        const c=L.circleMarker([p.lat,p.lng],{radius:isHome?11:7,weight:2,color:"#fff",fillColor:color,fillOpacity:.92}).bindPopup(html,{maxWidth:240});
+        const c=L.circleMarker([p.lat,p.lng],{radius:isHome?11:7,weight:2,color:"#fff",fillColor:color,fillOpacity:.92,interactive:!locked});
+        if(!locked){
+          const html=p.fromUser
+            ? `<div class="mp-card"><a href="#/sled/${p.id}"><div class="mp-ph" style="background-image:url('${p.img||(p.imgs&&p.imgs[0])||""}')"></div></a><b>${esc(mk(p))}</b><br>${esc(p.model)} · Est. ${esc(p.years||"Unknown")}<br><span>📍 ${esc(p.town||"")} · your post</span><br><a href="#/sled/${p.id}">Open →</a></div>`
+            : `<div class="mp-card"><span class="sample-tag">SAMPLE</span>${isHome?' <span class="sample-tag" style="background:#e5efe9;color:var(--pine);border-color:#bcd3c5">Company home</span>':""}<br><b>${esc(name)}</b><br>${p.model?esc(p.model)+" · ":""}Est. ${esc(p.years)}<br><span>${esc(p.town)} · ZIP ${esc(p.zip)}</span><br><span>Sample pin — not a real find.${isHome?" Auto-Wheel Coaster home: North Tonawanda, NY.":""}</span></div>`;
+          c.bindPopup(html,{maxWidth:240});
+        }
         layer.addLayer(c);
       });
       const rows=MAP_MAKERS.filter(m=>counts[m.key]).map(m=>`<span class="map-leg-i"><i style="background:${m.color}"></i>${esc(m.short)} ${counts[m.key]}</span>`).join("");
       const el=$("#mlegend");if(el)el.innerHTML=rows||'<span class="muted">No makers selected</span>';
-      const n=pins.length, shownSample=pins.filter(p=>p.sample).length;
-      $("#mcount").textContent=n+" pin"+(n===1?"":"s")+" shown · "+on.size+" maker"+(on.size===1?"":"s")+(shownSample?` · ${shownSample} sample`:"");
+      const n=pins.length, shownSample=pins.filter(x=>x.sample).length, mc=$("#mcount");
+      if(mc)mc.textContent=n+" pin"+(n===1?"":"s")+" shown · "+on.size+" maker"+(on.size===1?"":"s")+(shownSample?` · ${shownSample} sample`:"");
     };
-    document.querySelectorAll(".map-mks input").forEach(i=>i.onchange=draw);
-    $("#mapdemo").onclick=()=>{document.querySelectorAll(".map-mks input").forEach(i=>i.checked=demoKeys.has(i.value));draw()};
-    $("#mapall").onclick=()=>{document.querySelectorAll(".map-mks input").forEach(i=>i.checked=true);draw()};
-    $("#mapnone").onclick=()=>{document.querySelectorAll(".map-mks input").forEach(i=>i.checked=false);draw()};
+    if(!locked){
+      document.querySelectorAll(".map-mks input").forEach(i=>i.onchange=draw);
+      $("#mapdemo").onclick=()=>{document.querySelectorAll(".map-mks input").forEach(i=>i.checked=demoKeys.has(i.value));draw()};
+      $("#mapall").onclick=()=>{document.querySelectorAll(".map-mks input").forEach(i=>i.checked=true);draw()};
+      $("#mapnone").onclick=()=>{document.querySelectorAll(".map-mks input").forEach(i=>i.checked=false);draw()};
+    }else{
+      const prev=$("#mapPreview");if(prev)prev.onclick=()=>{setRole("premium");toast("Demo role: Paid member");route()};
+    }
     draw();setTimeout(()=>{map.invalidateSize();showNE(map)},50);
   });
-  return `<div class="map-banner">${esc(demo.label||"Demo — 200 sample pins, not real finds.")}</div>
+  const banner=`<div class="map-banner">${esc(demo.label||"Demo — 200 sample pins, not real finds.")}</div>`;
+  const legend=`<div id="mlegend" class="map-legend"></div>`;
+  if(locked)return `${banner}
+    <p class="legend">A map of where picked sleds were found. This Northeast demo (Maine through Pennsylvania) has 200 sample pins across ten makers, at town / ZIP level only. They are not real finds.</p>
+    ${legend}
+    <div class="map-stage">
+      <div id="map" class="mapbox"></div>
+      <div class="map-veil" aria-hidden="true"></div>
+      <div class="map-lock-card">
+        <div class="gl">🔒</div>
+        <b>The Sled Picker Map is for members</b>
+        <p>${lapsed()?"Renew to pan, zoom and open pins.":"Join to pan, zoom and open pins. This preview shows the Northeast demo."}</p>
+        <a class="btn gold" href="#/upgrade">${lapsed()?"Renew membership · $15/yr":"Join · $15/yr"}</a>
+        <button type="button" class="btn" id="mapPreview">Preview as member (demo)</button>
+      </div>
+    </div>`;
+  return `${banner}
     <p class="legend">A map of where picked sleds were found. Use the 25 black-list makers to colour-code and filter the pins. This Northeast demo (Maine through Pennsylvania) has exactly 200 sample pins across ten makers, at town / ZIP level only — never a street address. They are not real finds. Fire Fly and Yankee Clipper are listed separately from Flexible Flyer.</p>
     <div class="map-actions"><button type="button" class="btn sm" id="mapdemo">Demo 10 makers</button><button type="button" class="btn sm" id="mapall">All 25</button><button type="button" class="btn sm" id="mapnone">Clear</button><span id="mcount" class="muted"></span></div>
     <div class="map-mks">${MAP_MAKERS.map(m=>`<label class="map-mk"><input type="checkbox" value="${m.key}" ${demoKeys.has(m.key)?"checked":""}><i style="background:${m.color}"></i>${esc(m.short)}</label>`).join("")}</div>
-    <div id="mlegend" class="map-legend"></div>
+    ${legend}
     <div id="map" class="mapbox"></div>
     <p class="legend" style="padding-bottom:16px">Sleds you add in this browser with an origin ZIP and a black-list maker also appear, marked as your post. Green-list, unknown and custom makers stay off this map for now.</p>`;
 };
