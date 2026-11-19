@@ -131,13 +131,13 @@ R.home=()=>{bar(window.APP_SHORT,{sub:"Rosebud Sled Museum",act:'<a class="act" 
   const feed=allSleds().filter(s=>s.shared);
   const free=MAKERS.filter(isFree);
   return `<div class="hero" style="background-image:url(images/hero-flexible-flyer-3c-deck-p60.jpg)"><div class="in"><b>Coasting Through History</b><span>American sled makers, 1850–1990 · tap for the timeline</span></div><a href="#/timeline" style="position:absolute;inset:0;z-index:2" aria-label="Timeline"></a></div>
-  <div class="chips"><a class="chip on" href="#/home">Community feed</a><a class="chip" href="#/idhelp">What sled is this?</a><a class="chip" href="#/map">🗺 Map</a><a class="chip" href="#/sale">Sleds for Sale</a><a class="chip" href="#/search">Search</a><a class="chip" href="#/timeline">Timeline ${premium()?"":"🔒"}</a><a class="chip" href="#/magazine">Magazine ${premium()?"":"🔒"}</a></div>
+  <div class="chips"><a class="chip on" href="#/home">Community feed</a><a class="chip" href="#/idhelp">What sled is this?</a><a class="chip" href="#/map">🗺 Map</a><a class="chip" href="#/sale">Sleds for Sale</a><a class="chip" href="#/search">Search</a><a class="chip" href="#/timeline">Timeline ${premium()?"":"🔒"}</a><a class="chip" href="#/articles">Articles ${premium()?"":"🔒"}</a></div>
   ${premium()?"":`<h3 class="sec">Community feed</h3>${communityGate()}`}
   ${!premium()?"":`<h3 class="sec">What sled is this? <a href="#/idhelp">See all</a></h3>
   <div style="padding:0 16px">${window.ID_POSTS.slice(0,1).map(q=>`<a class="card idcard" href="#/idhelp"><div class="th" style="background-image:url('${q.img}')"></div><div><div class="small" style="font-weight:600">@${esc(q.user)} <span class="sample-tag">Example</span></div><div style="font-size:.84rem;margin-top:3px">${esc(q.q)}</div><div class="small muted" style="margin-top:3px">${q.answers.length} answer${q.answers.length==1?"":"s"} · Help identify →</div></div></a>`).join("")}</div>`}
   <h3 class="sec">Free makers <a href="#/makers">All 61</a></h3>
   <div class="hscroll">${free.map(m=>`<a class="card mk" href="#/maker/${m.id}"><div class="th" style="background-image:url('${(mImgs(models(m).find(x=>mImgs(x).length)||{})[0])||""}')"></div><div class="n">${esc(disp(m))}</div><div class="d">${esc(m.area)}</div></a>`).join("")}</div>
-  ${premium()?"":`<a class="promo" href="#/upgrade"><img class="cv" src="images/vintage-runner-tuxedo-racer-cover-p1.jpg" alt=""><div><b>Become a member</b><span style="display:block;opacity:.8;margin-bottom:2px">${Object.keys(FREE).length} free · ${61-Object.keys(FREE).length} premium</span><span>Post your sleds, see the community feed, full histories, period ads, the timeline, the magazine and selling. $15/year.</span></div></a>`}
+  ${premium()?"":`<a class="promo" href="#/upgrade"><img class="cv" src="images/vintage-runner-tuxedo-racer-cover-p1.jpg" alt=""><div><b>Become a member</b><span style="display:block;opacity:.8;margin-bottom:2px">${Object.keys(FREE).length} free · ${61-Object.keys(FREE).length} premium</span><span>Post your sleds, see the community feed, full histories, period ads, the timeline, no-frills magazine articles and selling. $15/year.</span></div></a>`}
   <h3 class="sec">Sleds for Sale <a href="#/sale">See all</a></h3>
   <div class="hscroll">${window.SALE_LISTINGS.slice(0,4).map(l=>`<a class="card mk" href="#/listing/${l.id}"><div class="th" style="background-image:url('${l.img}')"></div><div class="n">${l.price?esc(l.price)+" · ":""}${esc(l.title.replace("[sample] ",""))}</div><div class="d">${esc(l.town)} · Ships: ${esc(l.ship)}</div></a>`).join("")}</div>
   ${premium()?`<h3 class="sec">Community feed</h3><div class="feed">${feed.map(postCard).join("")}</div>`:""}`;
@@ -264,20 +264,59 @@ R.timeline=()=>{if(!premium())return paywall("The Coasting Through History timel
   return `<p class="legend" style="margin-top:14px">From the Rosebud Sled Museum timeline prepared for the Gail Borden Public Library display (Jan 2027). Green dots are Illinois stories.</p>
   <ol class="tl">${window.TIMELINE.map(t=>`<li class="${t.il?"il":""}"><div class="y">${esc(t.y)}${t.il?"<em>Illinois</em>":""}</div><p>${esc(t.t)}</p></li>`).join("")}</ol>`;
 };
-R.magazine=()=>{if(!premium())return paywall("Vintage Runner Magazine is included with Premium.");
-  bar("Vintage Runner",{back:true,sub:"Magazine · included"});tab("home");
-  return `<div class="pad"><div class="card" style="display:flex;gap:14px;padding:14px;align-items:center"><img src="images/vintage-runner-tuxedo-racer-cover-p1.jpg" style="width:110px;border-radius:4px;box-shadow:0 4px 10px rgba(0,0,0,.25)" alt="Vintage Runner cover"><div><div class="eyebrow" style="margin:0 0 4px">Issue 1</div><b style="font-family:var(--serif);font-size:1.3rem">Vintage Runner Magazine</b><p class="small muted">Read on your phone. [Mockup: the reader is not built yet.]</p><button class="btn pine" style="padding:10px" onclick="window.__toast('Mockup: magazine reader would open here')">Read issue</button></div></div>
-  <p class="legend">Print copies are still sold separately; Apple only allows digital content in an in-app subscription.</p></div>`;
+function magazine(){return window.MAGAZINE||{articles:[],orderUrl:"https://rosebudsledmuseum.com/#magazine",cover:"images/vintage-runner-tuxedo-racer-cover-p1.jpg"}}
+function magCta(){
+  const M=magazine();
+  return `<div class="art-cta"><div><b>Want the photographs and the layout?</b><p>These are no-frills text editions for reading in the app. The printed Vintage Runner keeps the photos, catalog plates and original design.</p><p class="small muted">${esc(M.orderPrices||"")}. ${esc(M.shipping||"")}</p></div><a class="btn pine" href="${esc(M.orderUrl)}" target="_blank" rel="noopener">Order the print edition</a></div>`;
+}
+function artBlocks(blocks){
+  return (blocks||[]).map(b=>{
+    if(b.type==="h") return `<h3 class="art-h">${esc(b.text)}</h3>`;
+    if(b.type==="p") return `<p>${esc(b.text)}</p>`;
+    if(b.type==="quote") return `<blockquote class="art-q"><p>${esc(b.text)}</p>${b.cite?`<cite>${esc(b.cite)}</cite>`:""}</blockquote>`;
+    if(b.type==="caption") return `<p class="art-cap">${esc(b.text)}</p>`;
+    if(b.type==="note") return `<p class="art-note">${esc(b.text)}</p>`;
+    if(b.type==="catalog") return `<ol class="art-cat">${(b.items||[]).map(it=>`<li><b>${esc(it.name)}</b><span>${esc([it.maker,it.place,it.years].filter(Boolean).join(" · "))}</span></li>`).join("")}</ol>`;
+    if(b.type==="results") return `<div class="art-res"><h4>${esc(b.title||"Results")}</h4>${(b.groups||[]).map(g=>`<div class="art-res-g"><div class="art-res-h">${esc(g.name)}</div><ol>${(g.places||[]).map(x=>`<li>${esc(x)}</li>`).join("")}</ol></div>`).join("")}</div>`;
+    if(b.type==="timeline") return `<ol class="art-years">${(b.items||[]).map(it=>`<li><b>${esc(it.year)}</b><span>${esc(it.text)}</span></li>`).join("")}</ol>`;
+    return "";
+  }).join("");
+}
+R.articles=()=>R.magazine();
+R.magazine=()=>{if(!premium())return paywall("Vintage Runner articles are included with Premium. The print magazine is sold separately.");
+  const M=magazine(), arts=M.articles||[];
+  bar("Articles",{back:true,sub:"Vintage Runner · Issue 1"});tab("home");
+  return `<div class="art-issue"><div class="art-hero"><img src="${esc(M.cover)}" alt="Vintage Runner cover"><div><div class="eyebrow">${esc(M.issue)} · ${esc(M.edition)}</div><b>Vintage Runner</b><p>No-frills text editions of the articles, to read in the app. The printed magazine keeps the photographs and the layout.</p></div></div>
+  ${magCta()}
+  <p class="legend" style="margin:8px 0 4px">Print copies are sold separately; Apple only allows digital content in an in-app subscription.</p>
+  <div class="art-list">${arts.map((a,i)=>`<a class="art-row" href="#/article/${a.id}"><span class="art-n">${String(i+1).padStart(2,"0")}</span><span class="art-meta"><b>${esc(a.title)}</b><em>${esc(a.dek)}</em>${a.byline?`<span class="small muted">By ${esc(a.byline)}</span>`:""}</span><span class="art-go">›</span></a>`).join("")}</div></div>`;
+};
+R.article=id=>{if(!premium())return paywall("Vintage Runner articles are included with Premium. The print magazine is sold separately.");
+  const M=magazine(), arts=M.articles||[], a=arts.find(x=>x.id===id);
+  if(!a)return R.magazine();
+  const i=arts.indexOf(a), prev=arts[i-1], next=arts[i+1];
+  bar("Vintage Runner",{back:true,sub:(a.kicker||"Issue 1")+" · text edition"});tab("home");
+  return `<article class="art-read">
+    <p class="eyebrow">${esc(a.kicker||M.issue||"")}${a.dateline?" · "+esc(a.dateline):""}</p>
+    <h1>${esc(a.title)}</h1>
+    ${a.fullTitle&&a.fullTitle!==a.title?`<p class="art-full">${esc(a.fullTitle)}</p>`:""}
+    <p class="art-dek">${esc(a.dek)}</p>
+    ${a.byline?`<p class="art-by">By ${esc(a.byline)}</p>`:""}
+    <div class="art-body">${artBlocks(a.blocks)}</div>
+    <nav class="art-next">${prev?`<a href="#/article/${prev.id}">‹ ${esc(prev.title)}</a>`:"<span></span>"}${next?`<a href="#/article/${next.id}">${esc(next.title)} ›</a>`:"<span></span>"}</nav>
+    ${magCta()}
+    <p class="legend"><a href="#/articles">All Issue 1 articles</a></p>
+  </article>`;
 };
 function paywall(reason){return R.upgrade(reason)}
 R.upgrade=(reason)=>{bar(window.APP_NAME+" Premium",{back:true,sub:"Mock paywall"});tab("");
-  if(premium()){return `<div class="mock-banner">MOCKUP · no real payment was taken</div><div class="pad" style="text-align:center"><p style="font-family:var(--serif);font-size:1.6rem;margin:20px 0 6px">${isAdmin()?"Admin preview (Sled Finder)":"You're previewing Premium"}</p><p class="small muted">All 61 makers, model lists, ads, the timeline, the magazine and selling are unlocked in this demo.</p><div style="display:flex;flex-direction:column;gap:10px;margin-top:18px"><a class="btn pine" href="#/makers">Browse all 61 makers</a><a class="btn" href="#/timeline">Open the timeline</a><button class="btn" id="cancelP">End preview (back to Free)</button></div></div>`}
+  if(premium()){return `<div class="mock-banner">MOCKUP · no real payment was taken</div><div class="pad" style="text-align:center"><p style="font-family:var(--serif);font-size:1.6rem;margin:20px 0 6px">${isAdmin()?"Admin preview (Sled Finder)":"You're previewing Premium"}</p><p class="small muted">All 61 makers, model lists, ads, the timeline, the articles and selling are unlocked in this demo.</p><div style="display:flex;flex-direction:column;gap:10px;margin-top:18px"><a class="btn pine" href="#/makers">Browse all 61 makers</a><a class="btn" href="#/articles">Read the articles</a><a class="btn" href="#/timeline">Open the timeline</a><button class="btn" id="cancelP">End preview (back to Free)</button></div></div>`}
   setTimeout(()=>{$("#buy").onclick=()=>{const was=lapsed();setRole("premium");toast(was?"Mockup: membership renewed, your posts are back":"Mockup: Premium unlocked, no payment taken");location.hash=was?"#/collection":"#/makers"}});
   const r=(t,f,p)=>`<div class="r"><span>${t}</span><span class="${f?"yes":"no"}">${f===true?"✓":f||"—"}</span><span class="yes">✓</span></div>`;
   return `<div class="mock-banner">MOCKUP · no real payment · nothing is charged</div>
   <div class="pw-hero"><p class="eyebrow" style="color:#e7b7a5">${esc(window.APP_NAME)} Premium</p><h1>${lapsed()?"Welcome back. Renew to bring your posts back.":"Post, see and sell sleds. All 61 makers."}</h1><p>${esc(typeof reason==="string"?reason:(lapsed()?lapsedText(allSleds().filter(isOwn).length):"Your research library and community for antique sleds."))}</p></div>
   <div class="compare"><div class="r h"><span>What you get</span><span>Free</span><span>Premium</span></div>
-  ${r("Search makers & models",true)}${r("Browse Sleds for Sale",true)}${r("Maker profiles",`${Object.keys(FREE).length} free, limited`)}${r("Curated model galleries","Limited")}${r("Post & catalog your sleds",false)}${r("See community posts, photos & map",false)}${r("“What sled is this?” ID help",false)}${r("All 61 company histories",false)}${r("Complete model lists & extra photos",false)}${r("Period advertisements",false)}${r("Sell your sleds",false)}${r("Edit & delete your own submissions",false)}${r("Coasting Through History timeline",false)}${r("Vintage Runner Magazine (digital)",false)}${r("Printable insurance list",false)}</div>
+  ${r("Search makers & models",true)}${r("Browse Sleds for Sale",true)}${r("Maker profiles",`${Object.keys(FREE).length} free, limited`)}${r("Curated model galleries","Limited")}${r("Post & catalog your sleds",false)}${r("See community posts, photos & map",false)}${r("“What sled is this?” ID help",false)}${r("All 61 company histories",false)}${r("Complete model lists & extra photos",false)}${r("Period advertisements",false)}${r("Sell your sleds",false)}${r("Edit & delete your own submissions",false)}${r("Coasting Through History timeline",false)}${r("Vintage Runner articles (text)",false)}${r("Printable insurance list",false)}</div>
   <div class="price"><div><div class="small muted">Yearly · renews automatically</div><b>$15.00 / year</b></div><span class="badge-prem">Best value</span></div>
   <div class="pad"><button class="btn gold" id="buy">${lapsed()?"Renew membership (mock)":"Start Premium (mock)"}</button><a class="btn" style="margin-top:10px;border:0" href="#/home">Not now</a></div>
   <p class="fine">In the real app, payment would go through the App Store. The subscription renews each year unless cancelled at least 24 hours before renewal in your phone's Settings. This mockup does not charge anything. If a membership lapses, your posts stay in Sled Finder and come back when you renew. See the <a href="#/terms">Terms &amp; Community Guidelines (draft)</a>.</p>`;
@@ -288,7 +327,7 @@ R.profile=()=>{bar("Profile",{sub:ROLES[role()]});tab("profile");
   return `<div class="prof"><span class="av big">SC</span><div><h1>@sample_collector</h1><div class="small muted">Example profile · ${mine.length} sleds · joined 2026</div></div></div>
   <div class="menu"><a href="#/collection">My collection <span>›</span></a><a href="#/idhelp">My ID requests <span>›</span></a><a href="#/upgrade">Subscription <span class="small muted">${ROLES[role()]} ›</span></a></div>
   <h3 class="sec">Demo role switcher</h3><div class="menu roles">${Object.keys(ROLES).map(k=>`<label><span>${ROLES[k]}</span><input type="radio" name="role" value="${k}" ${role()===k?"checked":""}></label>`).join("")}</div>
-  <div class="menu"><a href="#/timeline">Coasting Through History ${premium()?"":"🔒"}<span>›</span></a><a href="#/magazine">Vintage Runner Magazine ${premium()?"":"🔒"}<span>›</span></a><a href="#/makers">Sled makers directory <span>›</span></a></div>
+  <div class="menu"><a href="#/timeline">Coasting Through History ${premium()?"":"🔒"}<span>›</span></a><a href="#/articles">Vintage Runner articles ${premium()?"":"🔒"}<span>›</span></a><a href="#/makers">Sled makers directory <span>›</span></a></div>
   <div class="menu"><a href="#/profile" onclick="return false">About · Rosebud Sled Museum, Schaumburg, IL <span></span></a><a href="#/profile" onclick="return false">Privacy: private sleds are visible only to you <span></span></a><a href="#/terms">Terms &amp; Community Guidelines (draft) <span>›</span></a></div>
   <p class="legend" style="padding-bottom:24px">Clickable mockup for review. No accounts, servers or payments.</p>`;
 };
