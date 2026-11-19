@@ -58,10 +58,11 @@ const editBar=(item,editHref,kind)=>{const own=!!(item.mine||item.userAdded);
   if(!own)return "";
   return premium()?btns("Edit "+kind):`<a class="btn" href="#/upgrade">🔒 ${lapsed()?"Renew":"Upgrade"} to edit your submissions</a>`};
 const editedNote=x=>x&&x.editedBy?`<span class="edited">✎ Edited by ${esc(x.editedBy)}</span>`:"";
-// Membership gate: posting and viewing community posts require paid membership.
+// Membership gate: posting and viewing the Sled Maker and Model Database require paid membership.
 const lapsedText=n=>`Your membership has lapsed. ${n?`Your ${n} earlier post${n==1?"":"s"} stay`:"Your earlier posts stay"} in Sled Finder and come back as soon as you renew.`;
 const gate=(title,text)=>`<div class="gate"><div class="gl">🔒</div><b>${title}</b><p>${text}</p><a class="btn gold" href="#/upgrade">${lapsed()?"Renew membership · $15/yr":"Join · $15/yr"}</a><a class="small" href="#/terms">Terms &amp; Community Guidelines (draft)</a></div>`;
-const communityGate=()=>gate(lapsed()?"Membership lapsed":"Community posts are for members",lapsed()?lapsedText(0)+" Renew to see community posts again.":"Paid members post their sleds and see everyone's posts, photos, the map and ID help. Free members can still browse the free makers' galleries and Sleds for Sale.");
+const databaseGate=()=>gate(lapsed()?"Membership lapsed":"The Sled Maker and Model Database is for members",lapsed()?lapsedText(0)+" Renew to see the Sled Maker and Model Database again.":"Subscribers (paid members) can view and add their sleds, and search and map others' sleds. Free members can still browse the free makers' galleries and Sleds for Sale.");
+const dbIntro=()=>`<h3 class="sec" id="database">Sled Maker and Model Database</h3><p class="legend">Subscribers (paid members) can view and add their sleds, and search and map others' sleds.</p><p class="legend db-links"><a href="#/identify">📷 Photo ID${premium()?"":" 🔒"}</a><a href="#/map">🗺 Maker map${premium()?"":" 🔒"}</a><a href="#/search">Search</a>${premium()?'<a href="#/add">＋ Add a sled</a>':""}</p>`;
 const ackHTML=()=>`<label class="ack"><input type="checkbox" name="ack" required><span>I agree my post and photos become part of Sled Finder and may be edited or removed by Sled Finder for accuracy. <a href="#/terms" target="_blank">Read the Terms</a></span></label>`;
 // Maker on a post: a real maker id, or 0 = unknown with an optional custom text ("Likely Pratt").
 const mk=s=>s&&+s.maker?disp(M(s.maker)):(s&&s.makerText?s.makerText+" (unconfirmed)":"Unknown maker");
@@ -131,18 +132,19 @@ R.home=()=>{bar(window.APP_SHORT,{sub:"Rosebud Sled Museum",act:'<a class="act" 
   const feed=allSleds().filter(s=>s.shared);
   const free=MAKERS.filter(isFree);
   return `<div class="hero" style="background-image:url(images/hero-flexible-flyer-3c-deck-p60.jpg)"><div class="in"><b>Coasting Through History</b><span>American sled makers, 1850–1990 · tap for the timeline</span></div><a href="#/timeline" style="position:absolute;inset:0;z-index:2" aria-label="Timeline"></a></div>
-  <div class="chips"><a class="chip on" href="#/home">Community feed</a><a class="chip" href="#/identify">📷 Photo ID ${premium()?"":"🔒"}</a><a class="chip" href="#/idhelp">What sled is this?</a><a class="chip" href="#/map">🗺 Map ${premium()?"":"🔒"}</a><a class="chip" href="#/sale">Sleds for Sale</a><a class="chip" href="#/search">Search</a><a class="chip" href="#/timeline">Timeline ${premium()?"":"🔒"}</a><a class="chip" href="#/articles">Articles ${premium()?"":"🔒"}</a></div>
+  <div class="chips"><a class="chip on" href="#/database">Sled Maker and Model Database</a><a class="chip" href="#/identify">📷 Photo ID ${premium()?"":"🔒"}</a><a class="chip" href="#/idhelp">What sled is this?</a><a class="chip" href="#/map">🗺 Map ${premium()?"":"🔒"}</a><a class="chip" href="#/sale">Sleds for Sale</a><a class="chip" href="#/search">Search</a><a class="chip" href="#/timeline">Timeline ${premium()?"":"🔒"}</a><a class="chip" href="#/articles">Articles ${premium()?"":"🔒"}</a></div>
   <div class="pad" style="padding-top:12px;padding-bottom:0"><a class="btn pine" href="#/identify">📷 Identify a sled from a photo${premium()?"":" 🔒"}</a></div>
-  ${premium()?"":`<h3 class="sec">Community feed</h3>${communityGate()}`}
+  ${premium()?"":dbIntro()+databaseGate()}
   ${!premium()?"":`<h3 class="sec">What sled is this? <a href="#/idhelp">See all</a></h3>
   <div style="padding:0 16px">${window.ID_POSTS.slice(0,1).map(q=>`<a class="card idcard" href="#/idhelp"><div class="th" style="background-image:url('${q.img}')"></div><div><div class="small" style="font-weight:600">@${esc(q.user)} <span class="sample-tag">Example</span></div><div style="font-size:.84rem;margin-top:3px">${esc(q.q)}</div><div class="small muted" style="margin-top:3px">${q.answers.length} answer${q.answers.length==1?"":"s"} · Help identify →</div></div></a>`).join("")}</div>`}
   <h3 class="sec">Free makers <a href="#/makers">All 61</a></h3>
   <div class="hscroll">${free.map(m=>`<a class="card mk" href="#/maker/${m.id}"><div class="th" style="background-image:url('${(mImgs(models(m).find(x=>mImgs(x).length)||{})[0])||""}')"></div><div class="n">${esc(disp(m))}</div><div class="d">${esc(m.area)}</div></a>`).join("")}</div>
-  ${premium()?"":`<a class="promo" href="#/upgrade"><img class="cv" src="images/vintage-runner-tuxedo-racer-cover-p1.jpg" alt=""><div><b>Become a member</b><span style="display:block;opacity:.8;margin-bottom:2px">${Object.keys(FREE).length} free · ${61-Object.keys(FREE).length} premium</span><span>Post your sleds, see the community feed, full histories, period ads, the timeline, no-frills magazine articles and selling. $15/year.</span></div></a>`}
+  ${premium()?"":`<a class="promo" href="#/upgrade"><img class="cv" src="images/vintage-runner-tuxedo-racer-cover-p1.jpg" alt=""><div><b>Become a member</b><span style="display:block;opacity:.8;margin-bottom:2px">${Object.keys(FREE).length} free · ${61-Object.keys(FREE).length} premium</span><span>Post your sleds, use the Sled Maker and Model Database, full histories, period ads, the timeline, no-frills magazine articles and selling. $15/year.</span></div></a>`}
   <h3 class="sec">Sleds for Sale <a href="#/sale">See all</a></h3>
   <div class="hscroll">${window.SALE_LISTINGS.slice(0,4).map(l=>`<a class="card mk" href="#/listing/${l.id}"><div class="th" style="background-image:url('${l.img}')"></div><div class="n">${l.price?esc(l.price)+" · ":""}${esc(l.title.replace("[sample] ",""))}</div><div class="d">${esc(l.town)} · Ships: ${esc(l.ship)}</div></a>`).join("")}</div>
-  ${premium()?`<h3 class="sec">Community feed</h3><div class="feed">${feed.map(postCard).join("")}</div>`:""}`;
+  ${premium()?dbIntro()+`<div class="feed">${feed.map(postCard).join("")}</div>`:""}`;
 };
+R.database=()=>{const html=R.home();setTimeout(()=>{const el=$("#database"),v=$("#view");if(el&&v)v.scrollTop=Math.max(0,el.offsetTop-8)},0);return html};
 R.collection=()=>{bar("My Collection",{sub:"@sample_collector",act:'<a class="act" href="#/add" aria-label="Add">＋</a>'});tab("collection");
   const mine=allSleds().filter(s=>s.mine||s.userAdded);
   if(!premium())return lapsed()?`<div class="lapsed-ghost">${mine.slice(0,4).map(()=>'<div class="lgt"></div>').join("")}</div>${gate("Membership lapsed",lapsedText(mine.length)+" While it's lapsed, your posts are hidden, including from you.")}`
@@ -193,14 +195,14 @@ R.add=(editId)=>{const E=editId?allSleds().find(x=>x.id==editId):null;
   <label>or ZIP<input name="zip" inputmode="numeric" maxlength="5" placeholder="60193"></label>
   <small class="muted" style="font-size:.7rem">Only the town shows on the map. Never enter a street address. Choose NA if you don't know.</small></fieldset>
   <label>Notes<textarea name="notes" placeholder="Stencils, stamps, repairs, provenance…">${v("notes")}</textarea></label>
-  <label class="toggle"><span>Share with the community<small>Off = only you can see it</small></span><span class="sw"><input type="checkbox" name="shared" checked><i></i></span></label>
+  <label class="toggle"><span>Share in the Sled Maker and Model Database<small>Off = only you can see it</small></span><span class="sw"><input type="checkbox" name="shared" checked><i></i></span></label>
   ${adminEdit?'<p class="legend" style="margin:0;padding:0">Saving marks this post “Edited by Sled Finder”.</p>':ackHTML()}
   <button class="btn solid" type="submit">${E?"Save changes":"Save sled"}</button>
   ${E?"":`<p class="legend" style="margin:0">Paid members can edit or delete their own posts later.</p>${draft?'<p class="legend" style="margin:0">Maker, years and origin ZIP were filled from the photo ID demo. You can change anything before you save.</p>':""}<a class="btn" href="#/identify">📷 Identify from a photo first</a><a class="btn" href="#/idhelp">Not sure? Ask “What sled is this?”</a>`}</form>`;
 };
 R.edit=id=>R.add(id);
 R.sled=id=>{const s=allSleds().find(x=>x.id==id);if(!s)return R.home();const m=+s.maker?M(s.maker):null;
-  if(!premium()){bar("Sled",{back:true});tab(isOwn(s)?"collection":"home");return isOwn(s)&&lapsed()?gate("Membership lapsed",lapsedText(allSleds().filter(isOwn).length)):communityGate()}
+  if(!premium()){bar("Sled",{back:true});tab(isOwn(s)?"collection":"home");return isOwn(s)&&lapsed()?gate("Membership lapsed",lapsedText(allSleds().filter(isOwn).length)):databaseGate()}
   bar(m?disp(m):"Sled",{back:true,sub:s.model});tab(s.mine||s.userAdded?"collection":"home");
   const grp=sameModel(s);
   return `${gallery(s.imgs,hidden(s))}
@@ -243,7 +245,7 @@ R.maker=id=>{const m=M(id);if(!m)return R.makers();const p=m.p,free=isFree(m),P=
     body=`<div class="prose"><p class="muted">Free members see the name, place and dates. Premium unlocks the history, model gallery and period ads.</p></div>${lockBox("Premium maker","History, model gallery and period advertisements.")}`;
   }
   return `<div class="mp-head"><p class="eyebrow">Maker #${m.id} of 61 ${free?'· <span class="free-pill">Free</span>':""}</p><h1>${esc(disp(m))}</h1>${disp(m)!==m.name?`<div class="small muted">Matrix entry: ${esc(m.name)}</div>`:""}</div>${facts}${brandBox(m)}${body}
-  <h3 class="sec">Collectors' sleds by model</h3>${!premium()?communityGate():(()=>{const G={};allSleds().filter(s=>s.maker==m.id&&(s.shared||isOwn(s))).forEach(s=>{(G[modelKey(s)]=G[modelKey(s)]||[]).push(s)});const ks=Object.keys(G);
+  <h3 class="sec">Collectors' sleds by model</h3>${!premium()?databaseGate():(()=>{const G={};allSleds().filter(s=>s.maker==m.id&&(s.shared||isOwn(s))).forEach(s=>{(G[modelKey(s)]=G[modelKey(s)]||[]).push(s)});const ks=Object.keys(G);
     return ks.length?ks.map(k=>{const g=G[k];return `<p class="grp-h"><b>${esc(disp(m))} ${esc(g[0].model)}</b> · ${g.length} collector${g.length==1?"":"s"}</p>${groupList(g)}`}).join(""):'<p class="small muted" style="padding:0 16px">No shared sleds yet.</p>'})()}<div style="height:20px"></div>`;
 };
 R.search=()=>{bar("Search",{back:true,sub:"Makers, models, collectors"});tab("home");
@@ -252,12 +254,12 @@ R.search=()=>{bar("Search",{back:true,sub:"Makers, models, collectors"});tab("ho
     const mk=MAKERS.filter(m=>(disp(m)+" "+m.name+" "+m.models+" "+m.area).toLowerCase().includes(q));
     const sl=premium()?allSleds().filter(s=>s.shared||s.mine||s.userAdded).filter(s=>(mk(s)+" "+s.model+" "+s.user+" "+s.years).toLowerCase().includes(q)):[];
     out.innerHTML=`<h3 class="sec">Makers (${mk.length})</h3><div class="list card">${mk.map(m=>`<a class="mrow" href="#/maker/${m.id}"><span class="num">${m.id}</span><span class="tx"><div class="n">${esc(disp(m))}</div><div class="d">${esc(m.area)} · ${esc(m.models||"")}</div></span>${isFree(m)?'<span class="free-pill">Free</span>':premium()?"›":"🔒"}</a>`).join("")||'<div class="mrow">No makers</div>'}</div>
-    ${premium()?`<h3 class="sec">Collectors' sleds (${sl.length})</h3><div class="grid2">${sl.map(s=>`<a class="card tile" href="${tileHref(s)}">${tileTh(s)}<div class="n">${esc(mk(s))}</div><div class="d">${esc(s.model)} · ${esc(s.years)}</div><div class="d">@${esc(s.user)}</div></a>`).join("")}</div>`:`<h3 class="sec">Collectors' sleds</h3>${communityGate()}`}`};
+    ${premium()?`<h3 class="sec">Collectors' sleds (${sl.length})</h3><div class="grid2">${sl.map(s=>`<a class="card tile" href="${tileHref(s)}">${tileTh(s)}<div class="n">${esc(mk(s))}</div><div class="d">${esc(s.model)} · ${esc(s.years)}</div><div class="d">@${esc(s.user)}</div></a>`).join("")}</div>`:`<h3 class="sec">Collectors' sleds</h3>${databaseGate()}`}`};
     i.oninput=run;i.value=LS.get("lastq","Paris");run();i.addEventListener("change",()=>LS.set("lastq",i.value))});
   return `<div class="search"><span>⌕</span><input id="q" placeholder="Search makers, models, collectors" autofocus></div><div id="res"></div>`;
 };
 R.idhelp=()=>{bar("What sled is this?",{back:true,sub:"Community ID help"});tab("home");
-  if(!premium())return communityGate();
+  if(!premium())return databaseGate();
   return `<div class="pad"><a class="btn pine" href="#/identify">📷 Identify from a photo</a><a class="btn solid" style="margin-top:10px" href="#/add">Post a photo for community ID</a></div>
   <div class="feed">${window.ID_POSTS.map(q=>`<article class="card post"><div class="ph" style="background-image:url('${q.img}')"></div><div class="meta"><div class="who"><span class="av">${initials(q.user)}</span>@${esc(q.user)} <span class="sample-tag">Example data</span></div><div style="font-size:.88rem">${esc(q.q)}</div>
   ${q.answers.map(a=>`<div style="margin-top:8px;padding:8px 10px;background:var(--stone);border-radius:10px;font-size:.8rem">${esc(a)}</div>`).join("")}
@@ -320,7 +322,7 @@ R.upgrade=(reason)=>{bar(window.APP_NAME+" Premium",{back:true,sub:"Mock paywall
   return `<div class="mock-banner">MOCKUP · no real payment · nothing is charged</div>
   <div class="pw-hero"><p class="eyebrow" style="color:#e7b7a5">${esc(window.APP_NAME)} Premium</p><h1>${lapsed()?"Welcome back. Renew to bring your posts back.":"Post, see and sell sleds. All 61 makers."}</h1><p>${esc(typeof reason==="string"?reason:(lapsed()?lapsedText(allSleds().filter(isOwn).length):"Your research library and community for antique sleds."))}</p></div>
   <div class="compare"><div class="r h"><span>What you get</span><span>Free</span><span>Premium</span></div>
-  ${r("Search makers & models",true)}${r("Browse Sleds for Sale",true)}${r("Maker profiles",`${Object.keys(FREE).length} free, limited`)}${r("Curated model galleries","Limited")}${r("Post & catalog your sleds",false)}${r("See community posts, photos & map",false)}${r("“What sled is this?” ID help",false)}${r("All 61 company histories",false)}${r("Complete model lists & extra photos",false)}${r("Period advertisements",false)}${r("Sell your sleds",false)}${r("Edit & delete your own submissions",false)}${r("Coasting Through History timeline",false)}${r("Vintage Runner articles (text)",false)}${r("Printable insurance list",false)}</div>
+  ${r("Search makers & models",true)}${r("Browse Sleds for Sale",true)}${r("Maker profiles",`${Object.keys(FREE).length} free, limited`)}${r("Curated model galleries","Limited")}${r("Post & catalog your sleds",false)}${r("Sled Maker and Model Database (view, add, search &amp; map)",false)}${r("“What sled is this?” ID help",false)}${r("All 61 company histories",false)}${r("Complete model lists & extra photos",false)}${r("Period advertisements",false)}${r("Sell your sleds",false)}${r("Edit & delete your own submissions",false)}${r("Coasting Through History timeline",false)}${r("Vintage Runner articles (text)",false)}${r("Printable insurance list",false)}</div>
   <div class="price"><div><div class="small muted">Yearly · renews automatically</div><b>$15.00 / year</b></div><span class="badge-prem">Best value</span></div>
   <div class="pad"><button class="btn gold" id="buy">${lapsed()?"Renew membership (mock)":"Start Premium (mock)"}</button><a class="btn" style="margin-top:10px;border:0" href="#/home">Not now</a></div>
   <p class="fine">In the real app, payment would go through the App Store. The subscription renews each year unless cancelled at least 24 hours before renewal in your phone's Settings. This mockup does not charge anything. If a membership lapses, your posts stay in Sled Finder and come back when you renew. See the <a href="#/terms">Terms &amp; Community Guidelines (draft)</a>.</p>`;
@@ -331,7 +333,7 @@ R.profile=()=>{bar("Profile",{sub:ROLES[role()]});tab("profile");
   return `<div class="prof"><span class="av big">SC</span><div><h1>@sample_collector</h1><div class="small muted">Example profile · ${mine.length} sleds · joined 2026</div></div></div>
   <div class="menu"><a href="#/collection">My collection <span>›</span></a><a href="#/idhelp">My ID requests <span>›</span></a><a href="#/upgrade">Subscription <span class="small muted">${ROLES[role()]} ›</span></a></div>
   <h3 class="sec">Demo role switcher</h3><div class="menu roles">${Object.keys(ROLES).map(k=>`<label><span>${ROLES[k]}</span><input type="radio" name="role" value="${k}" ${role()===k?"checked":""}></label>`).join("")}</div>
-  <div class="menu"><a href="#/identify">Identify a sled from a photo ${premium()?"":"🔒"}<span>›</span></a><a href="#/map">Maker map ${premium()?"":"🔒"}<span>›</span></a><a href="#/timeline">Coasting Through History ${premium()?"":"🔒"}<span>›</span></a><a href="#/articles">Vintage Runner articles ${premium()?"":"🔒"}<span>›</span></a><a href="#/makers">Sled makers directory <span>›</span></a></div>
+  <div class="menu"><a href="#/database">Sled Maker and Model Database ${premium()?"":"🔒"}<span>›</span></a><a href="#/identify">Identify a sled from a photo ${premium()?"":"🔒"}<span>›</span></a><a href="#/map">Maker map ${premium()?"":"🔒"}<span>›</span></a><a href="#/timeline">Coasting Through History ${premium()?"":"🔒"}<span>›</span></a><a href="#/articles">Vintage Runner articles ${premium()?"":"🔒"}<span>›</span></a><a href="#/makers">Sled makers directory <span>›</span></a></div>
   <div class="menu"><a href="#/profile" onclick="return false">About · Rosebud Sled Museum, Schaumburg, IL <span></span></a><a href="#/profile" onclick="return false">Privacy: private sleds are visible only to you <span></span></a><a href="#/terms">Terms &amp; Community Guidelines (draft) <span>›</span></a></div>
   <p class="legend" style="padding-bottom:24px">Clickable mockup for review. No accounts, servers or payments.</p>`;
 };
@@ -404,7 +406,7 @@ const ID_DEMO={
 
 R.identify=()=>{
   bar("Identify a sled",{back:true,sub:"Photo search · demo"});tab("home");
-  if(!premium())return communityGate()+`<p class="legend">The photo-ID spec left membership as an open question. This mockup follows the existing community pattern: running an identification, like the map and community posts, is for paid members. Posting after a match still needs membership too.</p>`;
+  if(!premium())return databaseGate()+`<p class="legend">The photo-ID spec left membership as an open question. This mockup follows the existing membership pattern: running an identification, like the map and the Sled Maker and Model Database, is for paid members. Posting after a match still needs membership too.</p>`;
   setTimeout(()=>{
     const preview=$("#idpreview"), file=$("#idfile"), go=$("#idgo"), results=$("#idresults"), hint=$("#idhint");
     const showPreview=src=>{preview.style.backgroundImage=`url('${src}')`;preview.classList.add("has");preview.dataset.src=src;go.disabled=false;hint.textContent="You can retake or choose a different photo, then run the demo identification."};
@@ -472,7 +474,7 @@ R.identify=()=>{
 };
 
 R.map=()=>{bar("Maker map",{back:true,sub:"Black-list makers · sample pins"});tab("makers");
-  if(!premium())return communityGate()+`<p class="legend">The map spec left membership as an open question. This mockup follows the existing community pattern: the map, like community posts and photo ID, is for paid members.</p>`;
+  if(!premium())return databaseGate()+`<p class="legend">The map spec left membership as an open question. This mockup follows the existing membership pattern: the map, like the Sled Maker and Model Database and photo ID, is for paid members.</p>`;
   const userPins=allSleds().filter(s=>s.userAdded&&(s.shared||isOwn(s))&&s.lat!=null&&s.locType!=="na").map(s=>{const key=mapKeyForSled(s);return key?Object.assign({key,fromUser:true},s):null}).filter(Boolean);
   setTimeout(()=>{
     if(!window.L){$("#map").innerHTML='<p class="pad small">Map library could not load (offline?).</p>';return}
@@ -521,7 +523,7 @@ R.mphotos=(arg)=>{const [mid,idx]=String(arg).split(",");const m=M(mid),x=m&&mod
 };
 
 R.unknown=()=>{bar("Unknown / unconfirmed makers",{back:true,sub:"Not filed under any real maker"});tab("makers");
-  if(!premium())return communityGate();
+  if(!premium())return databaseGate();
   const arr=allSleds().filter(s=>!+s.maker&&(s.shared||isOwn(s))),G={};
   arr.forEach(s=>{const k=(s.makerText||"").trim()||"Unknown maker";(G[k]=G[k]||[]).push(s)});
   return `<p class="legend" style="margin-top:12px">Posts whose maker is unknown or typed in as a guess. They stay here, not under any of the 61 makers, until Sled Finder confirms and reassigns them.${isAdmin()?" As admin, open a post and use Admin edit to pick the real maker.":""}</p>
@@ -531,13 +533,13 @@ R.terms=()=>{bar("Terms & Guidelines",{back:true,sub:"Draft for review"});tab("p
   const S=(h,ps)=>`<h3 class="sec">${h}</h3><div class="prose">${ps.map(p=>`<p>${p}</p>`).join("")}</div>`;
   return `<div class="mock-banner">DRAFT · plain-language summary for review · not legal advice · have a lawyer review before launch</div>
   <div class="mp-head"><p class="eyebrow">Sled Finder</p><h1>Terms &amp; Community Guidelines</h1><div class="small muted">Draft, November 2026. Placeholder text for the mockup.</div></div>
-  ${S("1. Membership",["Posting sleds, posting sale ads, and seeing other members' posts and photos (the community feed, the map, “What sled is this?” and collectors' sleds on maker pages) require a paid Sled Finder membership, currently $15 a year, renewing automatically until you cancel.","Without a membership you can still browse the maker directory, the free makers' curated galleries and Sleds for Sale listings."])}
+  ${S("1. Membership",["Posting sleds, posting sale ads, and seeing other members' posts and photos (the Sled Maker and Model Database, the map, “What sled is this?” and collectors' sleds on maker pages) require a paid Sled Finder membership, currently $15 a year, renewing automatically until you cancel.","Without a membership you can still browse the maker directory, the free makers' curated galleries and Sleds for Sale listings."])}
   ${S("2. Your posts and photos",["You keep ownership of the photos and information you post.","By posting, you give Sled Finder permission to store, show, resize and organize your posts and photos inside Sled Finder for other members to see, for as long as they stay in Sled Finder. Your posts become part of Sled Finder's shared record of antique sleds."])}
   ${S("3. Only post photos you own",["Post only photos you took yourself or have permission to use. Don't post other people's photos, catalog scans or ads unless you have the right to share them."])}
   ${S("4. Keep it accurate",["Give the maker, model, estimated years of manufacture and location as accurately as you can. A best guess is fine. Choose “Unknown” or use a custom maker such as “Likely Pratt” when you're not sure.","Use town-level locations only. Never post a street address."])}
   ${S("5. Sled Finder may edit or remove posts",["To keep the record accurate, Sled Finder may correct a post's maker, model, years, location, name or photos, or remove posts and ads. Corrected posts show a small “Edited by Sled Finder” note.","Sled Finder may remove posts that break these guidelines, such as photos you don't have the right to share, off-topic or offensive content, or spam."])}
   ${S("6. Editing and deleting your own posts",["Paid members can edit or delete their own posts and ads. You can't edit other members' posts or Sled Finder's own content, such as maker histories."])}
-  ${S("7. If your membership lapses",["Your posts stay in Sled Finder. While your membership is lapsed you can't see community posts, including your own, and you can't post or edit. When you renew, your posts come back.","[To decide: whether a lapsed member's posts stay visible to other paid members in the meantime.]"])}
+  ${S("7. If your membership lapses",["Your posts stay in Sled Finder. While your membership is lapsed you can't see the Sled Maker and Model Database, including your own posts, and you can't post or edit. When you renew, your posts come back.","[To decide: whether a lapsed member's posts stay visible to other paid members in the meantime.]"])}
   ${S("8. Sleds for Sale",["Buying and selling happen directly between members by email. Sled Finder isn't part of the sale and doesn't hold payments or guarantee items, descriptions or shipping."])}
   ${S("9. Be respectful",["Be kind and helpful, especially when helping identify sleds. No harassment, spam or misleading listings."])}
   ${S("10. Changes",["Sled Finder may update these terms. If changes are significant, members will be told in the app."])}

@@ -23,14 +23,14 @@ This document is the feature specification only. Jonathan will gather and organi
 - Training a vision model from scratch. Use a pre-trained model (ResNet, EfficientNet, or similar) and fine-tune it on sled photos.
 - Treating the company briefs (the 12–15 prose descriptions prepared for the Elgin / Gail Borden presentation) as the class list or the training-label source.
 - Auto-adding green-list makers, or makers not in the matrix (Sherwood Brothers; Rosebud Sled Company of St. Joseph, MI), to the identifier. Those stay out until Jonathan says otherwise.
-- Auto-posting a community submission, inventing estimated years of manufacture, or inventing an origin location from a photo.
+- Auto-posting a Sled Maker and Model Database submission, inventing estimated years of manufacture, or inventing an origin location from a photo.
 - Replacing Jonathan's review of identifications that will be used for training.
 
 ## Relationship to existing app rules
 Photo identification must follow the rules already in the Sled Finder mockup and the companion map spec:
 
 - A submission can include estimated years of manufacture, the origin zip code of the sled, and a maker chosen from the dropdown. The dropdown includes **Unknown maker** and **Custom** (free text, for example "Likely Pratt or Kalamazoo"). Custom values are saved as typed and shown as unconfirmed. Sled Finder (admin) may reassign them later.
-- Posting community posts, and viewing community posts, require a paid Sled Finder Premium membership. A lapsed member cannot see community posts, including their own old posts.
+- Posting to the Sled Maker and Model Database, and viewing it, require a paid Sled Finder Premium membership. Subscribers (paid members) can view and add their sleds, and search and map others' sleds. A lapsed member cannot see the database, including their own old posts.
 - Admin (Jonathan) can edit or delete any post.
 - Posting requires an acknowledgment that the post and photos become part of Sled Finder and may be edited or removed for accuracy, plus a link to the in-app Terms (currently marked draft and not legal advice).
 - Locations are shown at zip or town level only. Never collect, display, or store a street address.
@@ -88,7 +88,7 @@ Jonathan has named Sherwood Brothers (Canastota, NY) and Rosebud Sled Company (S
 
 ### Entry
 - A clear **Identify a sled** (or **Photo search**) action from Home, and the same action on the **Add a sled** form so a user can identify first and then post.
-- If Premium-gated (open question), free or lapsed users see the existing upgrade / renew path rather than the camera. If not gated, anyone may run an identification, but posting or viewing the resulting community post still follows the membership rules above.
+- If Premium-gated (open question), free or lapsed users see the existing upgrade / renew path rather than the camera. If not gated, anyone may run an identification, but posting or viewing the resulting Sled Maker and Model Database post still follows the membership rules above.
 
 ### Capture or upload
 1. The user takes a new photo or uploads an existing one. MVP is one photo per request. The UI should encourage a sharp, well-lit view of the whole sled, and mention that a decal, runner profile, or underside photo can be added in a later version.
@@ -105,10 +105,10 @@ Jonathan has named Sherwood Brothers (Canastota, NY) and Rosebud Sled Company (S
 ### Confirm or correct
 9. The user must confirm a suggestion, pick a different black-list maker, choose **Unknown maker**, or enter a **Custom** value. The model never writes a maker onto a record by itself.
 10. If the user wants to add the sled to Sled Finder, continue into the existing Add a sled flow with the chosen maker pre-filled. The user still supplies estimated years of manufacture, origin zip code (if they have it), any additional photos, and the posting acknowledgment.
-11. If the user only wanted an identification, they can stop there. Those photos are not community posts. Whether they may be used for training is an open question and must not be assumed.
+11. If the user only wanted an identification, they can stop there. Those photos are not Sled Maker and Model Database posts. Whether they may be used for training is an open question and must not be assumed.
 
 ### After a post
-12. A posted, confirmed sled can appear in the community feed (Premium) and, when an origin zip is present, on the searchable maker map, subject to the companion spec and its open privacy questions.
+12. A posted, confirmed sled can appear in the Sled Maker and Model Database (Premium) and, when an origin zip is present, on the searchable maker map, subject to the companion spec and its open privacy questions.
 13. Admin can edit or delete the post, including correcting the maker. A corrected maker is what later training review should use, not the original model guess.
 
 ## Technical architecture (high-level)
@@ -297,7 +297,7 @@ If two related classes (especially Flexible Flyer, Fire Fly, and Yankee Clipper)
 - Origin zip codes, geocoding, color-coded pins, and multi-maker comparison remain the map spec's job. Photo identification does not place pins and does not use GPS from the image.
 - Estimated years of manufacture stay a user-entered (or admin-edited) field. The identifier does not estimate years in the MVP.
 - Sleds saved as **Unknown maker** or **Custom** follow the companion spec's still-open question: left off the map, or shown in their own layer. Until that is decided, do not silently put them under a black-list pin.
-- Community visibility is unchanged: posting and viewing posts require Premium; lapsed members lose access to community posts, including their own; admin can edit or delete any post.
+- Database visibility is unchanged: posting to and viewing the Sled Maker and Model Database require Premium; lapsed members lose access, including to their own posts; admin can edit or delete any post.
 - Confirmed identifications become future training data only after admin review. Admin corrections override both the model and the user's first choice for training purposes.
 - A later retraining pass can use those reviewed photos, then ship a new `model_version`. Old posts keep their saved maker unless admin changes them.
 
@@ -317,7 +317,7 @@ If two related classes (especially Flexible Flyer, Fire Fly, and Yankee Clipper)
 - Strip GPS and other location EXIF on the device before upload, and again on the server. Do not store the original tagged file. Do not infer or display a street address from a photo.
 - If the user later posts the sled, only the origin zip or town they enter is used, consistent with the map spec's privacy question (zip-level display).
 - Identification photos are not sent to a general consumer image-search service. Staying in-app is part of the product point. If a training vendor (for example Roboflow or Vertex AI) processes images, that is a backend processing choice and needs a written understanding of retention, training use, and deletion; this spec is not legal advice.
-- Community posts already require an acknowledgment that posts and photos become part of Sled Finder. That acknowledgment is not, by itself, clearly permission to use a photo that was only submitted for an identification and never posted. Training use of identify-only photos needs an explicit consent path or a decision not to use them (open question).
+- Sled Maker and Model Database posts already require an acknowledgment that posts and photos become part of Sled Finder. That acknowledgment is not, by itself, clearly permission to use a photo that was only submitted for an identification and never posted. Training use of identify-only photos needs an explicit consent path or a decision not to use them (open question).
 - Do not put a street address for the museum or for any contributor in the app, the dataset manifests, or this feature's copy. The museum is in Schaumburg, Illinois.
 - Retention of abandoned or failed identification images should be short and is an open question.
 
@@ -330,7 +330,7 @@ If two related classes (especially Flexible Flyer, Fire Fly, and Yankee Clipper)
 - Required confirm/correct step into the existing dropdown, including **Unknown maker** and **Custom**.
 - EXIF/GPS stripping; no street-level location.
 - Handoff into Add a sled (estimated years, origin zip, acknowledgment) when the user chooses to post.
-- Admin review before any community photo enters the training set.
+- Admin review before any member-submitted photo from the Sled Maker and Model Database enters the training set.
 - Evaluation on a held-out test set, including unknown / non-sled samples if they exist.
 - No live feature in the mockup until the dataset work begins; this spec is the deliverable for now.
 
@@ -345,7 +345,7 @@ If two related classes (especially Flexible Flyer, Fire Fly, and Yankee Clipper)
 - Automatic (but still confirmation-gated) flow from a confirmed ID plus origin zip onto the maker map.
 
 ## Open questions
-- Is photo identification a Premium feature, or can free users run an ID even though posting and viewing community posts require paid membership?
+- Is photo identification a Premium feature, or can free users run an ID even though posting to and viewing the Sled Maker and Model Database require paid membership?
 - Should the first live model be maker-level only (recommended for MVP), or also try model-level IDs for makers that already have distinct named models?
 - Cloud inference versus on-device, and which training / hosting tool to use? Cost should be quoted before any paid plan is chosen; this spec does not include vendor prices.
 - What is the go-live minimum: 30–50 solid photos per class, a different number, or a staged rollout where only ready classes appear in results?

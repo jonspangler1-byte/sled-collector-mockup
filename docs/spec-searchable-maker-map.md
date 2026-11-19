@@ -57,7 +57,7 @@ Jonathan has named Sherwood Brothers (Canastota, NY) and Rosebud Sled Company (S
 - Auto-Wheel Coaster Company was a New York company (North Tonawanda, NY; formerly Buffalo Sled Company of Buffalo, NY), not Pennsylvania.
 
 ## Open questions
-- Is the map a Premium feature, given that community posts need a paid membership?
+- Is the map a Premium feature, given that the Sled Maker and Model Database needs a paid membership?
 - Is the zip code required or optional, and should the map show it only at zip level for privacy?
 - Where do sleds with an "Unknown maker" or "Custom" identification go: left off the map, or shown in their own layer?
 - Sherwood Brothers and Rosebud Sled Company: add to the matrix? If so, black or green? (Jonathan's call.)
