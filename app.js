@@ -492,7 +492,7 @@ R.identify=()=>{
           <li>Top-down of the whole sled</li>
           <li>Side profile of the runners</li>
           <li>Close-up of a decal or stamp</li>
-          <li>Underside hardware / bolt patterns</li>
+          <li>Underside hardware / bolt patterns</li><li>Steering bar (front crossbar)</li><li>Bumper / front end</li>
         </ul>
         <p>One clear photo is enough for this demo. Extra angles can be added later.</p>
       </div>
