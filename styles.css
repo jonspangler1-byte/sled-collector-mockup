@@ -397,3 +397,6 @@ h3.sec a{font-family:var(--sans);font-size:.72rem;font-weight:600;letter-spacing
 
 .legend a{color:var(--red);font-weight:600;text-decoration:none}
 .db-links{display:flex;flex-wrap:wrap;gap:8px 14px;margin-top:2px}
+
+.art-lock{flex:none;font-size:.95rem;padding-top:2px}
+.art-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}

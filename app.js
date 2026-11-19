@@ -271,6 +271,14 @@ R.timeline=()=>{if(!premium())return paywall("The Coasting Through History timel
   <ol class="tl">${window.TIMELINE.map(t=>`<li class="${t.il?"il":""}"><div class="y">${esc(t.y)}${t.il?"<em>Illinois</em>":""}</div><p>${esc(t.t)}</p></li>`).join("")}</ol>`;
 };
 function magazine(){return window.MAGAZINE||{articles:[],orderUrl:"https://rosebudsledmuseum.com/#magazine",cover:"images/vintage-runner-tuxedo-racer-cover-p1.jpg"}}
+// Online-only exclusive articles (not printed in the magazine). Titles and
+// teasers are placeholders only — no invented historical facts.
+const EXCLUSIVES=[
+  {id:"placeholder-1",title:"PLACEHOLDER: Online-only article 1",dek:"A short exclusive will be published here. This is a placeholder title and teaser only — no article has been written yet."},
+  {id:"placeholder-2",title:"PLACEHOLDER: Online-only article 2",dek:"Reserved for a future short article that will not appear in the printed Vintage Runner."},
+  {id:"placeholder-3",title:"PLACEHOLDER: Online-only article 3",dek:"Placeholder only. The finished piece will be added later; nothing here is a historical claim."}
+];
+const exclusivePlaceholderBody="This is placeholder copy for the mockup. The exclusive article has not been written yet. When it is ready, it will be a short, online-only piece for paid members, and it will not be printed in the magazine.";
 function magCta(){
   const M=magazine();
   return `<div class="art-cta"><div><b>Want the photographs and the layout?</b><p>These are no-frills text editions for reading in the app. The printed Vintage Runner keeps the photos, catalog plates and original design.</p><p class="small muted">${esc(M.orderPrices||"")}. ${esc(M.shipping||"")}</p></div><a class="btn pine" href="${esc(M.orderUrl)}" target="_blank" rel="noopener">Order the print edition</a></div>`;
@@ -289,13 +297,33 @@ function artBlocks(blocks){
   }).join("");
 }
 R.articles=()=>R.magazine();
-R.magazine=()=>{if(!premium())return paywall("Vintage Runner articles are included with Premium. The print magazine is sold separately.");
-  const M=magazine(), arts=M.articles||[];
-  bar("Articles",{back:true,sub:"Vintage Runner · Issue 1"});tab("home");
-  return `<div class="art-issue"><div class="art-hero"><img src="${esc(M.cover)}" alt="Vintage Runner cover"><div><div class="eyebrow">${esc(M.issue)} · ${esc(M.edition)}</div><b>Vintage Runner</b><p>No-frills text editions of the articles, to read in the app. The printed magazine keeps the photographs and the layout.</p></div></div>
+R.magazine=()=>{
+  const M=magazine(), arts=M.articles||[], P=premium();
+  bar("Articles",{back:true,sub:P?"Vintage Runner · Issue 1 + exclusives":"Titles and teasers"});tab("home");
+  const go=(href,n,title,dek,extra)=>`<a class="art-row" href="${href}"><span class="art-n">${n}</span><span class="art-meta"><b>${esc(title)}</b><em>${esc(dek)}</em>${extra||""}</span><span class="${P?"art-go":"art-lock"}">${P?"›":"🔒"}</span></a>`;
+  const exTags=`<span class="art-tags"><span class="sample-tag">PLACEHOLDER</span><span class="sample-tag">Online only</span></span>`;
+  return `<div class="art-issue">
+  <h3 class="sec" style="margin:0 0 8px">Exclusive (online only)</h3>
+  <p class="legend" style="margin:0 0 10px">Short articles for paid members, not printed in the magazine. Free and lapsed members can read the titles and teasers. Opening an article is part of Premium. Titles marked PLACEHOLDER are standing in until the real pieces are written — they are not finished articles and make no historical claims.</p>
+  <div class="art-list">${EXCLUSIVES.map((a,i)=>go("#/exclusive/"+a.id,String(i+1).padStart(2,"0"),a.title,a.dek,exTags)).join("")}</div>
+  <div class="art-hero" style="margin-top:22px"><img src="${esc(M.cover)}" alt="Vintage Runner cover"><div><div class="eyebrow">${esc(M.issue)} · ${esc(M.edition)}</div><b>Vintage Runner</b><p>No-frills text editions of the articles, to read in the app. The printed magazine keeps the photographs and the layout.</p></div></div>
   ${magCta()}
-  <p class="legend" style="margin:8px 0 4px">Print copies are sold separately; Apple only allows digital content in an in-app subscription.</p>
-  <div class="art-list">${arts.map((a,i)=>`<a class="art-row" href="#/article/${a.id}"><span class="art-n">${String(i+1).padStart(2,"0")}</span><span class="art-meta"><b>${esc(a.title)}</b><em>${esc(a.dek)}</em>${a.byline?`<span class="small muted">By ${esc(a.byline)}</span>`:""}</span><span class="art-go">›</span></a>`).join("")}</div></div>`;
+  <p class="legend" style="margin:8px 0 4px">Print copies are sold separately; Apple only allows digital content in an in-app subscription.${P?"":" Opening Issue 1 articles is part of Premium."}</p>
+  <div class="art-list">${arts.map((a,i)=>go("#/article/"+a.id,String(i+1).padStart(2,"0"),a.title,a.dek,a.byline?`<span class="small muted">By ${esc(a.byline)}</span>`:"")).join("")}</div></div>`;
+};
+R.exclusive=id=>{
+  const a=EXCLUSIVES.find(x=>x.id===id);
+  if(!a)return R.magazine();
+  if(!premium())return paywall("Exclusive articles are included with Premium. They are short, online-only pieces and are not printed in the magazine.");
+  bar("Exclusive",{back:true,sub:"Online only · not in the magazine"});tab("home");
+  return `<article class="art-read">
+    <div class="mock-banner">PLACEHOLDER · online only · not printed in the magazine · no article written yet</div>
+    <p class="eyebrow">Exclusive · Online only</p>
+    <h1>${esc(a.title)}</h1>
+    <p class="art-dek">${esc(a.dek)}</p>
+    <div class="art-body"><p class="art-note">${esc(exclusivePlaceholderBody)}</p></div>
+    <p class="legend"><a href="#/articles">Back to Articles</a></p>
+  </article>`;
 };
 R.article=id=>{if(!premium())return paywall("Vintage Runner articles are included with Premium. The print magazine is sold separately.");
   const M=magazine(), arts=M.articles||[], a=arts.find(x=>x.id===id);
@@ -322,7 +350,7 @@ R.upgrade=(reason)=>{bar(window.APP_NAME+" Premium",{back:true,sub:"Mock paywall
   return `<div class="mock-banner">MOCKUP · no real payment · nothing is charged</div>
   <div class="pw-hero"><p class="eyebrow" style="color:#e7b7a5">${esc(window.APP_NAME)} Premium</p><h1>${lapsed()?"Welcome back. Renew to bring your posts back.":"Post, see and sell sleds. All 61 makers."}</h1><p>${esc(typeof reason==="string"?reason:(lapsed()?lapsedText(allSleds().filter(isOwn).length):"Your research library and community for antique sleds."))}</p></div>
   <div class="compare"><div class="r h"><span>What you get</span><span>Free</span><span>Premium</span></div>
-  ${r("Search makers & models",true)}${r("Browse Sleds for Sale",true)}${r("Maker profiles",`${Object.keys(FREE).length} free, limited`)}${r("Curated model galleries","Limited")}${r("Post & catalog your sleds",false)}${r("Sled Maker and Model Database (view, add, search &amp; map)",false)}${r("“What sled is this?” ID help",false)}${r("All 61 company histories",false)}${r("Complete model lists & extra photos",false)}${r("Period advertisements",false)}${r("Sell your sleds",false)}${r("Edit & delete your own submissions",false)}${r("Coasting Through History timeline",false)}${r("Vintage Runner articles (text)",false)}${r("Printable insurance list",false)}</div>
+  ${r("Search makers & models",true)}${r("Browse Sleds for Sale",true)}${r("Maker profiles",`${Object.keys(FREE).length} free, limited`)}${r("Curated model galleries","Limited")}${r("Post & catalog your sleds",false)}${r("Sled Maker and Model Database (view, add, search &amp; map)",false)}${r("“What sled is this?” ID help",false)}${r("All 61 company histories",false)}${r("Complete model lists & extra photos",false)}${r("Period advertisements",false)}${r("Sell your sleds",false)}${r("Edit & delete your own submissions",false)}${r("Coasting Through History timeline",false)}${r("Vintage Runner articles (text)",false)}${r("Exclusive articles (online only, not printed)","Titles only")}${r("Printable insurance list",false)}</div>
   <div class="price"><div><div class="small muted">Yearly · renews automatically</div><b>$15.00 / year</b></div><span class="badge-prem">Best value</span></div>
   <div class="pad"><button class="btn gold" id="buy">${lapsed()?"Renew membership (mock)":"Start Premium (mock)"}</button><a class="btn" style="margin-top:10px;border:0" href="#/home">Not now</a></div>
   <p class="fine">In the real app, payment would go through the App Store. The subscription renews each year unless cancelled at least 24 hours before renewal in your phone's Settings. This mockup does not charge anything. If a membership lapses, your posts stay in Sled Finder and come back when you renew. See the <a href="#/terms">Terms &amp; Community Guidelines (draft)</a>.</p>`;
