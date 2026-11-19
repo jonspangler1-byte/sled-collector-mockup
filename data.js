@@ -295,3 +295,61 @@ window.STATE_CENTROIDS = {AL:[32.8,-86.8],AK:[64.7,-152.0],AZ:[34.3,-111.7],AR:[
 window.COMPANIES=[{name:"S. L. Allen & Co. (Planet Jr.)",note:"Per Jonathan Spangler, S. L. Allen & Co., the Planet Jr. company, made three sled brands.",
   brands:[{name:"Flexible Flyer",maker:1},{name:"Fire Fly",maker:2},{name:"Yankee Clipper",maker:2}]}];
 window.MAKER_LABELS={2:"Fire Fly / Yankee Clipper (S. L. Allen & Co.)"};
+
+// ===== Searchable maker map: 25 black-list dropdown entries =====
+// Matrix has 24 black (book) makers; Fire Fly and Yankee Clipper are split into
+// their own entries (Jonathan, 19 Nov 2026) and kept apart from Flexible Flyer.
+// Green-list makers and company briefs are not the dropdown source.
+// Keys "firefly" and "yclipper" both point at matrix #2.
+window.MAP_MAKERS = [
+  {key:"fflyer",     id:1,  label:"Flexible Flyer – Planet Jr / S.L. Allen Co.", color:"#8a1c1c", short:"Flexible Flyer"},
+  {key:"firefly",    id:2,  brand:"Fire Fly", label:"Fire Fly – Planet Jr / S.L. Allen Co.", color:"#e07a3d", short:"Fire Fly"},
+  {key:"yclipper",   id:2,  brand:"Yankee Clipper", label:"Yankee Clipper – Planet Jr / S.L. Allen Co.", color:"#c9a227", short:"Yankee Clipper"},
+  {key:"paris",      id:3,  label:"Paris", color:"#1d3328", short:"Paris"},
+  {key:"snw",        id:4,  label:"Standard Novelty Works (Lightning Guider)", color:"#2e6b4f", short:"Lightning Guider"},
+  {key:"acme",       id:5,  label:"American Acme Company", color:"#3d6e8c", short:"American Acme"},
+  {key:"autowheel",  id:6,  label:"Buffalo Sled Co. / Auto Wheel Coaster Co.", color:"#1f4b99", short:"Auto-Wheel Coaster"},
+  {key:"garton",     id:7,  label:"Garton Toy Company", color:"#5c3d8a", short:"Garton"},
+  {key:"pratt",      id:8,  label:"Pratt Mfg Co.", color:"#a33a5c", short:"Pratt"},
+  {key:"crs",        id:9,  label:"Chicago Rollerskate Co.", color:"#2a6f7a", short:"Chicago Rollerskate"},
+  {key:"tt",         id:10, label:"Turner and Thomas", color:"#6b4e31", short:"Turner & Thomas"},
+  {key:"kal",        id:11, label:"Kalamazoo Sled Company", color:"#c45c26", short:"Kalamazoo"},
+  {key:"anc",        id:12, label:"The American National Company", color:"#4a6b2f", short:"American National"},
+  {key:"rw",         id:13, label:"Richards & Wilcox", color:"#7a3e8c", short:"Richards & Wilcox"},
+  {key:"cjj",        id:14, label:"C.J. Johnson Co. (Safety sled)", color:"#8b4513", short:"C.J. Johnson"},
+  {key:"maple",      id:15, label:"Maplewood Craft Industries", color:"#0e6b5c", short:"Maplewood Craft"},
+  {key:"wagner",     id:16, label:"Wagner", color:"#b03a2e", short:"Wagner"},
+  {key:"starline",   id:17, label:"Hunt, Helm, Ferris & Co. (Starline)", color:"#1a5276", short:"Starline"},
+  {key:"duralite",   id:18, label:"Duralite", color:"#717d7e", short:"Duralite"},
+  {key:"snowhawk",   id:19, label:"“Snow Hawk” (American Gold Co.)", color:"#1b4f72", short:"Snow Hawk"},
+  {key:"crosby",     id:20, label:"Crosby Gilzinger Co.", color:"#6e2c00", short:"Crosby Gilzinger"},
+  {key:"ellingwood", id:21, label:"Ellingwood Turning Company", color:"#145a32", short:"Ellingwood"},
+  {key:"withington", id:22, label:"Withington", color:"#4a235a", short:"Withington"},
+  {key:"wilkinson",  id:23, label:"Wilkinson", color:"#7d6608", short:"Wilkinson"},
+  {key:"miller",     id:24, label:"Maynard Miller", color:"#1c2833", short:"Maynard Miller"}
+];
+
+// Demo-only map pins at town / ZIP-centroid-like points. NOT real finds.
+// Auto-Wheel Coaster home is North Tonawanda, NY (formerly Buffalo Sled Co.).
+window.SAMPLE_MAP_PINS = [
+  {id:"mp1",  key:"fflyer",    zip:"19103", town:"Philadelphia, PA",   lat:39.95, lng:-75.17, model:"No. 2",           years:"c. 1910–1920"},
+  {id:"mp2",  key:"fflyer",    zip:"44256", town:"Medina, OH",         lat:41.14, lng:-81.86, model:"No. 3C",          years:"c. 1925"},
+  {id:"mp3",  key:"fflyer",    zip:"60193", town:"Schaumburg, IL",     lat:42.03, lng:-88.08, model:"No. 3C",          years:"c. 1915–1920"},
+  {id:"mp4",  key:"fflyer",    zip:"55401", town:"Minneapolis, MN",    lat:44.98, lng:-93.27, model:"Racer",           years:"c. 1930s"},
+  {id:"mp5",  key:"fflyer",    zip:"53202", town:"Milwaukee, WI",      lat:43.04, lng:-87.91, model:"No. 4",           years:"c. 1920s"},
+  {id:"mp6",  key:"firefly",   zip:"19147", town:"Philadelphia, PA",   lat:39.94, lng:-75.15, model:"Fire Fly",        years:"c. 1920s"},
+  {id:"mp7",  key:"firefly",   zip:"44113", town:"Cleveland, OH",      lat:41.48, lng:-81.69, model:"Fire Fly",        years:"c. 1930s"},
+  {id:"mp8",  key:"yclipper",  zip:"44256", town:"Medina, OH",         lat:41.15, lng:-81.84, model:"Yankee Clipper",  years:"c. 1930s"},
+  {id:"mp9",  key:"yclipper",  zip:"02116", town:"Boston, MA",         lat:42.35, lng:-71.07, model:"Yankee Clipper",  years:"c. 1920s"},
+  {id:"mp10", key:"autowheel", zip:"14120", town:"North Tonawanda, NY",lat:43.04, lng:-78.86, model:"Fleetwing",       years:"c. 1925–1935", home:true},
+  {id:"mp11", key:"autowheel", zip:"14202", town:"Buffalo, NY",        lat:42.89, lng:-78.88, model:"Fleetwing Racer", years:"c. 1920s"},
+  {id:"mp12", key:"autowheel", zip:"14604", town:"Rochester, NY",      lat:43.16, lng:-77.62, model:"Coaster King",    years:"c. 1930s"},
+  {id:"mp13", key:"autowheel", zip:"13202", town:"Syracuse, NY",       lat:43.05, lng:-76.15, model:"Fleetwing",       years:"c. 1930s"},
+  {id:"mp14", key:"paris",     zip:"04281", town:"South Paris, ME",    lat:44.22, lng:-70.51, model:"Paris Racer",     years:"c. 1910s"},
+  {id:"mp15", key:"paris",     zip:"04101", town:"Portland, ME",       lat:43.66, lng:-70.26, model:"Speedster",       years:"c. 1920s"},
+  {id:"mp16", key:"paris",     zip:"03301", town:"Concord, NH",        lat:43.21, lng:-71.54, model:"Yankee Flyer",    years:"c. 1930s"},
+  {id:"mp17", key:"garton",    zip:"53081", town:"Sheboygan, WI",      lat:43.75, lng:-87.71, model:"Penguin",         years:"c. 1930s"},
+  {id:"mp18", key:"garton",    zip:"53202", town:"Milwaukee, WI",      lat:43.05, lng:-87.90, model:"Streamliner",     years:"c. 1940s"},
+  {id:"mp19", key:"pratt",     zip:"49036", town:"Coldwater, MI",      lat:41.94, lng:-85.00, model:"Red Rocket",      years:"c. 1940–1952"},
+  {id:"mp20", key:"pratt",     zip:"49503", town:"Grand Rapids, MI",   lat:42.96, lng:-85.67, model:"Chieftain",       years:"c. 1930s"}
+];
