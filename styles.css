@@ -387,7 +387,7 @@ h3.sec a{font-family:var(--sans);font-size:.72rem;font-weight:600;letter-spacing
 .linkish{background:none;border:0;padding:0;font:inherit;color:var(--red);text-decoration:underline;cursor:pointer}
 .id-flow .btn[disabled]{opacity:.45;cursor:not-allowed}
 
-/* searchable maker map */
+/* Sled Picker Map */
 .map-actions{display:flex;flex-wrap:wrap;gap:8px;padding:4px 16px 8px;align-items:center}
 .map-actions .btn.sm{padding:7px 10px;font-size:.68rem;width:auto;letter-spacing:.04em}
 .map-mks{display:flex;flex-wrap:wrap;gap:6px;padding:0 16px 10px;max-height:148px;overflow:auto}
@@ -400,3 +400,8 @@ h3.sec a{font-family:var(--sans);font-size:.72rem;font-weight:600;letter-spacing
 
 .art-lock{flex:none;font-size:.95rem;padding-top:2px}
 .art-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+
+.map-banner{margin:12px 16px 0;padding:8px 12px;border-radius:10px;background:#fdf0d9;border:1px solid #ecd6a6;color:#7a5413;font-size:.78rem;font-weight:700;letter-spacing:.02em}
+.map-legend{display:flex;flex-wrap:wrap;gap:8px 12px;padding:0 16px 10px;font-size:.7rem;font-weight:600}
+.map-leg-i{display:inline-flex;align-items:center;gap:5px}
+.map-leg-i i{display:inline-block;width:9px;height:9px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 1px #ccc;flex:none}

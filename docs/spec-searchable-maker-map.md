@@ -1,10 +1,10 @@
-# Sled Finder Feature Spec: Searchable Maker Map
+# Sled Finder Feature Spec: Sled Picker Map
 
 Status: Proposed (updated 19 Nov 2026)
 Owner: Jonathan Spangler
 
 ## Summary
-A map view that shows where sleds from each maker have been found, built from the origin zip codes users give when they submit sleds.
+The Sled Picker Map is a map of where picked sleds were found, built from the origin zip codes users give when they submit sleds. The 25 black-list makers colour-code and filter the pins; it is not a map of company locations.
 
 ## Requirements
 1. **Origin zip code on submissions.** When users submit a sled, they can enter the zip code of the sled's origin (where it was found).
@@ -56,6 +56,9 @@ Jonathan has named Sherwood Brothers (Canastota, NY) and Rosebud Sled Company (S
 ## Notes
 - Auto-Wheel Coaster Company was a New York company (North Tonawanda, NY; formerly Buffalo Sled Company of Buffalo, NY), not Pennsylvania.
 
+
+## Mockup (Northeast demo)
+The clickable mockup shows a seeded demo of exactly 200 SAMPLE pins across ten makers in the Northeast (Maine through Pennsylvania), at town / ZIP level only. These pins are not real finds. The maker filter still lists all 25 black-list entries.
 ## Open questions
 - Is the map a Premium feature, given that the Sled Maker and Model Database needs a paid membership?
 - Is the zip code required or optional, and should the map show it only at zip level for privacy?

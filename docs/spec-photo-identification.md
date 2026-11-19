@@ -2,12 +2,12 @@
 
 Status: Proposed (19 Nov 2026)
 Owner: Jonathan Spangler
-Companion: [Searchable Maker Map](spec-searchable-maker-map.md)
+Companion: [Sled Picker Map](spec-searchable-maker-map.md)
 
 ## Summary
-Users take or upload a photo of a vintage sled and get a ranked identification of the likely maker (and, later, model). This is the visual counterpart to the searchable maker map: the map filters known finds by maker, and photo identification helps the user decide which maker a sled is before it is submitted.
+Users take or upload a photo of a vintage sled and get a ranked identification of the likely maker (and, later, model). This is the visual counterpart to the Sled Picker Map: that map shows where picked sleds were found and filters those pins by maker, and photo identification helps the user decide which maker a sled is before it is submitted.
 
-The intended advantage over a general tool such as Google Lens is that scores come from a model fine-tuned on verified collection photos, results stay inside Sled Finder, and a confirmed identification can feed the submission database and the maker map. That loop should compound in value as more confirmed photos are added.
+The intended advantage over a general tool such as Google Lens is that scores come from a model fine-tuned on verified collection photos, results stay inside Sled Finder, and a confirmed identification can feed the submission database and the Sled Picker Map. That loop should compound in value as more confirmed photos are added.
 
 This document is the feature specification only. Jonathan will gather and organize the photo database later. No model should be trained, and no identification UI should ship, until that work is done and the per-class photo targets below are reviewed.
 
@@ -15,7 +15,7 @@ This document is the feature specification only. Jonathan will gather and organi
 
 ### Goals
 - Identify a sled from one or more user photos, returning a ranked list of likely makers with confidence scores.
-- Cover, as the primary scope, the same 25 black-list dropdown entries used by the maker map (see below). Fire Fly and Yankee Clipper remain separate entries, not folded into Flexible Flyer.
+- Cover, as the primary scope, the same 25 black-list dropdown entries used by the Sled Picker Map (see below). Fire Fly and Yankee Clipper remain separate entries, not folded into Flexible Flyer.
 - Let the user confirm or correct the result, including **Unknown maker** and **Custom** (free text), then continue into a normal sled submission when they choose to post.
 - Keep confirmed, reviewed identifications available as future training data, so the feature improves over time.
 
@@ -108,7 +108,7 @@ Jonathan has named Sherwood Brothers (Canastota, NY) and Rosebud Sled Company (S
 11. If the user only wanted an identification, they can stop there. Those photos are not Sled Maker and Model Database posts. Whether they may be used for training is an open question and must not be assumed.
 
 ### After a post
-12. A posted, confirmed sled can appear in the Sled Maker and Model Database (Premium) and, when an origin zip is present, on the searchable maker map, subject to the companion spec and its open privacy questions.
+12. A posted, confirmed sled can appear in the Sled Maker and Model Database (Premium) and, when an origin zip is present, on the Sled Picker Map, subject to the companion spec and its open privacy questions.
 13. Admin can edit or delete the post, including correcting the maker. A corrected maker is what later training review should use, not the original model guess.
 
 ## Technical architecture (high-level)
@@ -292,7 +292,7 @@ Other proposed flag behavior:
 If two related classes (especially Flexible Flyer, Fire Fly, and Yankee Clipper) are close in score, show both and say the model is unsure which of those it is, rather than hiding the runner-up.
 
 ## Integration with the map, maker dropdown, and submissions
-- Photo identification and the searchable maker map share the same 25-entry black-list dropdown. A confirmed maker on a posted sled is the maker the map should filter on.
+- Photo identification and the Sled Picker Map share the same 25-entry black-list dropdown. A confirmed maker on a posted sled is the maker the map should filter on.
 - The model suggestion is only a hint. The saved maker is whatever the user confirms or types, subject to later admin edit.
 - Origin zip codes, geocoding, color-coded pins, and multi-maker comparison remain the map spec's job. Photo identification does not place pins and does not use GPS from the image.
 - Estimated years of manufacture stay a user-entered (or admin-edited) field. The identifier does not estimate years in the MVP.
@@ -342,7 +342,7 @@ If two related classes (especially Flexible Flyer, Fire Fly, and Yankee Clipper)
 - On-device inference, if privacy or cost makes that worthwhile.
 - Stronger detection of non-sleds, wagons versus runner sleds, reproductions, and restored / repainted examples.
 - Active learning: send uncertain or disagreed cases to Jonathan's review queue first.
-- Automatic (but still confirmation-gated) flow from a confirmed ID plus origin zip onto the maker map.
+- Automatic (but still confirmation-gated) flow from a confirmed ID plus origin zip onto the Sled Picker Map.
 
 ## Open questions
 - Is photo identification a Premium feature, or can free users run an ID even though posting to and viewing the Sled Maker and Model Database require paid membership?

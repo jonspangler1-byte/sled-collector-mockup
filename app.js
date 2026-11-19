@@ -62,7 +62,7 @@ const editedNote=x=>x&&x.editedBy?`<span class="edited">✎ Edited by ${esc(x.ed
 const lapsedText=n=>`Your membership has lapsed. ${n?`Your ${n} earlier post${n==1?"":"s"} stay`:"Your earlier posts stay"} in Sled Finder and come back as soon as you renew.`;
 const gate=(title,text)=>`<div class="gate"><div class="gl">🔒</div><b>${title}</b><p>${text}</p><a class="btn gold" href="#/upgrade">${lapsed()?"Renew membership · $15/yr":"Join · $15/yr"}</a><a class="small" href="#/terms">Terms &amp; Community Guidelines (draft)</a></div>`;
 const databaseGate=()=>gate(lapsed()?"Membership lapsed":"The Sled Maker and Model Database is for members",lapsed()?lapsedText(0)+" Renew to see the Sled Maker and Model Database again.":"Subscribers (paid members) can view and add their sleds, and search and map others' sleds. Free members can still browse the free makers' galleries and Sleds for Sale.");
-const dbIntro=()=>`<h3 class="sec" id="database">Sled Maker and Model Database</h3><p class="legend">Subscribers (paid members) can view and add their sleds, and search and map others' sleds.</p><p class="legend db-links"><a href="#/identify">📷 Photo ID${premium()?"":" 🔒"}</a><a href="#/map">🗺 Maker map${premium()?"":" 🔒"}</a><a href="#/search">Search</a>${premium()?'<a href="#/add">＋ Add a sled</a>':""}</p>`;
+const dbIntro=()=>`<h3 class="sec" id="database">Sled Maker and Model Database</h3><p class="legend">Subscribers (paid members) can view and add their sleds, and search and map others' sleds.</p><p class="legend db-links"><a href="#/identify">📷 Photo ID${premium()?"":" 🔒"}</a><a href="#/map">🗺 Sled Picker Map${premium()?"":" 🔒"}</a><a href="#/search">Search</a>${premium()?'<a href="#/add">＋ Add a sled</a>':""}</p>`;
 const ackHTML=()=>`<label class="ack"><input type="checkbox" name="ack" required><span>I agree my post and photos become part of Sled Finder and may be edited or removed by Sled Finder for accuracy. <a href="#/terms" target="_blank">Read the Terms</a></span></label>`;
 // Maker on a post: a real maker id, or 0 = unknown with an optional custom text ("Likely Pratt").
 const mk=s=>s&&+s.maker?disp(M(s.maker)):(s&&s.makerText?s.makerText+" (unconfirmed)":"Unknown maker");
@@ -132,7 +132,7 @@ R.home=()=>{bar(window.APP_SHORT,{sub:"Rosebud Sled Museum",act:'<a class="act" 
   const feed=allSleds().filter(s=>s.shared);
   const free=MAKERS.filter(isFree);
   return `<div class="hero" style="background-image:url(images/hero-flexible-flyer-3c-deck-p60.jpg)"><div class="in"><b>Coasting Through History</b><span>American sled makers, 1850–1990 · tap for the timeline</span></div><a href="#/timeline" style="position:absolute;inset:0;z-index:2" aria-label="Timeline"></a></div>
-  <div class="chips"><a class="chip on" href="#/database">Sled Maker and Model Database</a><a class="chip" href="#/identify">📷 Photo ID ${premium()?"":"🔒"}</a><a class="chip" href="#/idhelp">What sled is this?</a><a class="chip" href="#/map">🗺 Map ${premium()?"":"🔒"}</a><a class="chip" href="#/sale">Sleds for Sale</a><a class="chip" href="#/search">Search</a><a class="chip" href="#/timeline">Timeline ${premium()?"":"🔒"}</a><a class="chip" href="#/articles">Articles ${premium()?"":"🔒"}</a></div>
+  <div class="chips"><a class="chip on" href="#/database">Sled Maker and Model Database</a><a class="chip" href="#/identify">📷 Photo ID ${premium()?"":"🔒"}</a><a class="chip" href="#/idhelp">What sled is this?</a><a class="chip" href="#/map">🗺 Sled Picker Map ${premium()?"":"🔒"}</a><a class="chip" href="#/sale">Sleds for Sale</a><a class="chip" href="#/search">Search</a><a class="chip" href="#/timeline">Timeline ${premium()?"":"🔒"}</a><a class="chip" href="#/articles">Articles ${premium()?"":"🔒"}</a></div>
   <div class="pad" style="padding-top:12px;padding-bottom:0"><a class="btn pine" href="#/identify">📷 Identify a sled from a photo${premium()?"":" 🔒"}</a></div>
   ${premium()?"":dbIntro()+databaseGate()}
   ${!premium()?"":`<h3 class="sec">What sled is this? <a href="#/idhelp">See all</a></h3>
@@ -207,11 +207,11 @@ R.sled=id=>{const s=allSleds().find(x=>x.id==id);if(!s)return R.home();const m=+
   const grp=sameModel(s);
   return `${gallery(s.imgs,hidden(s))}
   <div class="title-block"><h1>${esc(mk(s))} ${esc(s.model)}</h1><div class="small muted" style="margin-top:4px">@${esc(s.user)}${sampleTag(s)} · ${s.shared?"Shared":"🔒 Private"}</div>${editedNote(s)}</div>
-  ${nudge(s)?`<div style="padding:8px 16px 0">${nudge(s)}</div>`:""}<dl class="dl"><div><dt>Maker</dt><dd>${m?`<a href="#/maker/${m.id}">${esc(disp(m))}</a>`:(s.makerText?esc(s.makerText)+' <span class="unconf">unconfirmed</span>':"Unknown maker")}</dd></div><div><dt>Model</dt><dd>${esc(s.model)}</dd></div><div><dt>Est. years made</dt><dd>${esc(s.years)}</dd></div><div><dt>Size</dt><dd>${esc(s.size)}</dd></div><div><dt>Condition</dt><dd>${esc(s.condition)}</dd></div><div><dt>Where found</dt><dd>${esc(s.found)}</dd></div>${s.town||s.locType==="na"?`<div><dt>Map location</dt><dd>${esc(locLine(s))}${!s.userAdded?" [sample]":""}${s.lat!=null?' · <a href="#/map">Map</a>':""}</dd></div>`:""}<div><dt>Notes</dt><dd>${esc(s.notes)}</dd></div></dl>
+  ${nudge(s)?`<div style="padding:8px 16px 0">${nudge(s)}</div>`:""}<dl class="dl"><div><dt>Maker</dt><dd>${m?`<a href="#/maker/${m.id}">${esc(disp(m))}</a>`:(s.makerText?esc(s.makerText)+' <span class="unconf">unconfirmed</span>':"Unknown maker")}</dd></div><div><dt>Model</dt><dd>${esc(s.model)}</dd></div><div><dt>Est. years made</dt><dd>${esc(s.years)}</dd></div><div><dt>Size</dt><dd>${esc(s.size)}</dd></div><div><dt>Condition</dt><dd>${esc(s.condition)}</dd></div><div><dt>Where found</dt><dd>${esc(s.found)}</dd></div>${s.town||s.locType==="na"?`<div><dt>Map location</dt><dd>${esc(locLine(s))}${!s.userAdded?" [sample]":""}${s.lat!=null?' · <a href="#/map">Sled Picker Map</a>':""}</dd></div>`:""}<div><dt>Notes</dt><dd>${esc(s.notes)}</dd></div></dl>
   ${isOwn(s)&&m&&!isFree(m)&&!premium()?teaser(m):""}<div style="padding:16px;display:flex;flex-direction:column;gap:10px">${m?`<a class="btn pine" href="#/maker/${m.id}">About ${esc(disp(m))}</a>`:`<a class="btn pine" href="#/unknown">Unknown / unconfirmed makers</a>`}${editBar(s,"#/edit/"+s.id,"sled")}</div>
   ${m&&grp.length>1?`<h3 class="sec">${esc(mk(s))} ${esc(s.model)}: ${grp.length} collectors</h3>${groupList(grp,s.id)}`:""}`;
 };
-R.makers=()=>{bar("Makers",{sub:"61 American sled companies",act:'<a class="act" href="#/map" aria-label="Map">🗺</a>'});tab("makers");
+R.makers=()=>{bar("Makers",{sub:"61 American sled companies",act:'<a class="act" href="#/map" aria-label="Sled Picker Map">🗺</a>'});tab("makers");
   setTimeout(()=>{const i=$("#mq");i.oninput=()=>{const q=i.value.toLowerCase();document.querySelectorAll(".mrow").forEach(r=>r.style.display=r.dataset.s.includes(q)?"":"none")}});
   const row=m=>`<a class="mrow" href="#/maker/${m.id}" data-s="${esc((disp(m)+" "+m.name+" "+m.area+" "+m.models+" "+(companyOf(m)?companyOf(m).name+" "+companyOf(m).brands.map(b=>b.name).join(" "):"")).toLowerCase())}"><span class="num">${m.id}</span><span class="tx"><div class="n">${esc(disp(m))}</div><div class="d"><span class="dot ${m.book?"blk":"grn"}"></span>${esc(m.area||"Location unknown")}${m.years?" · "+esc(m.years):""}</div>${companyOf(m)?`<div class="d co">Brand of ${esc(companyOf(m).name)}</div>`:""}</span>${isFree(m)?'<span class="free-pill">Free</span>':(premium()?'<span class="lk">›</span>':'<span class="lk">🔒</span>')}</a>`;
   const free=MAKERS.filter(isFree),rest=MAKERS.filter(m=>!isFree(m));
@@ -361,7 +361,7 @@ R.profile=()=>{bar("Profile",{sub:ROLES[role()]});tab("profile");
   return `<div class="prof"><span class="av big">SC</span><div><h1>@sample_collector</h1><div class="small muted">Example profile · ${mine.length} sleds · joined 2026</div></div></div>
   <div class="menu"><a href="#/collection">My collection <span>›</span></a><a href="#/idhelp">My ID requests <span>›</span></a><a href="#/upgrade">Subscription <span class="small muted">${ROLES[role()]} ›</span></a></div>
   <h3 class="sec">Demo role switcher</h3><div class="menu roles">${Object.keys(ROLES).map(k=>`<label><span>${ROLES[k]}</span><input type="radio" name="role" value="${k}" ${role()===k?"checked":""}></label>`).join("")}</div>
-  <div class="menu"><a href="#/database">Sled Maker and Model Database ${premium()?"":"🔒"}<span>›</span></a><a href="#/identify">Identify a sled from a photo ${premium()?"":"🔒"}<span>›</span></a><a href="#/map">Maker map ${premium()?"":"🔒"}<span>›</span></a><a href="#/timeline">Coasting Through History ${premium()?"":"🔒"}<span>›</span></a><a href="#/articles">Vintage Runner articles ${premium()?"":"🔒"}<span>›</span></a><a href="#/makers">Sled makers directory <span>›</span></a></div>
+  <div class="menu"><a href="#/database">Sled Maker and Model Database ${premium()?"":"🔒"}<span>›</span></a><a href="#/identify">Identify a sled from a photo ${premium()?"":"🔒"}<span>›</span></a><a href="#/map">Sled Picker Map ${premium()?"":"🔒"}<span>›</span></a><a href="#/timeline">Coasting Through History ${premium()?"":"🔒"}<span>›</span></a><a href="#/articles">Vintage Runner articles ${premium()?"":"🔒"}<span>›</span></a><a href="#/makers">Sled makers directory <span>›</span></a></div>
   <div class="menu"><a href="#/profile" onclick="return false">About · Rosebud Sled Museum, Schaumburg, IL <span></span></a><a href="#/profile" onclick="return false">Privacy: private sleds are visible only to you <span></span></a><a href="#/terms">Terms &amp; Community Guidelines (draft) <span>›</span></a></div>
   <p class="legend" style="padding-bottom:24px">Clickable mockup for review. No accounts, servers or payments.</p>`;
 };
@@ -434,7 +434,7 @@ const ID_DEMO={
 
 R.identify=()=>{
   bar("Identify a sled",{back:true,sub:"Photo search · demo"});tab("home");
-  if(!premium())return databaseGate()+`<p class="legend">The photo-ID spec left membership as an open question. This mockup follows the existing membership pattern: running an identification, like the map and the Sled Maker and Model Database, is for paid members. Posting after a match still needs membership too.</p>`;
+  if(!premium())return databaseGate()+`<p class="legend">The photo-ID spec left membership as an open question. This mockup follows the existing membership pattern: running an identification, like the Sled Picker Map and the Sled Maker and Model Database, is for paid members. Posting after a match still needs membership too.</p>`;
   setTimeout(()=>{
     const preview=$("#idpreview"), file=$("#idfile"), go=$("#idgo"), results=$("#idresults"), hint=$("#idhint");
     const showPreview=src=>{preview.style.backgroundImage=`url('${src}')`;preview.classList.add("has");preview.dataset.src=src;go.disabled=false;hint.textContent="You can retake or choose a different photo, then run the demo identification."};
@@ -501,13 +501,18 @@ R.identify=()=>{
     </div>`;
 };
 
-R.map=()=>{bar("Maker map",{back:true,sub:"Black-list makers · sample pins"});tab("makers");
-  if(!premium())return databaseGate()+`<p class="legend">The map spec left membership as an open question. This mockup follows the existing membership pattern: the map, like the Sled Maker and Model Database and photo ID, is for paid members.</p>`;
+R.map=()=>{bar("Sled Picker Map",{back:true,sub:"Where picked sleds were found · demo"});tab("makers");
+  if(!premium())return databaseGate()+`<p class="legend">The map spec left membership as an open question. This mockup follows the existing membership pattern: the Sled Picker Map, like the Sled Maker and Model Database and photo ID, is for paid members.</p>`;
   const userPins=allSleds().filter(s=>s.userAdded&&(s.shared||isOwn(s))&&s.lat!=null&&s.locType!=="na").map(s=>{const key=mapKeyForSled(s);return key?Object.assign({key,fromUser:true},s):null}).filter(Boolean);
+  const demo=window.MAP_DEMO||{count:200,label:"Demo — 200 sample pins, not real finds.",makers:["fflyer","firefly","yclipper","paris","snw","acme","autowheel","garton","pratt","kal"]};
+  const demoKeys=new Set(demo.makers||[]);
+  const NE_BOUNDS=[[39.7,-80.55],[47.45,-66.95]];
+  const showNE=m=>{if(m&&m.fitBounds)m.fitBounds(NE_BOUNDS,{padding:[16,16],maxZoom:7,animate:false})};
   setTimeout(()=>{
     if(!window.L){$("#map").innerHTML='<p class="pad small">Map library could not load (offline?).</p>';return}
-    const map=L.map("map",{zoomControl:true,maxZoom:12}).setView([41.6,-82.0],5);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:12,attribution:"© OpenStreetMap contributors"}).addTo(map);
+    const map=L.map("map",{zoomControl:true,maxZoom:11});
+    showNE(map);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:11,attribution:"© OpenStreetMap contributors"}).addTo(map);
     const layer=L.layerGroup().addTo(map);
     const selected=()=>[...document.querySelectorAll(".map-mks input:checked")].map(i=>i.value);
     const draw=()=>{
@@ -515,31 +520,33 @@ R.map=()=>{bar("Maker map",{back:true,sub:"Black-list makers · sample pins"});t
       const on=new Set(selected());
       const pins=(window.SAMPLE_MAP_PINS||[]).filter(p=>on.has(p.key)).map(p=>Object.assign({sample:true},p))
         .concat(userPins.filter(p=>on.has(p.key)));
-      const b=[];
+      const counts={};
       pins.forEach(p=>{
-        const ent=mapByKey(p.key), color=ent?ent.color:"#555", name=ent?ent.label:"";
+        const ent=mapByKey(p.key), color=ent?ent.color:"#555", name=ent?ent.label:p.key;
+        counts[p.key]=(counts[p.key]||0)+1;
         const isHome=!!p.home;
         const html=p.fromUser
-          ? `<div class="mp-card"><a href="#/sled/${p.id}"><div class="mp-ph" style="background-image:url('${p.img||(p.imgs&&p.imgs[0])||""}')"></div></a><b>${esc(mk(p))}</b><br>${esc(p.model)} · ${esc(p.years||"Unknown")}<br><span>📍 ${esc(p.town||"")} · your post</span><br><a href="#/sled/${p.id}">Open →</a></div>`
-          : `<div class="mp-card"><span class="sample-tag">SAMPLE</span>${isHome?' <span class="sample-tag" style="background:#e5efe9;color:var(--pine);border-color:#bcd3c5">Company home</span>':""}<br><b>${esc(name)}</b><br>${esc(p.model)} · ${esc(p.years)}<br><span>Origin ZIP ${esc(p.zip)} · ${esc(p.town)}</span><br><span>Sample pin — not a real find.${isHome?" Auto-Wheel Coaster home: North Tonawanda, NY.":""}</span></div>`;
-        const c=L.circleMarker([p.lat,p.lng],{radius:isHome?11:9,weight:2,color:"#fff",fillColor:color,fillOpacity:.95}).bindPopup(html,{maxWidth:230});
-        layer.addLayer(c);b.push([p.lat,p.lng]);
+          ? `<div class="mp-card"><a href="#/sled/${p.id}"><div class="mp-ph" style="background-image:url('${p.img||(p.imgs&&p.imgs[0])||""}')"></div></a><b>${esc(mk(p))}</b><br>${esc(p.model)} · Est. ${esc(p.years||"Unknown")}<br><span>📍 ${esc(p.town||"")} · your post</span><br><a href="#/sled/${p.id}">Open →</a></div>`
+          : `<div class="mp-card"><span class="sample-tag">SAMPLE</span>${isHome?' <span class="sample-tag" style="background:#e5efe9;color:var(--pine);border-color:#bcd3c5">Company home</span>':""}<br><b>${esc(name)}</b><br>${p.model?esc(p.model)+" · ":""}Est. ${esc(p.years)}<br><span>${esc(p.town)} · ZIP ${esc(p.zip)}</span><br><span>Sample pin — not a real find.${isHome?" Auto-Wheel Coaster home: North Tonawanda, NY.":""}</span></div>`;
+        const c=L.circleMarker([p.lat,p.lng],{radius:isHome?11:7,weight:2,color:"#fff",fillColor:color,fillOpacity:.92}).bindPopup(html,{maxWidth:240});
+        layer.addLayer(c);
       });
-      $("#mcount").textContent=pins.length+" pin"+(pins.length===1?"":"s")+" · "+on.size+" maker"+(on.size===1?"":"s");
-      if(b.length>1)map.fitBounds(b,{padding:[28,28],maxZoom:8});
-      else if(b.length)map.setView(b[0],8);
-      else map.setView([41.6,-82.0],5);
+      const rows=MAP_MAKERS.filter(m=>counts[m.key]).map(m=>`<span class="map-leg-i"><i style="background:${m.color}"></i>${esc(m.short)} ${counts[m.key]}</span>`).join("");
+      const el=$("#mlegend");if(el)el.innerHTML=rows||'<span class="muted">No makers selected</span>';
+      const n=pins.length, shownSample=pins.filter(p=>p.sample).length;
+      $("#mcount").textContent=n+" pin"+(n===1?"":"s")+" shown · "+on.size+" maker"+(on.size===1?"":"s")+(shownSample?` · ${shownSample} sample`:"");
     };
     document.querySelectorAll(".map-mks input").forEach(i=>i.onchange=draw);
+    $("#mapdemo").onclick=()=>{document.querySelectorAll(".map-mks input").forEach(i=>i.checked=demoKeys.has(i.value));draw()};
     $("#mapall").onclick=()=>{document.querySelectorAll(".map-mks input").forEach(i=>i.checked=true);draw()};
     $("#mapnone").onclick=()=>{document.querySelectorAll(".map-mks input").forEach(i=>i.checked=false);draw()};
-    $("#mapcmp").onclick=()=>{document.querySelectorAll(".map-mks input").forEach(i=>i.checked=i.value==="fflyer"||i.value==="autowheel");draw()};
-    draw();setTimeout(()=>map.invalidateSize(),50);
+    draw();setTimeout(()=>{map.invalidateSize();showNE(map)},50);
   });
-  const defaults=new Set(["fflyer","autowheel"]);
-  return `<p class="legend" style="margin-top:12px">Toggle any of the 25 black-list makers to compare where sample finds cluster. Pins are colour-coded by maker. All pins shown here are labelled <b>SAMPLE</b> and are not real finds — they sit at town / ZIP-centroid-like points only, never a street address. Auto-Wheel Coaster’s home is North Tonawanda, New York (formerly Buffalo Sled Co.). Fire Fly and Yankee Clipper are listed separately from Flexible Flyer.</p>
-    <div class="map-actions"><button type="button" class="btn sm" id="mapcmp">Flexible Flyer vs Auto-Wheel</button><button type="button" class="btn sm" id="mapall">All 25</button><button type="button" class="btn sm" id="mapnone">Clear</button><span id="mcount" class="muted"></span></div>
-    <div class="map-mks">${MAP_MAKERS.map(m=>`<label class="map-mk"><input type="checkbox" value="${m.key}" ${defaults.has(m.key)?"checked":""}><i style="background:${m.color}"></i>${esc(m.short)}</label>`).join("")}</div>
+  return `<div class="map-banner">${esc(demo.label||"Demo — 200 sample pins, not real finds.")}</div>
+    <p class="legend">A map of where picked sleds were found. Use the 25 black-list makers to colour-code and filter the pins. This Northeast demo (Maine through Pennsylvania) has exactly 200 sample pins across ten makers, at town / ZIP level only — never a street address. They are not real finds. Fire Fly and Yankee Clipper are listed separately from Flexible Flyer.</p>
+    <div class="map-actions"><button type="button" class="btn sm" id="mapdemo">Demo 10 makers</button><button type="button" class="btn sm" id="mapall">All 25</button><button type="button" class="btn sm" id="mapnone">Clear</button><span id="mcount" class="muted"></span></div>
+    <div class="map-mks">${MAP_MAKERS.map(m=>`<label class="map-mk"><input type="checkbox" value="${m.key}" ${demoKeys.has(m.key)?"checked":""}><i style="background:${m.color}"></i>${esc(m.short)}</label>`).join("")}</div>
+    <div id="mlegend" class="map-legend"></div>
     <div id="map" class="mapbox"></div>
     <p class="legend" style="padding-bottom:16px">Sleds you add in this browser with an origin ZIP and a black-list maker also appear, marked as your post. Green-list, unknown and custom makers stay off this map for now.</p>`;
 };
@@ -561,7 +568,7 @@ R.terms=()=>{bar("Terms & Guidelines",{back:true,sub:"Draft for review"});tab("p
   const S=(h,ps)=>`<h3 class="sec">${h}</h3><div class="prose">${ps.map(p=>`<p>${p}</p>`).join("")}</div>`;
   return `<div class="mock-banner">DRAFT · plain-language summary for review · not legal advice · have a lawyer review before launch</div>
   <div class="mp-head"><p class="eyebrow">Sled Finder</p><h1>Terms &amp; Community Guidelines</h1><div class="small muted">Draft, November 2026. Placeholder text for the mockup.</div></div>
-  ${S("1. Membership",["Posting sleds, posting sale ads, and seeing other members' posts and photos (the Sled Maker and Model Database, the map, “What sled is this?” and collectors' sleds on maker pages) require a paid Sled Finder membership, currently $15 a year, renewing automatically until you cancel.","Without a membership you can still browse the maker directory, the free makers' curated galleries and Sleds for Sale listings."])}
+  ${S("1. Membership",["Posting sleds, posting sale ads, and seeing other members' posts and photos (the Sled Maker and Model Database, the Sled Picker Map, “What sled is this?” and collectors' sleds on maker pages) require a paid Sled Finder membership, currently $15 a year, renewing automatically until you cancel.","Without a membership you can still browse the maker directory, the free makers' curated galleries and Sleds for Sale listings."])}
   ${S("2. Your posts and photos",["You keep ownership of the photos and information you post.","By posting, you give Sled Finder permission to store, show, resize and organize your posts and photos inside Sled Finder for other members to see, for as long as they stay in Sled Finder. Your posts become part of Sled Finder's shared record of antique sleds."])}
   ${S("3. Only post photos you own",["Post only photos you took yourself or have permission to use. Don't post other people's photos, catalog scans or ads unless you have the right to share them."])}
   ${S("4. Keep it accurate",["Give the maker, model, estimated years of manufacture and location as accurately as you can. A best guess is fine. Choose “Unknown” or use a custom maker such as “Likely Pratt” when you're not sure.","Use town-level locations only. Never post a street address."])}
