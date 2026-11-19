@@ -21,31 +21,34 @@ Source: Jonathan's maker matrix, "List of American Sled Manufacturers (1850–19
 - Ignore the green makers for now.
 - The company briefs (the 12–15 prose descriptions prepared for the Elgin / Gail Borden presentation) are NOT the dropdown source.
 
-## Black-list dropdown set (24 makers, as written in the matrix)
+## Black-list dropdown set (25 entries)
+The matrix has 24 black makers. Matrix #2 "Fire Fly / Yankee Clipper" is split into two separate dropdown entries, kept apart from Flexible Flyer, so users can search Fire Fly and Yankee Clipper on their own (Jonathan, 19 Nov 2026). Locations are lightly normalized from the matrix.
+
 1. Flexible Flyer – Planet Jr / S.L. Allen Co. — Philadelphia, PA; Medina, OH
-2. Fire Fly / Yankee Clipper – Planet Jr — Philadelphia, PA; Medina, OH (same firm as #1; decide whether to merge)
-3. Paris — Paris, ME
-4. Standard Novelty Works (Lightning Guider) — Duncannon, PA
-5. American Acme Company — Emigsville, PA
-6. Buffalo Sled Co. / Auto Wheel Coaster Co. — North Tonawanda, NY
-7. Garton Toy Company — Sheboygan, WI
-8. Pratt Mfg Co. — Coldwater, MI
-9. Chicago Rollerskate Co. — Chicago, IL
-10. Turner and Thomas — Chicago, IL
-11. Kalamazoo Sled Company — Kalamazoo, MI
-12. The American National Company — Toledo, OH
-13. Richards & Wilcox — Aurora, IL
-14. C.J. Johnson Co. (Safety sled) — Mount Jewett & Bradford, PA
-15. Maplewood Craft Industries — Maplewood, MN
-16. Wagner — Cedar Falls, IA
-17. Hunt, Helm, Ferris & Co. (Starline) — Harvard, IL
-18. Duralite — Passaic (matrix says NY)
-19. "Snow Hawk" (American Gold Co.) — unknown, possibly Boston, MA
-20. Crosby Gilzinger Co. — Rondout, NY
-21. Ellingwood Turning Company — West Paris, ME
-22. Withington — no location in matrix
-23. Wilkinson — no location in matrix
-24. Maynard Miller — Seneca Falls, NY
+2. Fire Fly – Planet Jr / S.L. Allen Co. — Philadelphia, PA; Medina, OH (own entry; matrix #2 split)
+3. Yankee Clipper – Planet Jr / S.L. Allen Co. — Philadelphia, PA; Medina, OH (own entry; matrix #2 split)
+4. Paris — Paris, ME
+5. Standard Novelty Works (Lightning Guider) — Duncannon, PA
+6. American Acme Company — Emigsville, PA
+7. Buffalo Sled Co. / Auto Wheel Coaster Co. — North Tonawanda, NY
+8. Garton Toy Company — Sheboygan, WI
+9. Pratt Mfg Co. — Coldwater, MI
+10. Chicago Rollerskate Co. — Chicago, IL
+11. Turner and Thomas — Chicago, IL
+12. Kalamazoo Sled Company — Kalamazoo, MI
+13. The American National Company — Toledo, OH
+14. Richards & Wilcox — Aurora, IL
+15. C.J. Johnson Co. (Safety sled) — Mount Jewett & Bradford, PA
+16. Maplewood Craft Industries — Maplewood, MN
+17. Wagner — Cedar Falls, IA
+18. Hunt, Helm, Ferris & Co. (Starline) — Harvard, IL
+19. Duralite — Passaic (matrix says NY)
+20. "Snow Hawk" (American Gold Co.) — unknown, possibly Boston, MA
+21. Crosby Gilzinger Co. — Rondout, NY
+22. Ellingwood Turning Company — West Paris, ME
+23. Withington — no location in matrix
+24. Wilkinson — no location in matrix
+25. Maynard Miller — Seneca Falls, NY
 
 ## Not in the matrix (flagged, NOT added)
 Jonathan has named Sherwood Brothers (Canastota, NY) and Rosebud Sled Company (St. Joseph, MI), but neither is in the 61-maker matrix. Flagged as a gap to fix in the matrix. Do not add either one to the black list or the dropdown until Jonathan says so.
@@ -54,7 +57,6 @@ Jonathan has named Sherwood Brothers (Canastota, NY) and Rosebud Sled Company (S
 - Auto-Wheel Coaster Company was a New York company (North Tonawanda, NY; formerly Buffalo Sled Company of Buffalo, NY), not Pennsylvania.
 
 ## Open questions
-- Should Fire Fly / Yankee Clipper (#2) be merged into Flexible Flyer (#1) in the dropdown?
 - Is the map a Premium feature, given that community posts need a paid membership?
 - Is the zip code required or optional, and should the map show it only at zip level for privacy?
 - Where do sleds with an "Unknown maker" or "Custom" identification go: left off the map, or shown in their own layer?
