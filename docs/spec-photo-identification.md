@@ -94,7 +94,7 @@ Jonathan has named Sherwood Brothers (Canastota, NY) and Rosebud Sled Company (S
 1. The user takes a new photo or uploads an existing one. MVP is one photo per request. The UI should encourage a sharp, well-lit view of the whole sled, and mention that a decal, runner profile, or underside photo can be added in a later version.
 2. Before the image is stored or sent for inference, the client (and the server, as a backstop) strips EXIF location data and other GPS fields. See Privacy.
 3. The user sees a preview and can retake or choose a different photo.
-4. An optional short tip can list preferred angles (top-down, side profile of the runners, close-up of a decal or stamp, underside hardware / bolt patterns) without blocking a single casual photo.
+4. An optional short tip can list preferred angles (top-down, side profile of the runners, close-up of a decal or stamp, underside hardware / bolt patterns, steering bar, bumper) without blocking a single casual photo.
 
 ### Results
 5. While the model runs, show a simple in-progress state. Do not show a guessed maker until the response arrives.
@@ -200,6 +200,8 @@ When new reference photos are taken, prefer a consistent set of angles for each 
 - Side profile of the runners.
 - Close-up of a decal, stamp, or other maker marking.
 - Underside hardware and bolt patterns.
+- Steering bar (front crossbar).
+- Bumper / front end.
 
 A complete reference set for one sled is those four angles, taken in even light, with the sled filling most of the frame and no other sleds behind it. Field photos from users will often be messier; the model must still be evaluated on that kind of image, but the seed set should be as clean and complete as practical.
 
