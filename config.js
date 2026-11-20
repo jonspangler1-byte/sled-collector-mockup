@@ -4,8 +4,8 @@
 // The anon key is meant to be public: every table is locked down by row-level security (docs/supabase-schema.sql).
 // NEVER put the Supabase service_role key or a Stripe secret key in this file.
 window.SF_CONFIG = {
-  SUPABASE_URL: "",          // e.g. "https://abcd1234.supabase.co"  (Supabase → Project Settings → API)
-  SUPABASE_ANON_KEY: "",     // the "anon public" key from the same page
+  SUPABASE_URL: "https://cpmieqcsbvozwrbjagqm.supabase.co",          // e.g. "https://abcd1234.supabase.co"  (Supabase → Project Settings → API)
+  SUPABASE_ANON_KEY: "sb_publishable_tZSCKKnzcS51iyKWnDvddw_shhcX3Q4",     // the "anon public" key from the same page
   // Stripe Payment Link for the $15/yr Premium membership (Stripe → Payment Links). Empty = mock paywall.
   STRIPE_PAYMENT_LINK: "",   // e.g. "https://buy.stripe.com/xxxxxxxx"
   STRIPE_PORTAL_LINK: "",    // Stripe customer-portal login link, for members to cancel or update their card
