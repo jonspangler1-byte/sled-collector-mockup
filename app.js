@@ -6,6 +6,10 @@ const M=id=>MAKERS.find(m=>m.id==id);
 const FREE=window.FREE_MAKERS||{};
 const isFree=m=>!!m&&Object.prototype.hasOwnProperty.call(FREE,m.id);
 const disp=m=>m?(FREE[m.id]||(window.MAKER_LABELS||{})[m.id]||m.name):"Unknown maker";
+// Matrix #2 is split into two maker choices (Jonathan, 19 Nov 2026): Fire Fly and Yankee Clipper.
+// Stored as maker:2 plus brand. Older row-2 posts with no brand stay "Fire Fly / Yankee Clipper" until someone picks one.
+const SPLIT_BRANDS={"2-ff":{maker:2,brand:"Fire Fly",label:"Fire Fly – Planet Jr / S.L. Allen Co."},"2-yc":{maker:2,brand:"Yankee Clipper",label:"Yankee Clipper – Planet Jr / S.L. Allen Co."}};
+const brandKey=s=>{if(!s||+s.maker!==2)return "";const b=String(s.brand||"");return Object.keys(SPLIT_BRANDS).find(k=>SPLIT_BRANDS[k].brand===b)||""};
 const companyOf=m=>m&&(window.COMPANIES||[]).find(c=>c.brands.some(b=>b.maker==m.id));
 const brandsOf=m=>{const c=companyOf(m);return c?c.brands.filter(b=>b.maker==m.id):[]};
 const brandBox=m=>{const c=companyOf(m);if(!c)return "";const seen={};
@@ -75,13 +79,13 @@ const syncUrl=()=>LS.get("syncUrl","")||DRIVE_SYNC_URL;
 const driveSyncOn=()=>isAdmin()&&!!syncUrl()&&!!LS.get("syncToken","");
 const syncedMap=()=>LS.get("synced",{});
 const unsyncedSleds=()=>{const sm=syncedMap();return userSleds().filter(s=>sm[s.id]!==sledSig(s))};
-const sledSig=s=>[s.maker,s.country,s.region,s.postal,s.makerText,s.model,s.years,s.zip,s.condition,s.size,s.found,s.notes,s.shared,(s.imgs||[]).length,(s.imgs||[]).map(u=>String(u).length).join(".")].join("|");
+const sledSig=s=>[s.maker,s.brand,s.country,s.region,s.postal,s.makerText,s.model,s.years,s.zip,s.condition,s.size,s.found,s.notes,s.shared,(s.imgs||[]).length,(s.imgs||[]).map(u=>String(u).length).join(".")].join("|");
 async function drivePost(body){const r=await fetch(syncUrl(),{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(Object.assign({token:LS.get("syncToken","")},body))});return r.json()}
 async function pushSledToDrive(s){
   const own=(s.imgs||[]).map(phURL).filter(u=>/^data:image\//.test(u)); // idb: refs resolved to the stored photo // only photos taken/uploaded on this device; demo sample images are skipped
   const m=+s.maker?M(s.maker):null;
-  const sled={id:s.id,maker:+s.maker||0,makerText:s.makerText||"",model:s.model,years:s.years,zip:ccOf(s)!=="US"?"":(/^\d{5}$/.test(String(s.zip||""))?s.zip:((String(s.town||"").match(/^ZIP (\d{5})$/)||[])[1]||"")),country:ccOf(s),region:s.locType==="na"?"":(s.region||""),nation:s.nation||"",postalArea:ccOf(s)==="US"||s.locType==="na"?"":(s.postal||""),locType:s.locType,condition:s.condition,size:s.size,found:s.found,notes:s.notes,shared:!!s.shared};
-  const res=await drivePost({action:"upsert",sled,makerLabel:m?disp(m):(s.makerText?s.makerText+" (custom)":"Unknown maker"),photos:own.map(u=>HIRES.get(u)||u)});
+  const sled={id:s.id,maker:+s.maker||0,brand:+s.maker===2?(s.brand||""):"",makerText:s.makerText||"",model:s.model,years:s.years,zip:ccOf(s)!=="US"?"":(/^\d{5}$/.test(String(s.zip||""))?s.zip:((String(s.town||"").match(/^ZIP (\d{5})$/)||[])[1]||"")),country:ccOf(s),region:s.locType==="na"?"":(s.region||""),nation:s.nation||"",postalArea:ccOf(s)==="US"||s.locType==="na"?"":(s.postal||""),locType:s.locType,condition:s.condition,size:s.size,found:s.found,notes:s.notes,shared:!!s.shared};
+  const res=await drivePost({action:"upsert",sled,makerLabel:brandKey(s)?SPLIT_BRANDS[brandKey(s)].label:m?disp(m):(s.makerText?s.makerText+" (custom)":"Unknown maker"),photos:own.map(u=>HIRES.get(u)||u)});
   if(!res||!res.ok)throw new Error(res&&res.error||"upload failed");
   const sm=syncedMap();sm[s.id]=sledSig(s);LS.set("synced",sm);return res}
 function autoSync(s){if(!driveSyncOn())return;pushSledToDrive(s).then(r=>toast("Copied to Drive · "+r.folder+" · "+r.photos+" photo"+(r.photos===1?"":"s"))).catch(e=>toast("Saved here; Drive copy failed ("+e.message+"). Retry from Profile."))}
@@ -119,11 +123,11 @@ const databaseGate=()=>gate(lapsed()?"Membership lapsed":"The Sled Maker and Mod
 const dbIntro=()=>`<h3 class="sec" id="database">Sled Maker and Model Database</h3><p class="legend">Subscribers (paid members) can view and add their sleds, and search and map others' sleds.</p><p class="legend db-links"><a href="#/identify">📷 Photo ID${premium()?"":" 🔒"}</a><a href="#/map">🗺 Sled Picker Map${premium()?"":" 🔒"}</a><a href="#/search">Search</a>${premium()?'<a href="#/add">＋ Add a sled</a>':""}</p>`;
 const ackHTML=()=>`<label class="ack"><input type="checkbox" name="ack" required><span>I agree my post and photos become part of Sled Finder and may be edited or removed by Sled Finder for accuracy. <a href="#/terms" target="_blank">Read the Terms</a></span></label>`;
 // Maker on a post: a real maker id, or 0 = unknown with an optional custom text ("Likely Pratt").
-const mk=s=>s&&+s.maker?disp(M(s.maker)):(s&&s.makerText?s.makerText+" (unconfirmed)":"Unknown maker");
-const makerFields=(id,E)=>`<label>Maker<select name="maker" id="${id}"><option value="0">Unknown maker</option><option value="custom">Custom…</option>${makerOpts()}</select></label>
+const mk=s=>s&&brandKey(s)?SPLIT_BRANDS[brandKey(s)].label:s&&+s.maker?disp(M(s.maker)):(s&&s.makerText?s.makerText+" (unconfirmed)":"Unknown maker");
+const makerFields=(id,E)=>`<label>Maker<select name="maker" id="${id}"><option value="0">Unknown maker</option><option value="custom">Custom…</option>${makerOpts(!!E&&+E.maker===2&&!brandKey(E))}</select></label>
   <label class="${E&&!+E.maker&&E.makerText?"":"hide"}" id="${id}-cw">Custom maker<input name="makerText" value="${esc(E&&E.makerText||"")}" placeholder="e.g. Likely Pratt or Kalamazoo"><small class="hint">Saved as typed and shown as unconfirmed. Sled Finder may reassign it later.</small></label>`;
-function bindMaker(id,E){const s=$("#"+id),w=$("#"+id+"-cw");if(E)s.value=+E.maker?E.maker:(E.makerText?"custom":"0");const f=()=>w.classList.toggle("hide",s.value!=="custom");s.onchange=f;f()}
-const makerVals=f=>{const v=f.get("maker");return v==="custom"?{maker:0,makerText:String(f.get("makerText")||"").trim()}:{maker:+v,makerText:""}};
+function bindMaker(id,E){const s=$("#"+id),w=$("#"+id+"-cw");if(E)s.value=brandKey(E)||(+E.maker?E.maker:(E.makerText?"custom":"0"));const f=()=>w.classList.toggle("hide",s.value!=="custom");s.onchange=f;f()}
+const makerVals=f=>{const v=String(f.get("maker"));if(SPLIT_BRANDS[v])return {maker:2,brand:SPLIT_BRANDS[v].brand,makerText:""};return v==="custom"?{maker:0,brand:"",makerText:String(f.get("makerText")||"").trim()}:{maker:+v,brand:"",makerText:""}};
 const liked=()=>LS.get("liked",{});
 document.title=window.APP_NAME+" — clickable mockup";
 $("#sideTitle").textContent=window.APP_NAME;
@@ -223,7 +227,8 @@ function locFields(cc,L){L=L||{};const city=esc(L.city||""),reg=L.region||"",pc=
   <label>Eircode — first 3 only (optional)<input name="zip" value="${pc}" maxlength="8" placeholder="H91" autocapitalize="characters"><small ${sm}>Only the routing key (e.g. H91) is kept. Never the full Eircode.</small></label>`}
 const townC=x=>x&&x.town?(x.town+(x.country&&x.country!=="US"&&!/(Canada|UK|Ireland)$/.test(x.town)?", "+COUNTRIES[x.country].short:"")):"";
 const locLine=s=>s.locType==="na"?"Unknown / NA (no map pin)":(s.town?`${s.locType==="now"?"Now in":"Found in"} ${s.town}`:"");
-const makerOpts=()=>MAKERS.slice().sort((a,b)=>disp(a).localeCompare(disp(b))).map(m=>`<option value="${m.id}">${esc(disp(m))}</option>`).join("");
+const makerEntries=()=>MAKERS.flatMap(m=>m.id==2?Object.keys(SPLIT_BRANDS).map(k=>({value:k,label:SPLIT_BRANDS[k].label,m,brand:SPLIT_BRANDS[k].brand})):[{value:String(m.id),label:disp(m),m,brand:""}]).sort((a,b)=>a.label.localeCompare(b.label));
+const makerOpts=legacy2=>(legacy2?`<option value="2">${esc(disp(M(2)))} (older post: pick Fire Fly or Yankee Clipper)</option>`:"")+makerEntries().map(e=>`<option value="${e.value}">${esc(e.label)}</option>`).join("");
 function teaser(m){
   const p=m.p, ms=models(m);
   const line=p&&p.text?firstSentence(p.text[0]):"[History coming soon] No written history for this maker yet.";
@@ -268,7 +273,7 @@ R.add=(editId)=>{const E=editId?allSleds().find(x=>x.id==editId):null;
   const draft=!editId?LS.get("idDraft",null):null;
   if(!editId&&!premium()){bar("Add a Sled",{sub:"Members only"});tab("add");return gate(lapsed()?"Membership lapsed":"Posting sleds is for members",lapsed()?lapsedText(allSleds().filter(isOwn).length)+" Renew to post again.":"Adding and sharing your sleds is part of Sled Finder membership ($15/yr).")}
   if(editId&&!canEdit(E))return R.upgrade("Editing your own submissions is a paid-member feature.");
-  const pre=E||(draft?{maker:draft.maker,makerText:draft.makerText||"",model:draft.model||"",years:draft.years||"",zip:draft.zip||""}:null);
+  const pre=E||(draft?{maker:draft.maker,brand:draft.brand||"",makerText:draft.makerText||"",model:draft.model||"",years:draft.years||"",zip:draft.zip||""}:null);
   const adminEdit=E&&isAdmin()&&!isOwn(E);
   bar(E?(adminEdit?"Admin edit":"Edit Sled"):"Add a Sled",{back:!!E,sub:E?(adminEdit?"@"+E.user+" · as Sled Finder":"Your submission"):"Members"});tab(E?"collection":"add");
   const v=k=>E&&E[k]!=null?esc(E[k]):(draft&&draft[k]!=null?esc(draft[k]):"");
@@ -325,7 +330,7 @@ R.sled=id=>{const s=allSleds().find(x=>x.id==id);if(!s)return R.home();const m=+
   const grp=sameModel(s);
   return `${gallery(s.imgs,hidden(s))}
   <div class="title-block"><h1>${esc(mk(s))} ${esc(s.model)}</h1><div class="small muted" style="margin-top:4px">@${esc(s.user)}${sampleTag(s)} · ${s.shared?"Shared":"🔒 Private"}</div>${editedNote(s)}</div>
-  ${nudge(s)?`<div style="padding:8px 16px 0">${nudge(s)}</div>`:""}<dl class="dl"><div><dt>Maker</dt><dd>${m?`<a href="#/maker/${m.id}">${esc(disp(m))}</a>`:(s.makerText?esc(s.makerText)+' <span class="unconf">unconfirmed</span>':"Unknown maker")}</dd></div><div><dt>Model</dt><dd>${esc(s.model)}</dd></div><div><dt>Est. years made</dt><dd>${esc(s.years)}</dd></div><div><dt>Size</dt><dd>${esc(s.size)}</dd></div><div><dt>Condition</dt><dd>${esc(s.condition)}</dd></div><div><dt>Where found</dt><dd>${esc(s.found)}</dd></div>${s.town||s.locType==="na"?`<div><dt>Map location</dt><dd>${esc(locLine(s))}${!s.userAdded?" [sample]":""}${s.lat!=null?' · <a href="#/map">Sled Picker Map</a>':""}</dd></div>`:""}<div><dt>Notes</dt><dd>${esc(s.notes)}</dd></div></dl>
+  ${nudge(s)?`<div style="padding:8px 16px 0">${nudge(s)}</div>`:""}<dl class="dl"><div><dt>Maker</dt><dd>${m?`<a href="#/maker/${m.id}">${esc(mk(s))}</a>`:(s.makerText?esc(s.makerText)+' <span class="unconf">unconfirmed</span>':"Unknown maker")}</dd></div><div><dt>Model</dt><dd>${esc(s.model)}</dd></div><div><dt>Est. years made</dt><dd>${esc(s.years)}</dd></div><div><dt>Size</dt><dd>${esc(s.size)}</dd></div><div><dt>Condition</dt><dd>${esc(s.condition)}</dd></div><div><dt>Where found</dt><dd>${esc(s.found)}</dd></div>${s.town||s.locType==="na"?`<div><dt>Map location</dt><dd>${esc(locLine(s))}${!s.userAdded?" [sample]":""}${s.lat!=null?' · <a href="#/map">Sled Picker Map</a>':""}</dd></div>`:""}<div><dt>Notes</dt><dd>${esc(s.notes)}</dd></div></dl>
   ${isOwn(s)&&m&&!isFree(m)&&!premium()?teaser(m):""}<div style="padding:16px;display:flex;flex-direction:column;gap:10px">${m?`<a class="btn pine" href="#/maker/${m.id}">About ${esc(disp(m))}</a>`:`<a class="btn pine" href="#/unknown">Unknown / unconfirmed makers</a>`}${editBar(s,"#/edit/"+s.id,"sled")}</div>
   ${m&&grp.length>1?`<h3 class="sec">${esc(mk(s))} ${esc(s.model)}: ${grp.length} collectors</h3>${groupList(grp,s.id)}`:""}`;
 };
@@ -369,9 +374,9 @@ R.maker=id=>{const m=M(id);if(!m)return R.makers();const p=m.p,free=isFree(m),P=
 R.search=()=>{bar("Search",{back:true,sub:"Makers, models, collectors"});tab("home");
   setTimeout(()=>{const i=$("#q"),out=$("#res");const run=()=>{const q=i.value.trim().toLowerCase();
     if(!q){out.innerHTML='<p class="legend">Try “Flyer”, “Chicago”, “Speedster” or “Garton”.</p>';return}
-    const mks=MAKERS.filter(m=>(disp(m)+" "+m.name+" "+m.models+" "+m.area).toLowerCase().includes(q));
+    const mks=makerEntries().filter(e=>(e.label+" "+(e.brand?"":e.m.name+" "+e.m.models)+" "+e.m.area).toLowerCase().includes(q));
     const sl=premium()?allSleds().filter(s=>s.shared||s.mine||s.userAdded).filter(s=>(mk(s)+" "+s.model+" "+s.user+" "+s.years+" "+(s.locType!=="na"?(s.town||"")+" "+COUNTRIES[ccOf(s)].name+" "+(s.region||""):"")).toLowerCase().includes(q)):[];
-    out.innerHTML=`<h3 class="sec">Makers (${mks.length})</h3><div class="list card">${mks.map(m=>`<a class="mrow" href="#/maker/${m.id}"><span class="num">${m.id}</span><span class="tx"><div class="n">${esc(disp(m))}</div><div class="d">${esc(m.area)} · ${esc(m.models||"")}</div></span>${isFree(m)?'<span class="free-pill">Free</span>':premium()?"›":"🔒"}</a>`).join("")||'<div class="mrow">No makers</div>'}</div>
+    out.innerHTML=`<h3 class="sec">Makers (${mks.length})</h3><div class="list card">${mks.map(({m,label})=>`<a class="mrow" href="#/maker/${m.id}"><span class="num">${m.id}</span><span class="tx"><div class="n">${esc(label)}</div><div class="d">${esc(m.area)} · ${esc(m.models||"")}</div></span>${isFree(m)?'<span class="free-pill">Free</span>':premium()?"›":"🔒"}</a>`).join("")||'<div class="mrow">No makers</div>'}</div>
     ${premium()?`<h3 class="sec">Collectors' sleds (${sl.length})</h3><div class="grid2">${sl.map(s=>`<a class="card tile" href="${tileHref(s)}">${tileTh(s)}<div class="n">${esc(mk(s))}</div><div class="d">${esc(s.model)} · ${esc(s.years)}</div><div class="d">@${esc(s.user)}${s.town&&s.locType!=="na"?" · 📍 "+esc(s.town):""}</div></a>`).join("")}</div>`:`<h3 class="sec">Collectors' sleds</h3>${databaseGate()}`}`};
     i.oninput=run;i.value=LS.get("lastq","Paris");run();i.addEventListener("change",()=>LS.set("lastq",i.value))});
   return `<div class="search"><span>⌕</span><input id="q" placeholder="Search makers, models, collectors, towns, countries" autofocus></div><div id="res"></div>`;
@@ -501,7 +506,7 @@ R.listing=id=>{const l=allListings().find(x=>x.id==id);if(!l)return R.sale();
   bar("For Sale",{back:true,sub:l.price||"Price not listed"});tab("sale");
   return `${gallery(l.imgs,false)}
   <div class="title-block"><h1>${esc(l.title)}</h1><div style="font-family:var(--serif);font-size:1.6rem;font-weight:700;color:var(--red);margin-top:4px">${l.price?esc(l.price):'<span class="muted" style="font-size:1rem">Price not listed · contact seller</span>'}</div><div class="small muted">@${esc(l.user)} ${l.mine?"· Your listing":'<span class="sample-tag">Example data</span>'}</div>${editedNote(l)}</div>
-  <dl class="dl"><div><dt>Maker</dt><dd>${+l.maker&&M(l.maker)?`<a href="#/maker/${l.maker}">${esc(makerName(l.maker))}</a>`:(l.makerText?esc(l.makerText)+' <span class="unconf">unconfirmed</span>':"Unknown maker")}</dd></div><div><dt>Model</dt><dd>${esc(l.model||"—")}</dd></div><div><dt>Est. years made</dt><dd>${esc(l.years)}</dd></div><div><dt>Condition</dt><dd>${esc(l.condition)}</dd></div><div><dt>Location</dt><dd>${esc(townC(l))}</dd></div><div><dt>Can ship?</dt><dd>${esc(l.ship)}</dd></div><div><dt>Contact</dt><dd><a href="mailto:${esc(l.email)}">${esc(l.email)}</a></dd></div></dl>${l.desc?`<div class="prose" style="padding-top:12px"><p>${esc(l.desc)}</p></div>`:""}
+  <dl class="dl"><div><dt>Maker</dt><dd>${+l.maker&&M(l.maker)?`<a href="#/maker/${l.maker}">${esc(mk(l))}</a>`:(l.makerText?esc(l.makerText)+' <span class="unconf">unconfirmed</span>':"Unknown maker")}</dd></div><div><dt>Model</dt><dd>${esc(l.model||"—")}</dd></div><div><dt>Est. years made</dt><dd>${esc(l.years)}</dd></div><div><dt>Condition</dt><dd>${esc(l.condition)}</dd></div><div><dt>Location</dt><dd>${esc(townC(l))}</dd></div><div><dt>Can ship?</dt><dd>${esc(l.ship)}</dd></div><div><dt>Contact</dt><dd><a href="mailto:${esc(l.email)}">${esc(l.email)}</a></dd></div></dl>${l.desc?`<div class="prose" style="padding-top:12px"><p>${esc(l.desc)}</p></div>`:""}
   <div class="pad"><a class="btn solid" href="mailto:${esc(l.email)}?subject=${encodeURIComponent("Your sled listing: "+l.title)}">✉ Email seller</a><div style="margin-top:10px">${editBar(l,"#/editlisting/"+l.id,"listing")}</div><p class="legend" style="margin:10px 0 0">Opens your email app. Sample listings use example.com addresses, which don't reach anyone. No sale happens in the app.</p></div>`;
 };
 R.editlisting=id=>R.sell(id);
@@ -536,6 +541,8 @@ const mapLabel=m=>m?(m.short||m.label):"";
 function mapKeyForSled(s){
   if(!s||!+s.maker)return null;
   if(+s.maker===2){
+    if(s.brand==="Yankee Clipper")return "yclipper";
+    if(s.brand==="Fire Fly")return "firefly";
     const md=String(s.model||"").toLowerCase();
     if(/yankee/.test(md))return "yclipper";
     if(/fire\s*fly|firefly/.test(md))return "firefly";
@@ -545,11 +552,11 @@ function mapKeyForSled(s){
   return e?e.key:null;
 }
 function idChoiceFromKey(key, customText){
-  if(key==="unknown")return {maker:0,makerText:"",model:""};
+  if(key==="unknown")return {maker:0,brand:"",makerText:"",model:""};
   if(key==="custom")return {maker:0,makerText:customText||"",model:""};
   const m=mapByKey(key);
   if(!m)return {maker:0,makerText:"",model:""};
-  return {maker:m.id,makerText:"",model:m.brand||""};
+  return {maker:m.id,brand:m.brand||"",makerText:"",model:""};
 }
 const ID_DEMO={
   high:{band:"likely",title:"Likely Flexible Flyer",note:"These are sample scores for the mockup. A real model is not running.",

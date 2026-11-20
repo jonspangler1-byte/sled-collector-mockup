@@ -25,8 +25,9 @@ Sled Finder Uploads/
   by-class/01-flexible-flyer … 25-maynard-miller   (the 25 maker_id classes from the spec)
   held-out/unknown | custom | green-list | needs-review
 ```
-App maker ids are matrix row numbers; the script maps matrix 1–24 to the 25 classes. Matrix #2 (Fire Fly /
-Yankee Clipper) goes to 02 or 03 when the model or notes name one of them, and to `held-out/needs-review` otherwise.
+App maker ids are matrix row numbers; the script maps matrix 1–24 to the 25 classes. Fire Fly and Yankee Clipper
+are now separate choices in the app (saved as maker 2 + `brand`) and go straight to 02 / 03. Older row-2 posts
+with no brand go to 02 or 03 only if the model or notes name one of them, otherwise `held-out/needs-review`.
 Matrix 25–61 (green list) → `held-out/green-list`. Files are named `<sledId>-01-cover.jpg`, `<sledId>-02.jpg` … plus `<sledId>.json`.
 
 ## Later: training from this folder (not built yet)
