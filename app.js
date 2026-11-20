@@ -135,6 +135,57 @@ async function geocode(city,state,zip){
   if(window.STATE_CENTROIDS[st])return {lat:window.STATE_CENTROIDS[st][0],lng:window.STATE_CENTROIDS[st][1],how:"state"};
   return null;
 }
+// ===== Countries: US (ZIP), Canada (province + optional FSA), UK (county + optional outward postcode),
+// Ireland (county + optional Eircode routing key). Town level only: never a street address or full postcode.
+const COUNTRIES={US:{name:"United States",short:"USA",flag:"🇺🇸",cc:"us"},CA:{name:"Canada",short:"Canada",flag:"🇨🇦",cc:"ca"},GB:{name:"United Kingdom",short:"UK",flag:"🇬🇧",cc:"gb"},IE:{name:"Ireland",short:"Ireland",flag:"🇮🇪",cc:"ie"}};
+const ccOf=s=>s&&COUNTRIES[s.country]?s.country:"US";
+const CA_PROV={AB:"Alberta",BC:"British Columbia",MB:"Manitoba",NB:"New Brunswick",NL:"Newfoundland and Labrador",NS:"Nova Scotia",NT:"Northwest Territories",NU:"Nunavut",ON:"Ontario",PE:"Prince Edward Island",QC:"Quebec",SK:"Saskatchewan",YT:"Yukon"};
+const CA_CENT={AB:[53.9,-116.6],BC:[53.7,-127.6],MB:[53.8,-98.8],NB:[46.5,-66.2],NL:[53.1,-57.7],NS:[44.7,-63.7],NT:[64.8,-124.8],NU:[70.3,-83.1],ON:[50.0,-85.3],PE:[46.5,-63.4],QC:[52.9,-73.5],SK:[52.9,-106.5],YT:[64.3,-135.0]};
+const UK_NATIONS={England:[52.6,-1.5],Scotland:[56.8,-4.2],Wales:[52.3,-3.7],"Northern Ireland":[54.6,-6.7]};
+const IE_COUNTIES=["Carlow","Cavan","Clare","Cork","Donegal","Dublin","Galway","Kerry","Kildare","Kilkenny","Laois","Leitrim","Limerick","Longford","Louth","Mayo","Meath","Monaghan","Offaly","Roscommon","Sligo","Tipperary","Waterford","Westmeath","Wexford","Wicklow"];
+// Keep only the coarse part of a postcode. Returns {v, cut} (cut = we dropped the rest).
+function coarsePostal(cc,raw){const t=String(raw||"").toUpperCase().replace(/[^A-Z0-9 ]/g,"").trim();if(!t)return {v:"",cut:false};
+  if(cc==="US"){const m=t.match(/^\d{5}/);return {v:m?m[0]:"",cut:t.replace(/\s/g,"").length>5}}
+  const n=t.replace(/\s+/g,"");
+  if(cc==="CA"){const m=n.match(/^[ABCEGHJ-NPRSTVXY]\d[A-Z]/);return {v:m?m[0]:"",cut:n.length>3}}
+  if(cc==="IE"){const m=n.match(/^([AC-FHKNPRTV-Y]\d{2}|D6W)/);return {v:m?m[0]:"",cut:n.length>3}}
+  if(cc==="GB"){let out=t.includes(" ")?t.split(/\s+/)[0]:(n.length>=5&&/\d[A-Z]{2}$/.test(n)?n.slice(0,-3):n);const ok=/^[A-Z]{1,2}\d[A-Z\d]?$/.test(out);return {v:ok?out:"",cut:ok&&out!==n}}
+  return {v:"",cut:false}}
+const regionDisp=(cc,r)=>!r?"":cc==="IE"?"Co. "+r:r;
+function placeTown(cc,city,region,nation,postal){if(cc==="US")return null;const parts=[city,regionDisp(cc,region)].filter(Boolean);if(!parts.length&&postal)parts.push(postal);if(cc==="GB"&&nation&&!region)parts.push(nation);parts.push(COUNTRIES[cc].short);return parts.join(", ")}
+// Free, no-key geocoding via OpenStreetMap Nominatim: browser sends the page as Referer; we space calls >1 s apart
+// and stop after a few seconds each. Results are rounded to town level (2 decimals ≈ 1 km); region fallbacks to 1 decimal.
+let nomLast=0;
+async function nominatim(params){const wait=nomLast+1100-Date.now();if(wait>0)await new Promise(r=>setTimeout(r,wait));nomLast=Date.now();
+  const ac=window.AbortController?new AbortController():null;const to=setTimeout(()=>ac&&ac.abort(),4000);
+  try{const r=await fetch("https://nominatim.openstreetmap.org/search?format=json&accept-language=en&"+params,{headers:{"Accept":"application/json"},signal:ac?ac.signal:undefined});return await r.json()}catch(e){return []}finally{clearTimeout(to)}}
+const rnd=(x,d)=>Math.round(+x*Math.pow(10,d))/Math.pow(10,d);
+const PLACE_TYPES=/^(city|town|village|hamlet|suburb|municipality|locality|neighbourhood|quarter|borough|isolated_dwelling|county|state_district)$/;
+async function geocodeIntl(cc,city,region,nation,postal){
+  const C=COUNTRIES[cc],enc=encodeURIComponent,reg=cc==="CA"?(CA_PROV[region]||region):region,start=Date.now(),late=()=>Date.now()-start>11000;
+  const pick=(j,needle)=>{j=(j||[]).filter(x=>PLACE_TYPES.test(x.addresstype||x.type||""));if(!j.length)return null;if(needle){const n=needle.toLowerCase();const hit=j.find(x=>String(x.display_name).toLowerCase().includes(n));if(hit)return hit}return j[0]};
+  if(city){let j=await nominatim(`countrycodes=${C.cc}&limit=5&q=${enc([city,reg].filter(Boolean).join(", "))}`);let h=pick(j);
+    if(!h&&!late()){j=await nominatim(`countrycodes=${C.cc}&limit=8&q=${enc(city)}`);h=pick(j,reg||nation)}
+    if(h)return {lat:rnd(h.lat,2),lng:rnd(h.lon,2),how:"town"}}
+  if(postal&&!late()){const j=await nominatim(`countrycodes=${C.cc}&limit=1&postalcode=${enc(postal)}`);if(j&&j[0])return {lat:rnd(j[0].lat,2),lng:rnd(j[0].lon,2),how:"postal"}}
+  if(reg&&!late()){const j=await nominatim(`countrycodes=${C.cc}&limit=1&q=${enc(reg)}`);if(j&&j[0])return {lat:rnd(j[0].lat,1),lng:rnd(j[0].lon,1),how:"region"}}
+  if(cc==="CA"&&CA_CENT[region])return {lat:CA_CENT[region][0],lng:CA_CENT[region][1],how:"region"};
+  if(cc==="GB"&&UK_NATIONS[nation])return {lat:UK_NATIONS[nation][0],lng:UK_NATIONS[nation][1],how:"region"};
+  return null}
+const ccSelect=(name,cur)=>`<select name="${name}">${Object.keys(COUNTRIES).map(k=>`<option value="${k}" ${k===cur?"selected":""}>${COUNTRIES[k].flag} ${COUNTRIES[k].name}</option>`).join("")}</select>`;
+function locFields(cc,L){L=L||{};const city=esc(L.city||""),reg=L.region||"",pc=esc(L.postal||"");const sm='style="text-transform:none;letter-spacing:0;font-weight:400;color:var(--muted)"';
+  if(cc==="US")return `<div class="row2"><label>City / town<input name="city" value="${city}" placeholder="Schaumburg"></label><label>State<input name="state" value="${esc(reg)}" placeholder="IL" maxlength="20"></label></div>
+  <label>or ZIP<input name="zip" value="${pc}" inputmode="numeric" maxlength="5" placeholder="60193"></label>`;
+  if(cc==="CA")return `<label>City / town<input name="city" value="${city}" placeholder="Toronto"></label>
+  <label>Province / territory<select name="state"><option value="">Choose…</option>${Object.keys(CA_PROV).map(k=>`<option value="${k}" ${k===reg?"selected":""}>${CA_PROV[k]}</option>`).join("")}</select></label>
+  <label>Postal code — first 3 only (optional)<input name="zip" value="${pc}" maxlength="7" placeholder="M5V" autocapitalize="characters"><small ${sm}>Only the first 3 characters (e.g. M5V) are kept. Never the full postal code.</small></label>`;
+  if(cc==="GB")return `<label>City / town / village<input name="city" value="${city}" placeholder="Kendal"></label>
+  <div class="row2"><label>County<input name="state" value="${esc(reg)}" placeholder="Cumbria" maxlength="40"></label><label>Nation<select name="nation"><option value="">Choose…</option>${Object.keys(UK_NATIONS).map(k=>`<option ${k===L.nation?"selected":""}>${k}</option>`).join("")}</select></label></div>
+  <label>Postcode — first part only (optional)<input name="zip" value="${pc}" maxlength="8" placeholder="LA9" autocapitalize="characters"><small ${sm}>Only the first part (e.g. LA9 or SW1A) is kept. Never the full postcode.</small></label>`;
+  return `<label>City / town / village<input name="city" value="${city}" placeholder="Galway"></label>
+  <label>County<select name="state"><option value="">Choose…</option>${IE_COUNTIES.map(k=>`<option ${k===reg?"selected":""}>${k}</option>`).join("")}</select></label>
+  <label>Eircode — first 3 only (optional)<input name="zip" value="${pc}" maxlength="8" placeholder="H91" autocapitalize="characters"><small ${sm}>Only the routing key (e.g. H91) is kept. Never the full Eircode.</small></label>`}
+const townC=x=>x&&x.town?(x.town+(x.country&&x.country!=="US"&&!/(Canada|UK|Ireland)$/.test(x.town)?", "+COUNTRIES[x.country].short:"")):"";
 const locLine=s=>s.locType==="na"?"Unknown / NA (no map pin)":(s.town?`${s.locType==="now"?"Now in":"Found in"} ${s.town}`:"");
 const makerOpts=()=>MAKERS.slice().sort((a,b)=>disp(a).localeCompare(disp(b))).map(m=>`<option value="${m.id}">${esc(disp(m))}</option>`).join("");
 function teaser(m){
@@ -187,19 +238,27 @@ R.add=(editId)=>{const E=editId?allSleds().find(x=>x.id==editId):null;
     const getPics=picker("addpk",E?E.imgs:[],pics.map(p=>"images/"+p));
     bindMaker("addmk",pre);
     if(E){$("#addf").condition.value=E.condition;const lt=$("#addf").querySelector(`input[name=locType][value=${E.locType||"found"}]`);if(lt)lt.checked=true;$("#addf").shared.checked=!!E.shared}
-    if(draft){if(draft.years)$("#addf").years.value=draft.years;if(draft.zip)$("#addf").zip.value=draft.zip;if(draft.model)$("#addf").model.value=draft.model}
+    if(draft){if(draft.years)$("#addf").years.value=draft.years;if(draft.zip&&$("#addf").zip)$("#addf").zip.value=draft.zip;if(draft.model)$("#addf").model.value=draft.model}
     $("#addunk").onclick=()=>{$("#addf").years.value="Unknown"};
+    $("#addf").country.onchange=ev=>{const F=$("#addf");$("#addloc").innerHTML=locFields(ev.target.value,{city:F.city?F.city.value:""})};
     $("#addf").onsubmit=async e=>{e.preventDefault();const btn=e.target.querySelector("button[type=submit]");if(btn.disabled)return;const lbl=btn.textContent;btn.disabled=true;btn.textContent="Saving…";try{const f=new FormData(e.target);
-      const lt=f.get("locType"),city=f.get("city"),st=f.get("state"),zip=f.get("zip");
+      const lt=f.get("locType"),cc=COUNTRIES[f.get("country")]?f.get("country"):"US",city=String(f.get("city")||"").trim(),st=String(f.get("state")||"").trim(),nation=String(f.get("nation")||"");
+      const pc=coarsePostal(cc,f.get("zip")),zip=pc.v;
+      if(lt!=="na"&&String(f.get("zip")||"").trim()&&!zip){toast(cc==="US"?"Please enter a 5-digit ZIP, or leave it blank.":"That postcode doesn't look right. Enter just the first part, or leave it blank.",4500);return}
       let g=null,town="NA";
-      if(lt!=="na"){g=(city||st||zip)?await geocode(city,st,zip):null;town=city?(city+(st?", "+st.toUpperCase():"")):(zip?"ZIP "+zip:(st?st.toUpperCase():""));
+      if(lt!=="na"){btn.textContent="Finding the map spot…";
+        if(cc==="US"){g=(city||st||zip)?await geocode(city,st,zip):null;town=city?(city+(st?", "+st.toUpperCase():"")):(zip?"ZIP "+zip:(st?st.toUpperCase():""))}
+        else{town=(city||st||zip||nation)?placeTown(cc,city,st,nation,zip):"";g=town?await geocodeIntl(cc,city,st,nation,zip):null}
+        btn.textContent="Saving…";
         if(!town&&E){town=E.town;g=E.lat!=null?{lat:E.lat,lng:E.lng,how:E.geo}:null}}
+      const pinNote=lt==="na"||!town?"":(!g?" · no map pin: we couldn't find that town (you can edit it later)":(g.how==="region"||g.how==="state"?" · map pin placed at the "+(cc==="US"?"state":cc==="CA"?"province":"county/region")+" centre":""))+(pc.cut?" · only the first part of the postcode was kept":"");
       const base=E?Object.assign({},E):{id:"u"+Date.now(),user:"you",userAdded:true,mine:true,likes:0};
-      const s=Object.assign(base,makerVals(f),{model:f.get("model")||"Untitled sled",years:String(f.get("years")||"").trim()||"Unknown",year:undefined,size:f.get("size")||"—",condition:f.get("condition"),found:f.get("found")||"—",notes:f.get("notes")||"",shared:!!f.get("shared"),locType:lt,town:town,lat:g?g.lat:null,lng:g?g.lng:null,geo:g?g.how:null,imgs:getPics().length?await storePics(getPics()):["images/collection-red-swirl-deck-photos-p28.jpg"],img:undefined});s.img=s.imgs[0];if(adminEdit)s.editedBy="Sled Finder";
-      if(E){await lsSave(()=>saveSled(s));toast("Changes saved")}else{await lsSave(()=>{const u=userSleds();u.unshift(s);LS.set("sleds",u)});try{LS.set("idDraft",null)}catch(x){}toast("Sled saved to your collection")}
+      const s=Object.assign(base,makerVals(f),{model:f.get("model")||"Untitled sled",years:String(f.get("years")||"").trim()||"Unknown",year:undefined,size:f.get("size")||"—",condition:f.get("condition"),found:f.get("found")||"—",notes:f.get("notes")||"",shared:!!f.get("shared"),locType:lt,country:cc,city:lt==="na"?"":city,region:lt==="na"?"":st,nation:cc==="GB"&&lt!=="na"?nation:"",postal:lt==="na"?"":zip,zip:cc==="US"&&lt!=="na"?zip:"",town:town,lat:g?g.lat:null,lng:g?g.lng:null,geo:g?g.how:null,imgs:getPics().length?await storePics(getPics()):["images/collection-red-swirl-deck-photos-p28.jpg"],img:undefined});s.img=s.imgs[0];if(adminEdit)s.editedBy="Sled Finder";
+      if(E){await lsSave(()=>saveSled(s));toast("Changes saved"+pinNote,pinNote?5000:0)}else{await lsSave(()=>{const u=userSleds();u.unshift(s);LS.set("sleds",u)});try{LS.set("idDraft",null)}catch(x){}toast("Sled saved to your collection"+pinNote,pinNote?5000:0)}
       location.hash="#/sled/"+s.id}catch(err){saveErr(err)}finally{btn.disabled=false;btn.textContent=lbl}};
   });
   const [ci,stt]=(E&&E.town&&E.town!=="NA"&&!/^ZIP /.test(E.town))?E.town.split(/,\s*/):["",""];
+  const locInit=E&&E.country&&E.country!=="US"?{cc:E.country,city:E.city||"",region:E.region||"",nation:E.nation||"",postal:E.postal||""}:{cc:"US",city:E&&E.city!=null?E.city:(ci||""),region:E&&E.region!=null?E.region:(stt||""),postal:(E&&(E.zip||((String(E.town||"").match(/^ZIP (\d{5})$/)||[])[1])))||(draft&&draft.zip)||""};
   return `<form class="form" id="addf">
   ${pickerHTML("addpk",false)}
   ${makerFields("addmk",pre)}
@@ -210,9 +269,9 @@ R.add=(editId)=>{const E=editId?allSleds().find(x=>x.id==editId):null;
   <label>Where found<input name="found" value="${v("found")}" placeholder="Estate sale, barn, auction…"></label>
   <fieldset class="locset"><legend>Map location (town level only)</legend>
   <div class="seg"><label><input type="radio" name="locType" value="found" checked> Where it was found / sourced</label><label><input type="radio" name="locType" value="now"> Where it is now</label><label><input type="radio" name="locType" value="na"> Unknown / NA (no map pin)</label></div>
-  <div class="row2"><label>City<input name="city" value="${esc(ci||"")}" placeholder="Schaumburg"></label><label>State<input name="state" value="${esc(stt||"")}" placeholder="IL" maxlength="20"></label></div>
-  <label>or ZIP<input name="zip" inputmode="numeric" maxlength="5" placeholder="60193"></label>
-  <small class="muted" style="font-size:.7rem">Only the town shows on the map. Never enter a street address. Choose NA if you don't know.</small></fieldset>
+  <label>Country${ccSelect("country",locInit.cc)}</label>
+  <div id="addloc" style="display:flex;flex-direction:column;gap:14px">${locFields(locInit.cc,locInit)}</div>
+  <small class="muted" style="font-size:.7rem">Only the town shows on the map. Never enter a street address or a full postcode. Choose NA if you don't know.</small></fieldset>
   <label>Notes<textarea name="notes" placeholder="Stencils, stamps, repairs, provenance…">${v("notes")}</textarea></label>
   <label class="toggle"><span>Share in the Sled Maker and Model Database<small>Off = only you can see it</small></span><span class="sw"><input type="checkbox" name="shared" checked><i></i></span></label>
   ${adminEdit?'<p class="legend" style="margin:0;padding:0">Saving marks this post “Edited by Sled Finder”.</p>':ackHTML()}
@@ -270,12 +329,12 @@ R.maker=id=>{const m=M(id);if(!m)return R.makers();const p=m.p,free=isFree(m),P=
 R.search=()=>{bar("Search",{back:true,sub:"Makers, models, collectors"});tab("home");
   setTimeout(()=>{const i=$("#q"),out=$("#res");const run=()=>{const q=i.value.trim().toLowerCase();
     if(!q){out.innerHTML='<p class="legend">Try “Flyer”, “Chicago”, “Speedster” or “Garton”.</p>';return}
-    const mk=MAKERS.filter(m=>(disp(m)+" "+m.name+" "+m.models+" "+m.area).toLowerCase().includes(q));
-    const sl=premium()?allSleds().filter(s=>s.shared||s.mine||s.userAdded).filter(s=>(mk(s)+" "+s.model+" "+s.user+" "+s.years).toLowerCase().includes(q)):[];
-    out.innerHTML=`<h3 class="sec">Makers (${mk.length})</h3><div class="list card">${mk.map(m=>`<a class="mrow" href="#/maker/${m.id}"><span class="num">${m.id}</span><span class="tx"><div class="n">${esc(disp(m))}</div><div class="d">${esc(m.area)} · ${esc(m.models||"")}</div></span>${isFree(m)?'<span class="free-pill">Free</span>':premium()?"›":"🔒"}</a>`).join("")||'<div class="mrow">No makers</div>'}</div>
-    ${premium()?`<h3 class="sec">Collectors' sleds (${sl.length})</h3><div class="grid2">${sl.map(s=>`<a class="card tile" href="${tileHref(s)}">${tileTh(s)}<div class="n">${esc(mk(s))}</div><div class="d">${esc(s.model)} · ${esc(s.years)}</div><div class="d">@${esc(s.user)}</div></a>`).join("")}</div>`:`<h3 class="sec">Collectors' sleds</h3>${databaseGate()}`}`};
+    const mks=MAKERS.filter(m=>(disp(m)+" "+m.name+" "+m.models+" "+m.area).toLowerCase().includes(q));
+    const sl=premium()?allSleds().filter(s=>s.shared||s.mine||s.userAdded).filter(s=>(mk(s)+" "+s.model+" "+s.user+" "+s.years+" "+(s.locType!=="na"?(s.town||"")+" "+COUNTRIES[ccOf(s)].name+" "+(s.region||""):"")).toLowerCase().includes(q)):[];
+    out.innerHTML=`<h3 class="sec">Makers (${mks.length})</h3><div class="list card">${mks.map(m=>`<a class="mrow" href="#/maker/${m.id}"><span class="num">${m.id}</span><span class="tx"><div class="n">${esc(disp(m))}</div><div class="d">${esc(m.area)} · ${esc(m.models||"")}</div></span>${isFree(m)?'<span class="free-pill">Free</span>':premium()?"›":"🔒"}</a>`).join("")||'<div class="mrow">No makers</div>'}</div>
+    ${premium()?`<h3 class="sec">Collectors' sleds (${sl.length})</h3><div class="grid2">${sl.map(s=>`<a class="card tile" href="${tileHref(s)}">${tileTh(s)}<div class="n">${esc(mk(s))}</div><div class="d">${esc(s.model)} · ${esc(s.years)}</div><div class="d">@${esc(s.user)}${s.town&&s.locType!=="na"?" · 📍 "+esc(s.town):""}</div></a>`).join("")}</div>`:`<h3 class="sec">Collectors' sleds</h3>${databaseGate()}`}`};
     i.oninput=run;i.value=LS.get("lastq","Paris");run();i.addEventListener("change",()=>LS.set("lastq",i.value))});
-  return `<div class="search"><span>⌕</span><input id="q" placeholder="Search makers, models, collectors" autofocus></div><div id="res"></div>`;
+  return `<div class="search"><span>⌕</span><input id="q" placeholder="Search makers, models, collectors, towns, countries" autofocus></div><div id="res"></div>`;
 };
 R.idhelp=()=>{bar("What sled is this?",{back:true,sub:"Community ID help"});tab("home");
   if(!premium())return databaseGate();
@@ -387,18 +446,19 @@ R.profile=()=>{bar("Profile",{sub:ROLES[role()]});tab("profile");
   <div class="menu"><a href="#/profile" onclick="return false">About · Rosebud Sled Museum, Schaumburg, IL <span></span></a><a href="#/profile" onclick="return false">Privacy: private sleds are visible only to you <span></span></a><a href="#/terms">Terms &amp; Community Guidelines (draft) <span>›</span></a></div>
   <p class="legend" style="padding-bottom:24px">Clickable mockup for review. No accounts, servers or payments.</p>`;
 };
-R.sale=()=>{bar("Sleds for Sale",{sub:"Collector marketplace",act:`<a class="act" href="${canSell()?"#/sell":"#/upgrade"}" aria-label="Sell">${canSell()?"＋":"🔒"}</a>`});tab("sale");
-  const all=allListings(),L=all.filter(l=>premium()||!l.mine),hid=all.length-L.length;
+R.sale=(fcc)=>{fcc=COUNTRIES[fcc]?fcc:"";bar("Sleds for Sale",{sub:"Collector marketplace",act:`<a class="act" href="${canSell()?"#/sell":"#/upgrade"}" aria-label="Sell">${canSell()?"＋":"🔒"}</a>`});tab("sale");
+  const all=allListings(),L=all.filter(l=>premium()||!l.mine).filter(l=>!fcc||ccOf(l)===fcc),hid=all.filter(l=>!(premium()||!l.mine)).length;
+  const ccChips=`<div class="chips"><a class="chip ${fcc?"":"on"}" href="#/sale">All countries</a>${Object.keys(COUNTRIES).map(k=>`<a class="chip ${fcc===k?"on":""}" href="#/sale/${k}">${COUNTRIES[k].flag} ${COUNTRIES[k].short}</a>`).join("")}</div>`;
   return `<div class="pad" style="padding-bottom:4px">${canSell()?'<a class="btn solid" href="#/sell">＋ Post a sled for sale</a>':'<a class="btn" href="#/upgrade">🔒 Post a sled for sale <span class="small" style="text-transform:none;letter-spacing:0">· Premium members</span></a>'}</div>
   <p class="legend">Anyone can browse listings. Posting a listing is for paid members. Locations are shown by town only.</p>${hid&&lapsed()?`<p class="legend" style="color:var(--red)">🔒 ${hid} of your listing${hid==1?" is":"s are"} hidden while your membership is lapsed. ${hid==1?"It stays":"They stay"} in Sled Finder and come${hid==1?"s":""} back when you renew.</p>`:""}
-  <div class="feed" style="margin-top:12px">${L.map(l=>`<a class="card post" href="#/listing/${l.id}" style="text-decoration:none"><div class="ph" style="background-image:url('${l.img}')"></div><div class="meta"><div class="who"><span class="av">${initials(l.user)}</span>@${esc(l.user)} ${l.mine?'<span class="sample-tag" style="background:#e5efe9;color:var(--pine);border-color:#bcd3c5">Your listing</span>':'<span class="sample-tag">Example data</span>'}</div><div class="t">${l.price?esc(l.price)+" · ":""}${esc(l.title)}</div><div class="m">${esc(mk(l))}${l.model?" · "+esc(l.model):""} · Est. ${esc(l.years)}${l.condition?" · "+esc(l.condition):""}</div><div class="m">📍 ${esc(l.town)} · 📦 Ships: ${esc(l.ship)}</div><div class="m">✉ ${esc(l.email)}</div>${l.desc?`<p class="snip">${esc(l.desc)}</p>`:""}${editedNote(l)}</div></a>`).join("")}</div>`;
+  ${ccChips}<div class="feed" style="margin-top:12px">${L.map(l=>`<a class="card post" href="#/listing/${l.id}" style="text-decoration:none"><div class="ph" style="background-image:url('${l.img}')"></div><div class="meta"><div class="who"><span class="av">${initials(l.user)}</span>@${esc(l.user)} ${l.mine?'<span class="sample-tag" style="background:#e5efe9;color:var(--pine);border-color:#bcd3c5">Your listing</span>':'<span class="sample-tag">Example data</span>'}</div><div class="t">${l.price?esc(l.price)+" · ":""}${esc(l.title)}</div><div class="m">${esc(mk(l))}${l.model?" · "+esc(l.model):""} · Est. ${esc(l.years)}${l.condition?" · "+esc(l.condition):""}</div><div class="m">📍 ${esc(townC(l))} · 📦 Ships: ${esc(l.ship)}</div><div class="m">✉ ${esc(l.email)}</div>${l.desc?`<p class="snip">${esc(l.desc)}</p>`:""}${editedNote(l)}</div></a>`).join("")}</div>`;
 };
 R.listing=id=>{const l=allListings().find(x=>x.id==id);if(!l)return R.sale();
   if(l.mine&&!premium()){bar("For Sale",{back:true});tab("sale");return gate("Membership lapsed",lapsedText(1))}
   bar("For Sale",{back:true,sub:l.price||"Price not listed"});tab("sale");
   return `${gallery(l.imgs,false)}
   <div class="title-block"><h1>${esc(l.title)}</h1><div style="font-family:var(--serif);font-size:1.6rem;font-weight:700;color:var(--red);margin-top:4px">${l.price?esc(l.price):'<span class="muted" style="font-size:1rem">Price not listed · contact seller</span>'}</div><div class="small muted">@${esc(l.user)} ${l.mine?"· Your listing":'<span class="sample-tag">Example data</span>'}</div>${editedNote(l)}</div>
-  <dl class="dl"><div><dt>Maker</dt><dd>${+l.maker&&M(l.maker)?`<a href="#/maker/${l.maker}">${esc(makerName(l.maker))}</a>`:(l.makerText?esc(l.makerText)+' <span class="unconf">unconfirmed</span>':"Unknown maker")}</dd></div><div><dt>Model</dt><dd>${esc(l.model||"—")}</dd></div><div><dt>Est. years made</dt><dd>${esc(l.years)}</dd></div><div><dt>Condition</dt><dd>${esc(l.condition)}</dd></div><div><dt>Location</dt><dd>${esc(l.town)}</dd></div><div><dt>Can ship?</dt><dd>${esc(l.ship)}</dd></div><div><dt>Contact</dt><dd><a href="mailto:${esc(l.email)}">${esc(l.email)}</a></dd></div></dl>${l.desc?`<div class="prose" style="padding-top:12px"><p>${esc(l.desc)}</p></div>`:""}
+  <dl class="dl"><div><dt>Maker</dt><dd>${+l.maker&&M(l.maker)?`<a href="#/maker/${l.maker}">${esc(makerName(l.maker))}</a>`:(l.makerText?esc(l.makerText)+' <span class="unconf">unconfirmed</span>':"Unknown maker")}</dd></div><div><dt>Model</dt><dd>${esc(l.model||"—")}</dd></div><div><dt>Est. years made</dt><dd>${esc(l.years)}</dd></div><div><dt>Condition</dt><dd>${esc(l.condition)}</dd></div><div><dt>Location</dt><dd>${esc(townC(l))}</dd></div><div><dt>Can ship?</dt><dd>${esc(l.ship)}</dd></div><div><dt>Contact</dt><dd><a href="mailto:${esc(l.email)}">${esc(l.email)}</a></dd></div></dl>${l.desc?`<div class="prose" style="padding-top:12px"><p>${esc(l.desc)}</p></div>`:""}
   <div class="pad"><a class="btn solid" href="mailto:${esc(l.email)}?subject=${encodeURIComponent("Your sled listing: "+l.title)}">✉ Email seller</a><div style="margin-top:10px">${editBar(l,"#/editlisting/"+l.id,"listing")}</div><p class="legend" style="margin:10px 0 0">Opens your email app. Sample listings use example.com addresses, which don't reach anyone. No sale happens in the app.</p></div>`;
 };
 R.editlisting=id=>R.sell(id);
@@ -410,7 +470,7 @@ R.sell=(editId)=>{const E=editId?allListings().find(x=>x.id==editId):null;
   const pics=["sale-flexible-flyer-eagle-deck.jpg","sale-hand-painted-sled.jpg","collection-red-swirl-deck-photos-p28.jpg","collection-pictorial-deck-photos-p31.jpg"];
   setTimeout(()=>{const getPics=picker("sellpk",E?normPics(E).imgs:[],pics.map(p=>"images/"+p));bindMaker("sellmk",E);$("#sellunk").onclick=()=>{$("#sellf").years.value="Unknown"};if(E){const F=$("#sellf");F.title.value=E.title;F.model.value=E.model||"";F.years.value=E.years&&E.years!=="Unknown"?E.years:"";F.condition.value=E.condition||"Good";F.price.value=(E.price||"").replace(/^\$/,"");F.town.value=E.town;F.ship.value=E.ship;F.email.value=E.email;F.desc.value=E.desc||"";$("#scount").textContent=F.desc.value.length+" / 500"}const ta=$("#sdesc"),sc=$("#scount");ta.oninput=()=>{sc.textContent=ta.value.length+" / 500"};
     $("#sellf").onsubmit=async e=>{e.preventDefault();try{const f=new FormData(e.target);const P0=getPics();if(!P0.length){toast("Please add at least one photo");return}const P=await storePics(P0);
-      const l=Object.assign({},E||{id:"ul"+Date.now(),user:"you",mine:true},makerVals(f),{years:String(f.get("years")||"").trim()||"Unknown",title:f.get("title"),ship:f.get("ship"),email:f.get("email"),model:f.get("model"),condition:f.get("condition"),price:f.get("price")?"$"+String(f.get("price")).replace(/^\$/,""):"",town:f.get("town"),imgs:P,img:P[0],desc:String(f.get("desc")||"").slice(0,500)});if(adminEdit)l.editedBy="Sled Finder";
+      const l=Object.assign({},E||{id:"ul"+Date.now(),user:"you",mine:true},makerVals(f),{years:String(f.get("years")||"").trim()||"Unknown",title:f.get("title"),ship:f.get("ship"),email:f.get("email"),model:f.get("model"),condition:f.get("condition"),price:f.get("price")?"$"+String(f.get("price")).replace(/^\$/,""):"",country:COUNTRIES[f.get("country")]?f.get("country"):"US",town:String(f.get("town")||"").trim(),imgs:P,img:P[0],desc:String(f.get("desc")||"").slice(0,500)});if(adminEdit)l.editedBy="Sled Finder";
       if(E){await lsSave(()=>saveListing(l));toast("Listing updated")}else{await lsSave(()=>{const u=LS.get("listings",[]);u.unshift(l);LS.set("listings",u)});toast("Listing posted (mockup)")}location.hash="#/listing/"+l.id}catch(err){saveErr(err)}}});
   return `<form class="form" id="sellf">${pickerHTML("sellpk",true)}
   <label>Sled name *<input name="title" required placeholder="e.g. Flexible Flyer No. 3C, original paint"></label>
@@ -418,7 +478,8 @@ R.sell=(editId)=>{const E=editId?allListings().find(x=>x.id==editId):null;
   <label>Model<input name="model" placeholder="Model name if known"></label>
   <label>Estimated years of manufacture<span class="inl"><input name="years" placeholder="e.g. c. 1925–1935"><button type="button" class="btn sm" id="sellunk">Unknown</button></span></label>
   <div class="row2"><label>Condition<select name="condition"><option>Excellent</option><option selected>Good</option><option>Fair</option><option>Poor</option><option>Restored</option></select></label><label>Price (optional)<input name="price" inputmode="decimal" placeholder="150"></label></div>
-  <label>Location (town, state) *<input name="town" required placeholder="e.g. Schaumburg, IL"><small style="text-transform:none;letter-spacing:0;font-weight:400;color:var(--muted)">Town only. Please don't post a street address.</small></label>
+  <label>Country${ccSelect("country",E?ccOf(E):"US")}</label>
+  <label>Location (town and state / province / county) *<input name="town" required placeholder="e.g. Schaumburg, IL · Kendal, Cumbria"><small style="text-transform:none;letter-spacing:0;font-weight:400;color:var(--muted)">Town only. Please don't post a street address.</small></label>
   <label>Can ship? *<select name="ship" required><option value="">Choose…</option><option>Yes</option><option>No</option></select></label>
   <label>Contact email *<input name="email" type="email" required placeholder="you@example.com"><small style="text-transform:none;letter-spacing:0;font-weight:400;color:var(--muted)">Shown on your listing so buyers can email you.</small></label>
   <label>Description (optional)<textarea name="desc" id="sdesc" maxlength="500" placeholder="Markings, size, repairs, pickup or shipping…"></textarea><small id="scount" style="text-transform:none;letter-spacing:0;font-weight:400;color:var(--muted);text-align:right">0 / 500</small></label>
@@ -530,9 +591,11 @@ R.map=()=>{const locked=!premium();
   const demoKeys=new Set(demo.makers||[]);
   const NE_BOUNDS=[[39.7,-80.55],[47.45,-66.95]];
   const showNE=m=>{if(m&&m.fitBounds)m.fitBounds(NE_BOUNDS,{padding:[16,16],maxZoom:7,animate:false})};
+  const CC_BOUNDS={US:[[24.5,-125],[49.5,-66.9]],CA:[[41.7,-141],[70,-52.6]],GB:[[49.8,-8.7],[60.9,1.8]],IE:[[51.3,-10.7],[55.45,-5.9]],NA:[[24.5,-141],[70,-52.6]],UKI:[[49.8,-10.7],[60.9,1.8]]};
+  let mcc="";
   setTimeout(()=>{
     if(!window.L){$("#map").innerHTML='<p class="pad small">Map library could not load (offline?).</p>';return}
-    const map=L.map("map",{zoomControl:!locked,attributionControl:true,dragging:!locked,scrollWheelZoom:!locked,doubleClickZoom:!locked,boxZoom:!locked,keyboard:!locked,touchZoom:!locked,maxZoom:11});
+    const map=L.map("map",{worldCopyJump:true,zoomControl:!locked,attributionControl:true,dragging:!locked,scrollWheelZoom:!locked,doubleClickZoom:!locked,boxZoom:!locked,keyboard:!locked,touchZoom:!locked,maxZoom:11});
     showNE(map);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:11,attribution:"© OpenStreetMap contributors"}).addTo(map);
     const layer=L.layerGroup().addTo(map);
@@ -540,8 +603,8 @@ R.map=()=>{const locked=!premium();
     const draw=()=>{
       layer.clearLayers();
       const on=new Set(selected());
-      const pins=(window.SAMPLE_MAP_PINS||[]).filter(p=>on.has(p.key)).map(p=>Object.assign({sample:true},p))
-        .concat(userPins.filter(p=>on.has(p.key)));
+      const pins=(mcc&&mcc!=="US"?[]:(window.SAMPLE_MAP_PINS||[])).filter(p=>on.has(p.key)).map(p=>Object.assign({sample:true},p))
+        .concat(userPins.filter(p=>on.has(p.key)&&(!mcc||ccOf(p)===mcc)));
       const counts={};
       pins.forEach(p=>{
         const ent=mapByKey(p.key), color=ent?ent.color:"#555", name=ent?ent.label:p.key;
@@ -566,6 +629,9 @@ R.map=()=>{const locked=!premium();
       $("#mapdemo").onclick=()=>{document.querySelectorAll(".map-mks input").forEach(i=>i.checked=demoKeys.has(i.value));draw()};
       $("#mapall").onclick=()=>{document.querySelectorAll(".map-mks input").forEach(i=>i.checked=true);draw()};
       $("#mapnone").onclick=()=>{document.querySelectorAll(".map-mks input").forEach(i=>i.checked=false);draw()};
+      const fit=b=>map.fitBounds(b,{padding:[16,16],maxZoom:9,animate:false});
+      document.querySelectorAll("#mcc [data-cc]").forEach(b=>b.onclick=()=>{mcc=b.dataset.cc;document.querySelectorAll("#mcc [data-cc]").forEach(x=>x.classList.toggle("on",x===b));draw();if(mcc)fit(CC_BOUNDS[mcc]);else showNE(map)});
+      document.querySelectorAll("#mview [data-v]").forEach(b=>b.onclick=()=>{const v=b.dataset.v;if(v==="ne")showNE(map);else if(v==="mine"){const pts=userPins.filter(p=>!mcc||ccOf(p)===mcc).map(p=>[p.lat,p.lng]);if(pts.length)fit(L.latLngBounds(pts).pad(.3));else toast("None of your sleds have a map pin yet")}else fit(CC_BOUNDS[v])});
     }else{
       const prev=$("#mapPreview");if(prev)prev.onclick=()=>{setRole("premium");toast("Demo role: Paid member");route()};
     }
@@ -590,10 +656,12 @@ R.map=()=>{const locked=!premium();
   return `${banner}
     <p class="legend">A map of where picked sleds were found. Use the 25 black-list makers to colour-code and filter the pins. This Northeast demo (Maine through Pennsylvania) has exactly 200 sample pins across ten makers, at town / ZIP level only — never a street address. They are not real finds. Fire Fly and Yankee Clipper are listed separately from Flexible Flyer.</p>
     <div class="map-actions"><button type="button" class="btn sm" id="mapdemo">Demo 10 makers</button><button type="button" class="btn sm" id="mapall">All 25</button><button type="button" class="btn sm" id="mapnone">Clear</button><span id="mcount" class="muted"></span></div>
+    <div class="chips" id="mcc" style="padding-top:0"><button type="button" class="chip on" data-cc="">All countries</button>${Object.keys(COUNTRIES).map(k=>`<button type="button" class="chip" data-cc="${k}">${COUNTRIES[k].flag} ${COUNTRIES[k].short}</button>`).join("")}</div>
+    <div class="map-actions" id="mview"><span class="muted" style="font-size:.72rem">View:</span><button type="button" class="btn sm" data-v="ne">Northeast US</button><button type="button" class="btn sm" data-v="NA">North America</button><button type="button" class="btn sm" data-v="UKI">UK &amp; Ireland</button><button type="button" class="btn sm" data-v="mine">My pins</button></div>
     <div class="map-mks">${MAP_MAKERS.map(m=>`<label class="map-mk"><input type="checkbox" value="${m.key}" ${demoKeys.has(m.key)?"checked":""}><i style="background:${m.color}"></i>${esc(m.short)}</label>`).join("")}</div>
     ${legend}
     <div id="map" class="mapbox"></div>
-    <p class="legend" style="padding-bottom:16px">Sleds you add in this browser with an origin ZIP and a black-list maker also appear, marked as your post. Green-list, unknown and custom makers stay off this map for now.</p>`;
+    <p class="legend" style="padding-bottom:16px">Sleds you add in this browser with a town (US, Canada, UK or Ireland) and a black-list maker also appear, marked as your post. Dots sit at the town, never a street address; if the town can't be found the dot goes at the state, province or county centre, or the sled is saved without a dot. Green-list, unknown and custom makers stay off this map for now.</p>`;
 };
 
 R.mphotos=(arg)=>{const [mid,idx]=String(arg).split(",");const m=M(mid),x=m&&models(m)[+idx];if(!x)return R.makers();

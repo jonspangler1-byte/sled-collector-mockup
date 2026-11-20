@@ -414,3 +414,4 @@ h3.sec a{font-family:var(--sans);font-size:.72rem;font-weight:600;letter-spacing
 .map-lock-card b{font-family:var(--serif);font-size:1.25rem;line-height:1.2}
 .map-lock-card p{margin:0;font-size:.84rem;color:var(--ink-soft);line-height:1.45}
 .map-lock-card .btn{width:100%}
+button.chip{font-family:var(--sans);color:var(--ink);cursor:pointer}
