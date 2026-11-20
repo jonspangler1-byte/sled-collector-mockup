@@ -10,12 +10,12 @@
 - On **Save sled** (new or edited), if the role is Admin and the upload link + sync key are set on that
   device, the app sends: photos the user added (re-encoded by the browser canvas, so EXIF/GPS is dropped;
   new uploads go at up to 1600 px, older saved sleds at their stored 700 px), maker, model, years,
-  **origin ZIP only**, condition, size, where found, notes, shared flag. Demo sample images are skipped.
+  **country, state/province/county and a coarse postcode only** (US ZIP, Canada first 3, UK outward code, Ireland routing key), condition, size, where found, notes, shared flag. Demo sample images are skipped.
 - localStorage stays the source of truth. If an upload fails, the sled is still saved on the phone and can
   be retried from Profile → **Sync my saved sleds to Drive**, which also uploads sleds saved before this
   feature existed. Re-syncing a sled replaces its earlier copy (the old files go to Drive Trash).
 - The sync key is never in the code. It is typed once in Profile on the admin's phone and checked by the
-  script (Script Properties `SYNC_TOKEN`). City/state, map coordinates and street addresses are never sent;
+  script (Script Properties `SYNC_TOKEN`). City/town, map coordinates, full postcodes and street addresses are never sent;
   the script also redacts anything in notes that looks like a street address.
 
 ## Folder layout in Drive
