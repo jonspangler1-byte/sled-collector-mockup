@@ -16,6 +16,25 @@ const mImgs=x=>x.imgs&&x.imgs.length?x.imgs:(x.img?[x.img]:[]);
 const firstSentence=t=>{const m=t.match(/^.*?(?:[a-z0-9)”"]{3}|\d)\.(?=\s+[A-Z“"])/);return m?m[0]:t};
 const canSell=()=>premium(); // posting sleds AND sale ads now requires paid membership (Jonathan, 18 Nov 2026)
 const LS={get:(k,d)=>{try{return JSON.parse(localStorage.getItem("svc_"+k))??d}catch(e){return d}},set:(k,v)=>localStorage.setItem("svc_"+k,JSON.stringify(v))};
+// Photo store (fix 19 Nov 2026): photos go to IndexedDB, which has far more room than localStorage (~5 MB on
+// iPhone Safari). Saved sleds keep "idb:<key>" refs. Older posts with inline photos are left as they are; they
+// are only moved into IndexedDB (written there first, then the ref swapped in) if localStorage runs out of room.
+const PH={db:null,cache:new Map(),rev:new Map()};
+function phOpen(){return new Promise(res=>{try{const r=indexedDB.open("svc_photos",1);r.onupgradeneeded=()=>r.result.createObjectStore("p");r.onsuccess=()=>res(r.result);r.onerror=r.onblocked=()=>res(null)}catch(e){res(null)}})}
+function phLoadAll(db){return new Promise(res=>{try{const rq=db.transaction("p","readonly").objectStore("p").openCursor();rq.onsuccess=()=>{const c=rq.result;if(c){PH.cache.set(c.key,c.value);PH.rev.set(c.value,c.key);c.continue()}else res()};rq.onerror=()=>res()}catch(e){res()}})}
+function phPut(entries){return new Promise((res,rej)=>{try{const tx=PH.db.transaction("p","readwrite"),st=tx.objectStore("p");entries.forEach(([k,v])=>st.put(v,k));tx.oncomplete=()=>res();tx.onerror=tx.onabort=()=>rej(tx.error||new Error("photo store failed"))}catch(e){rej(e)}})}
+const phURL=u=>typeof u==="string"&&u.startsWith("idb:")?(PH.cache.get(u.slice(4))||""):u;
+async function storePics(list){if(!PH.db)return list;const out=[],put=[];
+  list.forEach((u,i)=>{if(typeof u==="string"&&u.startsWith("data:")){let k=PH.rev.get(u);if(!k){k="p"+Date.now().toString(36)+i+Math.random().toString(36).slice(2,7);put.push([k,u])}out.push("idb:"+k)}else out.push(u)});
+  if(put.length){await phPut(put);put.forEach(([k,v])=>{PH.cache.set(k,v);PH.rev.set(v,k)})}return out}
+const isQuota=e=>!!e&&(e.name==="QuotaExceededError"||e.code===22||e.code===1014||/quota/i.test(String(e.message||e)));
+async function migrateInlinePhotos(){if(!PH.db)return false;let moved=false;
+  const fix=async arr=>{for(const x of arr){if(x&&Array.isArray(x.imgs)&&x.imgs.some(u=>String(u).startsWith("data:"))){x.imgs=await storePics(x.imgs);x.img=x.imgs[0];moved=true}else if(x&&String(x.img||"").startsWith("data:")){x.img=(await storePics([x.img]))[0];moved=true}}};
+  const sl=LS.get("sleds",[]),li=LS.get("listings",[]),ed=LS.get("edits",{}),le=LS.get("ledits",{});
+  await fix(sl);await fix(li);await fix(Object.values(ed));await fix(Object.values(le));
+  if(moved){LS.set("sleds",sl);LS.set("listings",li);LS.set("edits",ed);LS.set("ledits",le)}return moved}
+async function lsSave(fn){try{fn()}catch(e){if(!isQuota(e))throw e;if(await migrateInlinePhotos()){fn();return}throw e}}
+function saveErr(e){console.error(e);toast(isQuota(e)?"Couldn't save: this phone's storage for the app is full. Nothing was lost. Try fewer photos, or tell Sled Finder.":"Couldn't save: "+(e&&e.message||e),6000)}
 // Demo roles: free (never paid), premium (paid member), lapsed (membership ran out), admin (Jonathan / Sled Finder).
 const ROLES={free:"Free (never paid)",premium:"Paid member",lapsed:"Membership lapsed",admin:"Admin · Sled Finder (Jonathan)"};
 const role=()=>{const r=LS.get("role",null);return ROLES[r]?r:(LS.get("premium",false)?"premium":"free")};
@@ -24,7 +43,7 @@ const premium=()=>{const r=role();return r==="premium"||r==="admin"};
 const isAdmin=()=>role()==="admin";
 const lapsed=()=>role()==="lapsed";
 const userSleds=()=>LS.get("sleds",[]);
-const normPics=s=>{const o=Object.assign({},s);o.imgs=(o.imgs&&o.imgs.length?o.imgs:(o.img?[o.img]:[]));o.img=o.imgs[0]||"";o.years=o.years||o.year||"Unknown";return o};
+const normPics=s=>{const o=Object.assign({},s);o.imgs=(o.imgs&&o.imgs.length?o.imgs:(o.img?[o.img]:[])).map(phURL).filter(Boolean);o.img=o.imgs[0]||"";o.years=o.years||o.year||"Unknown";return o};
 const allSleds=()=>{const ov=LS.get("edits",{}),del=LS.get("deleted",[]);return userSleds().concat(window.SAMPLE_SLEDS.map(s=>ov[s.id]?Object.assign({},s,ov[s.id]):s)).filter(s=>!del.includes(s.id)).map(normPics)};
 const allListings=()=>{const ov=LS.get("ledits",{}),del=LS.get("ldeleted",[]);return LS.get("listings",[]).concat(window.SALE_LISTINGS.map(l=>ov[l.id]?Object.assign({},l,ov[l.id]):l)).filter(l=>!del.includes(l.id)).map(normPics)};
 // Grouping: each submission is its own record (one user, one location); same maker + model are grouped for display.
@@ -37,7 +56,7 @@ function bindGalleries(){document.querySelectorAll(".gal").forEach(g=>{const t=g
   t.onscroll=()=>{const i=Math.round(t.scrollLeft/t.clientWidth);d.forEach((x,j)=>x.classList.toggle("on",j===i));c.textContent=(i+1)+" / "+d.length};
   d.forEach((x,j)=>x.onclick=()=>t.scrollTo({left:j*t.clientWidth,behavior:"smooth"}))})}
 // Multi-photo picker: real file upload (resized in the browser) plus demo photos. First photo = cover.
-function resizeFile(file){return new Promise(res=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,700/Math.max(im.width,im.height));const c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.72))};im.src=r.result};r.readAsDataURL(file)})}
+function resizeFile(file){return new Promise(res=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1000/Math.max(im.width,im.height));const c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.72))};im.src=r.result};r.readAsDataURL(file)})}
 const pickerHTML=(id,req)=>`<div class="picker" id="${id}"><div class="pk-thumbs"></div><div class="row2"><label class="btn pk-up">📷 Add photos${req?" *":""}<input type="file" accept="image/*" multiple hidden></label><button type="button" class="btn pk-demo">＋ Demo photo</button></div><small class="muted pk-help">Add several photos. The first one is the cover; tap a photo to make it the cover.</small></div>`;
 function picker(id,initial,demo){const root=$("#"+id),T=root.querySelector(".pk-thumbs");let pics=(initial||[]).slice();
   const draw=()=>{T.innerHTML=pics.map((u,i)=>`<div class="pk-t" data-i="${i}" style="background-image:url('${u}')">${i===0?'<span class="pk-cover">Cover</span>':""}<button type="button" class="pk-x" data-x="${i}" aria-label="Remove">×</button></div>`).join("")||'<div class="pk-empty">No photos yet</div>';
@@ -74,7 +93,7 @@ const liked=()=>LS.get("liked",{});
 document.title=window.APP_NAME+" — clickable mockup";
 $("#sideTitle").textContent=window.APP_NAME;
 
-function toast(t){const e=$("#toast");e.textContent=t;e.classList.add("show");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("show"),1900)}
+function toast(t,ms){const e=$("#toast");e.textContent=t;e.classList.add("show");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("show"),ms||1900)}
 function bar(title,{back=false,sub="",act=""}={}){
   $("#appbar").innerHTML=(back?'<button class="back" onclick="history.length>1?history.back():location.hash=\'#/home\'" aria-label="Back">‹</button>':"")+
   '<h2>'+esc(title)+(sub?'<span class="sub">'+esc(sub)+'</span>':"")+'</h2>'+(isAdmin()?'<span class="badge-prem">Admin</span>':premium()?'<span class="badge-prem">Premium</span>':(lapsed()?'<span class="badge-prem" style="background:#b9a98c">Lapsed</span>':""))+act;
@@ -110,7 +129,7 @@ async function geocode(city,state,zip){
   if(city&&window.TOWN_COORDS[key])return {lat:window.TOWN_COORDS[key][0],lng:window.TOWN_COORDS[key][1],how:"table"};
   try{ // low-volume Nominatim fallback (mockup only), rounded to town level
     const q=zip?`postalcode=${encodeURIComponent(zip)}`:`city=${encodeURIComponent(city)}&state=${encodeURIComponent(st)}`;
-    if(zip||city){const r=await fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=us&limit=1&${q}`,{headers:{"Accept":"application/json"}});
+    if(zip||city){const ac=window.AbortController?new AbortController():null;const to=setTimeout(()=>ac&&ac.abort(),4000);const r=await fetch(`https://nominatim.openstreetmap.org/search?format=json&countrycodes=us&limit=1&${q}`,{headers:{"Accept":"application/json"},signal:ac?ac.signal:undefined});clearTimeout(to);
       const j=await r.json();if(j&&j[0])return {lat:Math.round(+j[0].lat*100)/100,lng:Math.round(+j[0].lon*100)/100,how:"nominatim"};}
   }catch(e){}
   if(window.STATE_CENTROIDS[st])return {lat:window.STATE_CENTROIDS[st][0],lng:window.STATE_CENTROIDS[st][1],how:"state"};
@@ -170,15 +189,15 @@ R.add=(editId)=>{const E=editId?allSleds().find(x=>x.id==editId):null;
     if(E){$("#addf").condition.value=E.condition;const lt=$("#addf").querySelector(`input[name=locType][value=${E.locType||"found"}]`);if(lt)lt.checked=true;$("#addf").shared.checked=!!E.shared}
     if(draft){if(draft.years)$("#addf").years.value=draft.years;if(draft.zip)$("#addf").zip.value=draft.zip;if(draft.model)$("#addf").model.value=draft.model}
     $("#addunk").onclick=()=>{$("#addf").years.value="Unknown"};
-    $("#addf").onsubmit=async e=>{e.preventDefault();const f=new FormData(e.target);
+    $("#addf").onsubmit=async e=>{e.preventDefault();const btn=e.target.querySelector("button[type=submit]");if(btn.disabled)return;const lbl=btn.textContent;btn.disabled=true;btn.textContent="Saving…";try{const f=new FormData(e.target);
       const lt=f.get("locType"),city=f.get("city"),st=f.get("state"),zip=f.get("zip");
       let g=null,town="NA";
       if(lt!=="na"){g=(city||st||zip)?await geocode(city,st,zip):null;town=city?(city+(st?", "+st.toUpperCase():"")):(zip?"ZIP "+zip:(st?st.toUpperCase():""));
         if(!town&&E){town=E.town;g=E.lat!=null?{lat:E.lat,lng:E.lng,how:E.geo}:null}}
       const base=E?Object.assign({},E):{id:"u"+Date.now(),user:"you",userAdded:true,mine:true,likes:0};
-      const s=Object.assign(base,makerVals(f),{model:f.get("model")||"Untitled sled",years:String(f.get("years")||"").trim()||"Unknown",year:undefined,size:f.get("size")||"—",condition:f.get("condition"),found:f.get("found")||"—",notes:f.get("notes")||"",shared:!!f.get("shared"),locType:lt,town:town,lat:g?g.lat:null,lng:g?g.lng:null,geo:g?g.how:null,imgs:getPics().length?getPics():["images/collection-red-swirl-deck-photos-p28.jpg"],img:undefined});s.img=s.imgs[0];if(adminEdit)s.editedBy="Sled Finder";
-      if(E){saveSled(s);toast("Changes saved")}else{const u=userSleds();u.unshift(s);LS.set("sleds",u);LS.set("idDraft",null);toast("Sled saved to your collection")}
-      location.hash="#/sled/"+s.id};
+      const s=Object.assign(base,makerVals(f),{model:f.get("model")||"Untitled sled",years:String(f.get("years")||"").trim()||"Unknown",year:undefined,size:f.get("size")||"—",condition:f.get("condition"),found:f.get("found")||"—",notes:f.get("notes")||"",shared:!!f.get("shared"),locType:lt,town:town,lat:g?g.lat:null,lng:g?g.lng:null,geo:g?g.how:null,imgs:getPics().length?await storePics(getPics()):["images/collection-red-swirl-deck-photos-p28.jpg"],img:undefined});s.img=s.imgs[0];if(adminEdit)s.editedBy="Sled Finder";
+      if(E){await lsSave(()=>saveSled(s));toast("Changes saved")}else{await lsSave(()=>{const u=userSleds();u.unshift(s);LS.set("sleds",u)});try{LS.set("idDraft",null)}catch(x){}toast("Sled saved to your collection")}
+      location.hash="#/sled/"+s.id}catch(err){saveErr(err)}finally{btn.disabled=false;btn.textContent=lbl}};
   });
   const [ci,stt]=(E&&E.town&&E.town!=="NA"&&!/^ZIP /.test(E.town))?E.town.split(/,\s*/):["",""];
   return `<form class="form" id="addf">
@@ -387,9 +406,9 @@ R.sell=(editId)=>{const E=editId?allListings().find(x=>x.id==editId):null;
   bar(E?(adminEdit?"Admin edit · listing":"Edit Listing"):"Post a Sled for Sale",{back:true,sub:adminEdit?"@"+E.user+" · as Sled Finder":"Saved in this browser only"});tab("sale");
   const pics=["sale-flexible-flyer-eagle-deck.jpg","sale-hand-painted-sled.jpg","collection-red-swirl-deck-photos-p28.jpg","collection-pictorial-deck-photos-p31.jpg"];
   setTimeout(()=>{const getPics=picker("sellpk",E?normPics(E).imgs:[],pics.map(p=>"images/"+p));bindMaker("sellmk",E);$("#sellunk").onclick=()=>{$("#sellf").years.value="Unknown"};if(E){const F=$("#sellf");F.title.value=E.title;F.model.value=E.model||"";F.years.value=E.years&&E.years!=="Unknown"?E.years:"";F.condition.value=E.condition||"Good";F.price.value=(E.price||"").replace(/^\$/,"");F.town.value=E.town;F.ship.value=E.ship;F.email.value=E.email;F.desc.value=E.desc||"";$("#scount").textContent=F.desc.value.length+" / 500"}const ta=$("#sdesc"),sc=$("#scount");ta.oninput=()=>{sc.textContent=ta.value.length+" / 500"};
-    $("#sellf").onsubmit=e=>{e.preventDefault();const f=new FormData(e.target);const P=getPics();if(!P.length){toast("Please add at least one photo");return}
+    $("#sellf").onsubmit=async e=>{e.preventDefault();try{const f=new FormData(e.target);const P0=getPics();if(!P0.length){toast("Please add at least one photo");return}const P=await storePics(P0);
       const l=Object.assign({},E||{id:"ul"+Date.now(),user:"you",mine:true},makerVals(f),{years:String(f.get("years")||"").trim()||"Unknown",title:f.get("title"),ship:f.get("ship"),email:f.get("email"),model:f.get("model"),condition:f.get("condition"),price:f.get("price")?"$"+String(f.get("price")).replace(/^\$/,""):"",town:f.get("town"),imgs:P,img:P[0],desc:String(f.get("desc")||"").slice(0,500)});if(adminEdit)l.editedBy="Sled Finder";
-      if(E){saveListing(l);toast("Listing updated")}else{const u=LS.get("listings",[]);u.unshift(l);LS.set("listings",u);toast("Listing posted (mockup)")}location.hash="#/listing/"+l.id}});
+      if(E){await lsSave(()=>saveListing(l));toast("Listing updated")}else{await lsSave(()=>{const u=LS.get("listings",[]);u.unshift(l);LS.set("listings",u)});toast("Listing posted (mockup)")}location.hash="#/listing/"+l.id}catch(err){saveErr(err)}}});
   return `<form class="form" id="sellf">${pickerHTML("sellpk",true)}
   <label>Sled name *<input name="title" required placeholder="e.g. Flexible Flyer No. 3C, original paint"></label>
   ${makerFields("sellmk",E)}
@@ -614,6 +633,7 @@ function route(){
     else{deleteSled(b.dataset.del);toast("Sled deleted");location.hash=isOwn(it)?"#/collection":"#/home"}});
 }
 window.addEventListener("hashchange",route);
+document.addEventListener("invalid",e=>{const t=e.target,l=t.closest("label");toast(t.name==="ack"?"Please tick the agreement box to save.":"Please fill in: "+(l?(l.childNodes[0].textContent||"").replace("*","").trim()||t.name:t.name),4000)},true);
 $("#resetDemo").onclick=()=>{["premium","role","sleds","liked","lastq","edits","deleted","listings","ledits","ldeleted","idDraft"].forEach(k=>localStorage.removeItem("svc_"+k));location.hash="#/home";route();toast("Demo reset")};
-route();
+Promise.race([phOpen(),new Promise(r=>setTimeout(()=>r(null),3000))]).then(async db=>{PH.db=db;if(db)await phLoadAll(db);route()});
 })();
