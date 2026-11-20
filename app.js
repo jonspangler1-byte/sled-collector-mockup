@@ -686,9 +686,11 @@ R.unknown=()=>{bar("Unknown / unconfirmed makers",{back:true,sub:"Not filed unde
 // ===== Suggestions to the developer. Delivered free with no keys in the app:
 // 1) a Google Form in Sled Finder's Google account (set SUGGEST_FORM.action + entry ids once the form exists), posted
 //    straight from the app so the existing Google Form alert catches it; 2) otherwise a pre-filled email to the museum.
-const SUGGEST_FORM={action:"",fields:{category:"",message:"",name:"",email:"",context:""}};
+const APP_VER="b7";
+const SUGGEST_FORM={action:"https://docs.google.com/forms/d/e/1FAIpQLSeL5-bPPHkSnMlo-utOtZdRJfQN5yUCQRQOt19Bgt4VAjkmBA/formResponse",fields:{category:"entry.1937538793",message:"entry.790371823",name:"entry.1603670551",email:"entry.1586826346",context:"entry.1782360007"}};
+let lastScreen="#/home";window.addEventListener("hashchange",e=>{try{const h=new URL(e.oldURL).hash||"#/home";if(!/^#\/suggest/.test(h))lastScreen=h}catch(x){}});
 const SUGGEST_EMAIL="rbsledmuseum@gmail.com";
-const SUGGEST_CATS=["Suggestion","Bug / something isn't working","Missing maker or info","Other"];
+const SUGGEST_CATS=[["Suggestion","Suggestion"],["Bug","Bug / something isn't working"],["Missing maker or info","Missing maker or info"],["Other","Other"]]; // values must match the Google Form choices exactly
 R.insurance=()=>{bar("Insurance list",{back:true,sub:premium()?"Printable list of your sleds":"Preview · Premium"});tab("collection");
   const mine=allSleds().filter(isOwn);
   const rows=(arr)=>`<table class="ins"><thead><tr><th>Maker</th><th>Model</th><th>Years</th><th>Condition</th><th>Size</th></tr></thead><tbody>${arr.map(s=>`<tr><td>${esc(mk(s))}</td><td>${esc(s.model)}</td><td>${esc(s.years)}</td><td>${esc(s.condition||"")}</td><td>${esc(s.size||"")}</td></tr>`).join("")||'<tr><td colspan="5" class="muted">No sleds yet. Add one with ＋.</td></tr>'}</tbody></table>`;
@@ -698,14 +700,14 @@ R.insurance=()=>{bar("Insurance list",{back:true,sub:premium()?"Printable list o
 R.suggest=()=>{bar("Send a suggestion",{back:true,sub:"To the Sled Finder developer"});tab("profile");
   setTimeout(()=>{const F=$("#sugf");if(!F)return;F.onsubmit=async e=>{e.preventDefault();const f=new FormData(F);const msg=String(f.get("message")||"").trim();
     if(msg.length<3){toast("Please write a short message first.",3500);return}
-    const d={category:f.get("category"),message:msg.slice(0,3000),name:String(f.get("name")||"").trim().slice(0,100),email:String(f.get("email")||"").trim().slice(0,200),context:"Sled Finder app · viewing as "+ROLES[role()]+" · "+navigator.userAgent.slice(0,120)};
+    const d={category:f.get("category"),message:msg.slice(0,3000),name:String(f.get("name")||"").trim().slice(0,100),email:String(f.get("email")||"").trim().slice(0,200),context:"Sled Finder "+APP_VER+" · role: "+role()+" · screen: "+lastScreen+" · "+navigator.userAgent.slice(0,120)};
     const btn=F.querySelector("button[type=submit]");btn.disabled=true;btn.textContent="Sending…";let how="form";
     try{if(!SUGGEST_FORM.action)throw new Error("no form");const b=new URLSearchParams();Object.keys(SUGGEST_FORM.fields).forEach(k=>{if(SUGGEST_FORM.fields[k])b.append(SUGGEST_FORM.fields[k],d[k]||"")});
       await fetch(SUGGEST_FORM.action,{method:"POST",mode:"no-cors",body:b})}
     catch(err){how="email";const body=`${d.message}\n\n— ${d.name||"(no name)"}${d.email?" · "+d.email:""}\nCategory: ${d.category}\n${d.context}`;location.href=`mailto:${SUGGEST_EMAIL}?subject=${encodeURIComponent("Sled Finder suggestion: "+d.category)}&body=${encodeURIComponent(body)}`}
-    $("#view").innerHTML=`<div class="pad" style="text-align:center;padding-top:40px"><div style="font-size:2.4rem">🙏</div><h2 style="font-family:var(--serif);margin:8px 0">Thank you!</h2><p class="small muted" style="max-width:300px;margin:0 auto 18px">${how==="form"?"Your note went straight to the Sled Finder developer.":"Your email app should have opened with your note filled in. Press <b>Send</b> there to deliver it."}${d.email?" We'll reply to "+esc(d.email)+" if needed.":""}</p><a class="btn solid" href="#/home">Back to Home</a><a class="btn" style="margin-top:10px" href="#/suggest">Send another</a></div>`}});
+    $("#view").innerHTML=`<div class="pad" style="text-align:center;padding-top:40px"><div style="font-size:2.4rem">🙏</div><h2 style="font-family:var(--serif);margin:8px 0">Thank you!</h2><p class="small muted" style="max-width:300px;margin:0 auto 18px">${how==="form"?"Your note went straight to the Sled Finder developer. Nothing else to do.":"Your email app should have opened with your note filled in. Press <b>Send</b> there to deliver it."}${d.email?" We'll reply to "+esc(d.email)+" if needed.":""}</p><a class="btn solid" href="#/home">Back to Home</a><a class="btn" style="margin-top:10px" href="#/suggest">Send another</a></div>`}});
   return `<form class="form" id="sugf"><p class="legend" style="margin:0;padding:0">Ideas, bugs, a missing maker or a fact to fix: tell us here. It goes to the person building Sled Finder.</p>
-  <label>Category<select name="category">${SUGGEST_CATS.map(c=>`<option>${esc(c)}</option>`).join("")}</select></label>
+  <label>Category<select name="category">${SUGGEST_CATS.map(([v,l])=>`<option value="${esc(v)}">${esc(l)}</option>`).join("")}</select></label>
   <label>Message *<textarea name="message" required maxlength="3000" placeholder="What would make Sled Finder better?"></textarea></label>
   <div class="row2"><label>Your name (optional)<input name="name" maxlength="100" autocomplete="name"></label><label>Email for a reply (optional)<input name="email" type="email" maxlength="200" autocomplete="email"></label></div>
   <small class="muted" style="font-size:.7rem">Please don't include a street address or anything private.</small>
