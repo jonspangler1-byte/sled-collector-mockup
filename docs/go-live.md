@@ -10,7 +10,7 @@ turns on the real app.
 Five pieces, in the order to do them:
 
 1. Accounts and a shared database (Supabase). The code is done and tested offline. It needs a Supabase project.
-2. Premium payments (Stripe). The code is done (Payment Link plus webhook). It needs a Stripe account.
+2. Premium payments (Stripe). The code is done (Checkout Session plus webhook and Customer Portal). It needs a Stripe account, test-mode objects, and the SQL migration if the project already exists.
 3. The Drive photo sync for training. The code is done. It needs the Apps Script deployed (see /workspace/sled-finder-drive-sync/DEPLOY.md).
 4. A custom domain. It needs a purchase, which is Jonathan's call.
 5. iOS and Android apps (Capacitor). The config and build script are ready. It needs the store accounts (fees, which are Jonathan's call) and a Mac for iOS builds.
@@ -47,14 +47,17 @@ Five pieces, in the order to do them:
 
 | File | What it does |
 |---|---|
-| `config.js` | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `STRIPE_PAYMENT_LINK`, `STRIPE_PORTAL_LINK`, `SITE_URL`, `SHOW_SAMPLE_DATA`. Empty means demo mode. The anon key is public by design. **Never** put the service_role key or a Stripe secret key here. |
-| `cloud.js` | Sign-in (6-digit email code, or the magic link on the same phone), membership role from the server, an offline **outbox** (saves go to the phone first, then upload when online), photo upload to Storage, pulling the member's sleds onto any device, shared sleds from other Premium members, public sale ads, admin corrections, account deletion. |
-| `app.js` | Account screen (`#/account`), real paywall (Stripe link), Profile shows `@handle`. The "Viewing as" switcher is gone for members and kept for the admin as a screen-only preview. Sample collectors and ads are hidden when live. |
-| `docs/supabase-schema.sql` | Tables `profiles`, `sleds`, `listings`, `stripe_events`, a `photos` storage bucket, and all RLS policies. Safe to re-run. |
-| `supabase/functions/stripe-webhook` | Sets `premium_until` from Stripe events. |
-| `supabase/functions/delete-account` | In-app account deletion (required by Apple and Google). |
-| `tests/schema` | 28 RLS checks against real Postgres (PGlite): free users can't post, lapsed members are hidden, members can't grant themselves Premium, etc. |
-| `tests/e2e` | 42 browser checks: the demo is unchanged, sign-in, migration, payment refresh, offline then back online, second phone, other member's view, delete, sign-out, account deletion. |
+| `config.js` | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `STRIPE_CHECKOUT`, `STRIPE_PAYMENT_LINK`, `STRIPE_PORTAL_LINK`, `SITE_URL`, `SHOW_SAMPLE_DATA`. Empty Supabase keys mean demo mode. Set `STRIPE_CHECKOUT` to `true` after the Checkout function is deployed. Payment Link / portal login links are fallbacks only. The anon key is public by design. **Never** put the service_role key or a Stripe secret key here. |
+| `cloud.js` | Sign-in (6-digit email code, or the magic link on the same phone), membership role from the server, an offline **outbox** (saves go to the phone first, then upload when online), photo upload to Storage, pulling the member's sleds onto any device, shared sleds from other Premium members, public sale ads, admin corrections, account deletion, Checkout and Customer Portal session starts. |
+| `app.js` | Account screen (`#/account`), real paywall (Join opens a server-created Checkout Session), Profile shows `@handle`. The "Viewing as" switcher is gone for members and kept for the admin as a screen-only preview. Sample collectors and ads are hidden when live. |
+| `docs/supabase-schema.sql` | Tables `profiles` (including `stripe_subscription_status`), `sleds`, `listings`, `stripe_events`, a `photos` storage bucket, and all RLS policies. Safe to re-run. If the project already exists, also run `docs/migrations/2026-11-20-stripe-subscription-status.sql` in the SQL editor of project `cpmieqcsbvozwrbjagqm` (do not run it from this machine). |
+| `supabase/functions/create-checkout` | JWT-required. Creates a Stripe Checkout Session for the signed-in member (or sends them to the Customer Portal if they already have an active or past-due subscription). |
+| `supabase/functions/create-portal-session` | JWT-required. Opens a Customer Portal session for the signed-in member. |
+| `supabase/functions/stripe-webhook` | Sets `premium_until` and Stripe ids from Stripe events. Signature-verified; idempotent. |
+| `supabase/functions/delete-account` | In-app account deletion (required by Apple and Google). Does not delete the login if Stripe cancel fails and the subscription still exists. |
+| `tests/schema` | RLS checks against real Postgres (PGlite): free users can't post, lapsed members are hidden, members can't grant themselves Premium or change Stripe columns, etc. |
+| `tests/e2e` | Browser checks: the demo is unchanged, sign-in, migration, Checkout session start, payment refresh, portal for an open subscription, offline then back online, second phone, other member's view, delete, sign-out, account deletion. |
+| `tests/stripe` | Unit checks for membership helpers (trusted user id, paid-only grants, refunds, disputes, cancel errors, return URLs). |
 
 **Rules the server enforces** (not just the app)
 
@@ -96,25 +99,46 @@ Jonathan already has a Shopify store, but merch is shelved and Shopify would add
 
 **How it works**
 
-1. The member taps **Join Premium · $15/yr**. That opens the Stripe Payment Link with `client_reference_id=<their account id>` and their email filled in.
-2. Stripe sends `checkout.session.completed` to the `stripe-webhook` function, which sets `premium_until` to the end of the paid year.
-3. Renewals, cancellations, failed cards and refunds arrive as `customer.subscription.*` / `invoice.paid` events and update `premium_until`. Failed renewals get 3 days' grace. A cancelled membership stays on until the end of the paid year, then shows as "lapsed".
-4. The member taps **I've paid, refresh** (or just reopens the app) and Premium is on.
+1. The member taps **Join Premium · $15/yr**. The app calls the `create-checkout` Edge Function (the member must be signed in). That function creates a Stripe **Checkout Session** (`mode: subscription`) with `client_reference_id` and `metadata.supabase_user_id` set on the server, reusing the stored Stripe customer id when there is one. If the member already has an **active** or **past_due** (or trialing/unpaid) subscription, the function returns a Customer Portal URL instead, and no second subscription is created.
+2. Stripe sends `checkout.session.completed` (and, for delayed payment methods, `checkout.session.async_payment_succeeded`) to `stripe-webhook`. The webhook only grants Premium when `payment_status` is `paid` (or `no_payment_required`). It trusts `metadata.supabase_user_id` from the server-created session. A Payment Link fallback is accepted only if the Checkout email matches the Sled Finder account email.
+3. Renewals, cancellations and failed cards arrive as `customer.subscription.*` / `invoice.paid` / `invoice.payment_failed` and update `premium_until` and `stripe_subscription_status`. Failed renewals get 3 days' grace. A membership cancelled in the Customer Portal (cancel at period end) stays on until the end of the paid year, then shows as "lapsed". Full refunds, and disputes that are lost, lapse Premium (and a still-open subscription is cancelled). Failed async payments are logged and do not grant access.
+4. The member taps **I've paid, refresh** (or just reopens the app) and Premium is on. **Manage or cancel membership** on the Account screen calls `create-portal-session`.
+
+If the Checkout function is not turned on (`STRIPE_CHECKOUT` is false) and a Payment Link is set, the app falls back to that link. Prefer the function.
 
 **Setup steps (after Jonathan's Stripe account exists)**
 
-1. Stripe → Product catalog → **Add product** "Sled Finder Premium", **Recurring, Yearly, $15.00 USD**.
-2. Payment Links → **New** for that price. Under After payment, choose "Don't show confirmation page" and
-   redirect to `https://<domain>/#/upgrade` (or the GitHub Pages URL for now). Copy the `https://buy.stripe.com/...` link into `STRIPE_PAYMENT_LINK`.
-3. Settings → Billing → **Customer portal** → activate → copy the login link into `STRIPE_PORTAL_LINK`.
-4. Deploy the function (Supabase CLI, free, or Dashboard → Edge Functions → Deploy new function → paste the code):
-   `supabase functions deploy stripe-webhook --no-verify-jwt` and `supabase functions deploy delete-account`.
-5. Stripe → Developers → Webhooks → **Add endpoint** `https://<project-ref>.supabase.co/functions/v1/stripe-webhook`,
-   events: `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`,
-   `customer.subscription.deleted`, `invoice.paid`. Copy the signing secret.
-6. `supabase secrets set STRIPE_SECRET_KEY=sk_... STRIPE_WEBHOOK_SECRET=whsec_...` (or Dashboard → Edge Functions → Secrets).
-   Secrets go in the vault, never in chat or in the repo.
-7. Test in **Test mode** first with card 4242 4242 4242 4242, then switch the link and keys to live.
+Do this in **Test mode** (or a sandbox) first. Do not create live products until a test payment has upgraded a test account.
+
+1. If the Supabase project already exists, run `docs/migrations/2026-11-20-stripe-subscription-status.sql` in the SQL editor of project `cpmieqcsbvozwrbjagqm`. (A brand-new run of `docs/supabase-schema.sql` already includes the column.) Do not run this from the agent machine.
+2. Stripe → Product catalog → **Add product** "Sled Finder Premium", **Recurring, Yearly, $15.00 USD**. Copy the price id (`price_...`). Do not enable Stripe Tax.
+3. Settings → Billing → **Customer portal** → activate. Allow payment-method updates, cancel at period end, and invoice history. Do not offer other plans. A portal login link can be copied into `STRIPE_PORTAL_LINK` as a fallback; the app prefers `create-portal-session`.
+4. Optional fallback: Payment Links → **New** for that price, redirect to `https://<domain>/#/upgrade` after payment, and paste the `https://buy.stripe.com/...` URL into `STRIPE_PAYMENT_LINK`. Not required once Checkout Sessions work.
+5. Deploy the functions (Supabase CLI, free, or Dashboard → Edge Functions):
+   `supabase functions deploy create-checkout`
+   `supabase functions deploy create-portal-session`
+   `supabase functions deploy delete-account`
+   `supabase functions deploy stripe-webhook --no-verify-jwt`
+6. Stripe → Developers → Webhooks → **Add endpoint** `https://cpmieqcsbvozwrbjagqm.supabase.co/functions/v1/stripe-webhook`
+   (use the Test mode endpoint first), events:
+   `checkout.session.completed`,
+   `checkout.session.async_payment_succeeded`,
+   `checkout.session.async_payment_failed`,
+   `customer.subscription.created`,
+   `customer.subscription.updated`,
+   `customer.subscription.deleted`,
+   `invoice.paid`,
+   `invoice.payment_failed`,
+   `charge.refunded`,
+   `charge.dispute.created`,
+   `charge.dispute.closed`.
+   Copy the signing secret (`whsec_...`).
+7. Set Edge Function secrets (Dashboard → Edge Functions → Secrets, or the CLI). **Prefer a restricted API key** (`rk_test_...` in test, `rk_live_...` later) over a secret key (`sk_...`). Grant the key permission to read and write Customers, Checkout Sessions, Subscriptions (including cancel), Billing Portal sessions, Invoices, and Charges. Do not put keys in chat or in the repo.
+
+   `supabase secrets set STRIPE_SECRET_KEY=rk_test_... STRIPE_WEBHOOK_SECRET=whsec_... STRIPE_PRICE_ID=price_... SITE_URL=https://<domain-or-github-pages-url>`
+
+8. In `config.js` on this branch, set `STRIPE_CHECKOUT: true` and `SITE_URL` to the same public origin (and path, if any) used above. Leave `STRIPE_PAYMENT_LINK` / `STRIPE_PORTAL_LINK` empty unless you want the fallbacks.
+9. Test in **Test mode** first with card `4242 4242 4242 4242`, then switch the secrets (and webhook endpoint) to live keys and a live price id. Do not enable `automatic_tax`. Do not pass `payment_method_types` (let Stripe's dashboard payment methods apply).
 
 **Phone apps and payments.** On the **US** App Store, Apple has allowed buttons and links to outside payment pages
 since 1 May 2025, and it currently charges no commission on those (a fee proposal is still before the court, so
@@ -205,6 +229,6 @@ Store requirements to plan for:
 **The agent can do after each sign-up** (no cost):
 - Run `docs/supabase-schema.sql`, paste the URL and anon key into `config.js`, and set up the auth URLs, the email template and SMTP.
 - Make Jonathan's account the admin (SQL at the bottom of the schema file).
-- Create the Stripe product, Payment Link, portal and webhook, deploy both Edge Functions, and test end-to-end in Stripe test mode.
+- Create the Stripe product and yearly price in **test mode**, deploy the four Edge Functions, set restricted-key secrets and the webhook events listed above, set `STRIPE_CHECKOUT: true`, and test end-to-end with card 4242 4242 4242 4242. After that, repeat with live keys. Remind Jonathan to run the subscription-status SQL migration in the project's SQL editor if it hasn't been run.
 - Wire up DNS and GitHub Pages for the domain.
 - Merge `backend` → `main` **only after Jonathan has tried it** on a preview.

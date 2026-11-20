@@ -287,7 +287,12 @@
   };
   Cloud.loadProfile = async () => {
     if (!Cloud.user) { Cloud.profile = null; set("cloudProfile", null); return; }
-    const { data, error } = await Cloud.client.from("profiles").select("id,handle,is_admin,premium_until").eq("id", Cloud.user.id).maybeSingle();
+    const cols = "id,handle,is_admin,premium_until,stripe_subscription_id,stripe_subscription_status";
+    let { data, error } = await Cloud.client.from("profiles").select(cols).eq("id", Cloud.user.id).maybeSingle();
+    // Older databases may not have stripe_subscription_status yet (run the migration in docs/migrations/).
+    if (error && /stripe_subscription_status|column/i.test(error.message)) {
+      ({ data, error } = await Cloud.client.from("profiles").select("id,handle,is_admin,premium_until,stripe_subscription_id").eq("id", Cloud.user.id).maybeSingle());
+    }
     if (error) { Cloud.lastError = error.message; return; }     // offline: keep the cached profile
     Cloud.profile = data; set("cloudProfile", data);
   };
@@ -298,7 +303,15 @@
     if (error) throw new Error(/duplicate|unique/i.test(error.message) ? "That name is taken. Try another." : error.message);
     await Cloud.loadProfile(); emit();
   };
-  // Stripe Payment Link carries the account id so the webhook knows whom to upgrade.
+  // An active / past_due / trialing / unpaid subscription should go to the Customer Portal, not a new Checkout.
+  Cloud.hasOpenSubscription = () => {
+    const s = Cloud.profile && Cloud.profile.stripe_subscription_status;
+    return s === "active" || s === "past_due" || s === "trialing" || s === "unpaid";
+  };
+  Cloud.returnOrigin = () => {
+    try { return location.origin + location.pathname; } catch (e) { return ""; }
+  };
+  // Fallback Payment Link only (the payer could edit client_reference_id). Prefer startCheckout().
   Cloud.checkoutUrl = () => {
     if (!C.STRIPE_PAYMENT_LINK || !Cloud.user) return "";
     const u = new URL(C.STRIPE_PAYMENT_LINK);
@@ -312,7 +325,47 @@
     if (Cloud.user && Cloud.user.email) u.searchParams.set("prefilled_email", Cloud.user.email);
     return u.toString();
   };
-  Cloud.paymentsOn = () => !!C.STRIPE_PAYMENT_LINK;
+  Cloud.paymentsOn = () => !!(C.STRIPE_CHECKOUT || C.STRIPE_PAYMENT_LINK);
+  async function invokeBilling(name) {
+    const { data, error } = await Cloud.client.functions.invoke(name, {
+      method: "POST",
+      body: { return_origin: Cloud.returnOrigin() },
+    });
+    if (data && data.url) return data;
+    const msg = (data && data.error) || (error && error.message) || "Couldn't reach Stripe";
+    throw new Error(msg);
+  }
+  // Returns a Stripe Checkout (or portal) URL for the signed-in member. Navigating is the caller's job.
+  Cloud.startCheckout = async () => {
+    if (!Cloud.user) throw new Error("Sign in first");
+    if (Cloud.hasOpenSubscription()) return Cloud.startPortal();
+    if (C.STRIPE_CHECKOUT) {
+      try {
+        const data = await invokeBilling("create-checkout");
+        return data.url;
+      } catch (e) {
+        if (!C.STRIPE_PAYMENT_LINK) throw e;
+        console.warn("create-checkout failed, using Payment Link fallback", e);
+      }
+    }
+    const u = Cloud.checkoutUrl();
+    if (!u) throw new Error("Memberships aren't open yet");
+    return u;
+  };
+  Cloud.startPortal = async () => {
+    if (C.STRIPE_CHECKOUT) {
+      try {
+        const data = await invokeBilling("create-portal-session");
+        return data.url;
+      } catch (e) {
+        if (!C.STRIPE_PORTAL_LINK) throw e;
+        console.warn("create-portal-session failed, using portal login link", e);
+      }
+    }
+    const u = Cloud.portalUrl();
+    if (!u) throw new Error("The billing portal isn't available yet.");
+    return u;
+  };
 
   async function onSession(session) {
     const prev = Cloud.user && Cloud.user.id;

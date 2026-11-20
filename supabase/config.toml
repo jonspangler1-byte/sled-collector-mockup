@@ -1,3 +1,12 @@
 # Minimal Supabase CLI config for Sled Finder's Edge Functions.
 [functions.stripe-webhook]
 verify_jwt = false   # Stripe can't send a Supabase JWT; the function checks Stripe's signature instead
+
+[functions.delete-account]
+verify_jwt = true
+
+[functions.create-checkout]
+verify_jwt = true
+
+[functions.create-portal-session]
+verify_jwt = true

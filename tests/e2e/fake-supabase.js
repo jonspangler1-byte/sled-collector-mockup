@@ -28,7 +28,7 @@
         async signOut() { session = null; localStorage.removeItem(KEY); setTimeout(() => fire("SIGNED_OUT")); return { error: null } },
       },
       from: builder,
-      functions: { async invoke(name) { const r = await call("fn", { name, uid: session && session.user.id }); return r } },
+      functions: { async invoke(name, opts) { const r = await call("fn", { name, uid: session && session.user.id, body: opts && opts.body }); return r } },
       storage: { from(bucket) { return {
         async upload(path, blob) { return call("upload", { path, uid: session && session.user.id, size: blob.size }) },
         getPublicUrl(path) { return { data: { publicUrl: "https://fake.supabase.co/storage/v1/object/public/" + bucket + "/" + path } } },

@@ -42,4 +42,5 @@ await expectOk("prem uploads to own folder","prem",`insert into storage.objects(
 await expectErr("prem cannot upload to other folder","prem",`insert into storage.objects(bucket_id,name) values('photos','${ids.prem2}/u1/a.jpg')`);
 await expectErr("free cannot upload","free",`insert into storage.objects(bucket_id,name) values('photos','${ids.free}/u1/a.jpg')`);
 await expectErr("anyone cannot touch stripe_events","prem",`insert into stripe_events(id,type) values('e','t')`);
+await expectErr("prem cannot change stripe subscription status","prem",`update profiles set stripe_subscription_status='active' where id='${ids.prem}'`);
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail?1:0);

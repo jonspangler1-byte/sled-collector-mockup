@@ -11,4 +11,5 @@ The app name is set in `data.js` (`APP_NAME`).
 ```
 cd tests/schema && npm i && npm test   # RLS rules in docs/supabase-schema.sql (PGlite, no server needed)
 cd tests/e2e && npm i && npm test      # demo + live mode in headless Chromium with a fake Supabase
+cd tests/stripe && npm test            # membership helpers used by the Stripe Edge Functions (no install)
 ```

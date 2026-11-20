@@ -45,19 +45,34 @@ async function fakeOp(op, a) {
     return { data: { session: { user: u, access_token: "t" } }, error: null } }
   if (op === "upload") { if (!a.uid || !isPrem(a.uid) || !a.path.startsWith(a.uid + "/")) return { error: { message: "new row violates row-level security policy" } }; S.uploads.push(a.path); return { error: null } }
   if (op === "query") return query(a);
+  if (op === "fn" && a.name === "create-checkout") {
+    if (!a.uid) return { data: null, error: { message: "not signed in" } };
+    const p = S.profiles[a.uid] || {};
+    if (["active", "past_due", "trialing", "unpaid"].includes(p.stripe_subscription_status)) {
+      return { data: { url: "https://billing.stripe.com/session/test_portal_" + a.uid, portal: true }, error: null };
+    }
+    return { data: { url: "https://checkout.stripe.com/c/pay/cs_test_" + a.uid }, error: null };
+  }
+  if (op === "fn" && a.name === "create-portal-session") {
+    if (!a.uid) return { data: null, error: { message: "not signed in" } };
+    return { data: { url: "https://billing.stripe.com/session/test_portal_" + a.uid }, error: null };
+  }
   if (op === "fn" && a.name === "delete-account") { if (!a.uid) return { data: null, error: { message: "not signed in" } };
     delete S.users[a.uid]; delete S.profiles[a.uid]; S.sleds = S.sleds.filter(r => r.owner !== a.uid); S.listings = S.listings.filter(r => r.owner !== a.uid);
     S.uploads = S.uploads.filter(x => !x.startsWith(a.uid + "/")); return { data: { deleted: true }, error: null } }
 }
 
-const browser = await chromium.launch({ executablePath: fs.existsSync("/usr/bin/google-chrome") ? undefined : undefined });
+const browser = await chromium.launch({ executablePath: fs.existsSync("/usr/bin/google-chrome") ? "/usr/bin/google-chrome" : undefined });
 async function device(live, seed) {
   const ctx = await browser.newContext({ viewport: { width: 420, height: 900 } });
   const errors = [];
+  // Always stub config.js: the backend branch may have a real Supabase URL, which would turn the "demo" tests into live mode.
   if (live) {
-    await ctx.route("**/config.js*", r => r.fulfill({ contentType: "application/javascript", body: `window.SF_CONFIG={SUPABASE_URL:"https://fake.supabase.co",SUPABASE_ANON_KEY:"anon",STRIPE_PAYMENT_LINK:"https://buy.stripe.com/test_123",STRIPE_PORTAL_LINK:"https://billing.stripe.com/p/login/test_1",SHOW_SAMPLE_DATA:false};` }));
+    await ctx.route("**/config.js*", r => r.fulfill({ contentType: "application/javascript", body: `window.SF_CONFIG={SUPABASE_URL:"https://fake.supabase.co",SUPABASE_ANON_KEY:"anon",STRIPE_CHECKOUT:true,STRIPE_PAYMENT_LINK:"https://buy.stripe.com/test_123",STRIPE_PORTAL_LINK:"https://billing.stripe.com/p/login/test_1",SHOW_SAMPLE_DATA:false};` }));
     await ctx.route("**/vendor/supabase-*.js", r => r.fulfill({ contentType: "application/javascript", body: FAKE }));
     await ctx.exposeFunction("__fake", fakeOp);
+  } else {
+    await ctx.route("**/config.js*", r => r.fulfill({ contentType: "application/javascript", body: `window.SF_CONFIG={SUPABASE_URL:"",SUPABASE_ANON_KEY:"",STRIPE_CHECKOUT:false,STRIPE_PAYMENT_LINK:"",STRIPE_PORTAL_LINK:"",SHOW_SAMPLE_DATA:true};` }));
   }
   await ctx.route(/nominatim|photon|geocod/i, r => r.abort());
   if (seed) await ctx.addInitScript(s => { if (!localStorage.getItem("seeded")) { for (const [k, v] of Object.entries(s)) localStorage.setItem(k, JSON.stringify(v)); localStorage.setItem("seeded", "1") } }, seed);
@@ -119,15 +134,24 @@ const A = await device(true, { svc_sleds: [oldSled] });
   await p.click("#migrate"); await p.waitForTimeout(1200);
   ok(S.sleds.length === 0 && (await ls(p, "outbox")).length === 1, "live: free account can't upload; sled kept in outbox");
   ok(/membership is active/.test(await p.evaluate(() => SFCloud.lastError)), "live: explains it uploads once membership is active");
-  await go(p, "#/upgrade"); const href = await p.getAttribute('a.btn.gold', "href");
+  await go(p, "#/upgrade");
   const uid = await p.evaluate(() => SFCloud.user.id);
-  ok(href && href.includes("client_reference_id=" + uid) && href.includes("prefilled_email="), "live: Stripe link carries account id + email");
+  ok(await p.locator("#joinP").count() > 0, "live: join button shown");
+  const payUrl = await p.evaluate(() => SFCloud.startCheckout());
+  ok(payUrl && payUrl.includes("checkout.stripe.com") && payUrl.includes(uid) && !payUrl.includes("client_reference_id="), "live: Checkout Session is created for this account (not an editable Payment Link)");
+  const fallback = await p.evaluate(() => SFCloud.checkoutUrl());
+  ok(fallback && fallback.includes("client_reference_id=" + uid) && fallback.includes("prefilled_email="), "live: Payment Link fallback still carries account id + email");
   await p.evaluate(() => SFCloud.queue && 0);
   ok(await p.evaluate(() => { try { localStorage.setItem("svc_role", '"admin"'); return SFCloud.role() } catch (e) { return "x" } }) === "free", "live: localStorage role hack does nothing");
   // webhook would do this:
   S.profiles[uid].premium_until = new Date(Date.now() + 365 * 864e5).toISOString();
+  S.profiles[uid].stripe_subscription_status = "active";
+  S.profiles[uid].stripe_subscription_id = "sub_test";
+  S.profiles[uid].stripe_customer_id = "cus_test";
   await p.click("#refreshP"); await p.waitForTimeout(1500);
   ok(await p.evaluate(() => SFCloud.realRole()) === "premium", "live: after payment, refresh shows Premium");
+  const portalUrl = await p.evaluate(() => SFCloud.startCheckout());
+  ok(portalUrl && portalUrl.includes("billing.stripe.com") && portalUrl.includes("test_portal_" + uid), "live: existing active subscription opens the Customer Portal, not a new Checkout");
   ok(S.sleds.length === 1 && S.sleds[0].model === "Pre-account Flyer" && S.sleds[0].photos[0].startsWith("https://fake.supabase.co/") && S.uploads.length === 1, "live: migrated sled + photo uploaded");
   ok((await ls(p, "outbox")).length === 0, "live: outbox empty");
   await addSled(p, "Cloud Speedster", true);

@@ -6,9 +6,14 @@
 window.SF_CONFIG = {
   SUPABASE_URL: "https://cpmieqcsbvozwrbjagqm.supabase.co",          // e.g. "https://abcd1234.supabase.co"  (Supabase → Project Settings → API)
   SUPABASE_ANON_KEY: "sb_publishable_tZSCKKnzcS51iyKWnDvddw_shhcX3Q4",     // the "anon public" key from the same page
-  // Stripe Payment Link for the $15/yr Premium membership (Stripe → Payment Links). Empty = mock paywall.
+  // Set true after the create-checkout / create-portal-session Edge Functions are deployed
+  // and STRIPE_PRICE_ID is set in Supabase secrets. The functions create a Checkout Session
+  // (and Customer Portal session) on the server so the account id cannot be edited in a URL.
+  STRIPE_CHECKOUT: false,
+  // Fallback only, if the Checkout function is off or fails: a Stripe Payment Link.
   STRIPE_PAYMENT_LINK: "",   // e.g. "https://buy.stripe.com/xxxxxxxx"
-  STRIPE_PORTAL_LINK: "",    // Stripe customer-portal login link, for members to cancel or update their card
+  // Fallback Customer Portal login link (used if the portal function is off or fails).
+  STRIPE_PORTAL_LINK: "",    // Stripe customer-portal login link
   // Where magic-link emails send people back to. Empty = the page they signed in from.
   SITE_URL: "",              // e.g. "https://sledfinder.app/"
   // Show the made-up sample collectors and sample sale ads when live? Keep false for the real launch.

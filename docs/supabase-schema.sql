@@ -21,6 +21,7 @@ create table if not exists public.profiles (
   premium_until timestamptz,                 -- null = never paid; past = lapsed; future = premium
   stripe_customer_id text unique,
   stripe_subscription_id text,
+  stripe_subscription_status text,         -- Stripe status: active, past_due, canceled, ...
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
