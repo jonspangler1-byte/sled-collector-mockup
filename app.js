@@ -152,7 +152,7 @@ R.home=()=>{bar(window.APP_SHORT,{sub:"Rosebud Sled Museum",act:'<a class="act" 
   const free=MAKERS.filter(isFree);
   return `<div class="hero" style="background-image:url(images/hero-flexible-flyer-3c-deck-p60.jpg)"><div class="in"><b>Coasting Through History</b><span>American sled makers, 1850–1990 · tap for the timeline</span></div><a href="#/timeline" style="position:absolute;inset:0;z-index:2" aria-label="Timeline"></a></div>
   <div class="chips"><a class="chip on" href="#/database">Sled Maker and Model Database</a><a class="chip" href="#/identify">📷 Photo ID ${premium()?"":"🔒"}</a><a class="chip" href="#/idhelp">What sled is this?</a><a class="chip" href="#/map">🗺 Sled Picker Map ${premium()?"":"🔒"}</a><a class="chip" href="#/sale">Sleds for Sale</a><a class="chip" href="#/search">Search</a><a class="chip" href="#/timeline">Timeline ${premium()?"":"🔒"}</a><a class="chip" href="#/articles">Articles ${premium()?"":"🔒"}</a></div>
-  <div class="pad" style="padding-top:12px;padding-bottom:0"><a class="btn pine" href="#/identify">📷 Identify a sled from a photo${premium()?"":" 🔒"}</a></div>
+  <div class="pad" style="padding-top:12px;padding-bottom:0"><a class="btn pine" href="#/identify">📷 Identify a sled from a photo${premium()?"":" 🔒"}</a>${orderMagBtn("margin-top:10px")}</div>
   ${premium()?"":dbIntro()+databaseGate()}
   ${!premium()?"":`<h3 class="sec">What sled is this? <a href="#/idhelp">See all</a></h3>
   <div style="padding:0 16px">${window.ID_POSTS.slice(0,1).map(q=>`<a class="card idcard" href="#/idhelp"><div class="th" style="background-image:url('${q.img}')"></div><div><div class="small" style="font-weight:600">@${esc(q.user)} <span class="sample-tag">Example</span></div><div style="font-size:.84rem;margin-top:3px">${esc(q.q)}</div><div class="small muted" style="margin-top:3px">${q.answers.length} answer${q.answers.length==1?"":"s"} · Help identify →</div></div></a>`).join("")}</div>`}
@@ -298,6 +298,8 @@ const EXCLUSIVES=[
   {id:"placeholder-3",title:"PLACEHOLDER: Online-only article 3",dek:"Placeholder only. The finished piece will be added later; nothing here is a historical claim."}
 ];
 const exclusivePlaceholderBody="This is placeholder copy for the mockup. The exclusive article has not been written yet. When it is ready, it will be a short, online-only piece for paid members, and it will not be printed in the magazine.";
+// Order link for everyone (all tiers): the magazine section on rosebudsledmuseum.com (same link the app already uses).
+const orderMagBtn=(st)=>`<a class="btn gold" href="${esc(magazine().orderUrl)}" target="_blank" rel="noopener"${st?` style="${st}"`:""}>📖 Order Vintage Runner Magazine</a>`;
 function magCta(){
   const M=magazine();
   return `<div class="art-cta"><div><b>Want the photographs and the layout?</b><p>These are no-frills text editions for reading in the app. The printed Vintage Runner keeps the photos, catalog plates and original design.</p><p class="small muted">${esc(M.orderPrices||"")}. ${esc(M.shipping||"")}</p></div><a class="btn pine" href="${esc(M.orderUrl)}" target="_blank" rel="noopener">Order the print edition</a></div>`;
@@ -322,6 +324,7 @@ R.magazine=()=>{
   const go=(href,n,title,dek,extra)=>`<a class="art-row" href="${href}"><span class="art-n">${n}</span><span class="art-meta"><b>${esc(title)}</b><em>${esc(dek)}</em>${extra||""}</span><span class="${P?"art-go":"art-lock"}">${P?"›":"🔒"}</span></a>`;
   const exTags=`<span class="art-tags"><span class="sample-tag">PLACEHOLDER</span><span class="sample-tag">Online only</span></span>`;
   return `<div class="art-issue">
+  <div style="margin:0 0 14px">${orderMagBtn()}</div>
   <h3 class="sec" style="margin:0 0 8px">Exclusive (online only)</h3>
   <p class="legend" style="margin:0 0 10px">Short articles for paid members, not printed in the magazine. Free and lapsed members can read the titles and teasers. Opening an article is part of Premium. Titles marked PLACEHOLDER are standing in until the real pieces are written — they are not finished articles and make no historical claims.</p>
   <div class="art-list">${EXCLUSIVES.map((a,i)=>go("#/exclusive/"+a.id,String(i+1).padStart(2,"0"),a.title,a.dek,exTags)).join("")}</div>
@@ -378,7 +381,7 @@ R.profile=()=>{bar("Profile",{sub:ROLES[role()]});tab("profile");
   setTimeout(()=>{document.querySelectorAll("input[name=role]").forEach(r=>r.onchange=()=>{setRole(r.value);toast("Demo role: "+ROLES[r.value]);route()})});
   const mine=allSleds().filter(s=>s.mine||s.userAdded);
   return `<div class="prof"><span class="av big">SC</span><div><h1>@sample_collector</h1><div class="small muted">Example profile · ${mine.length} sleds · joined 2026</div></div></div>
-  <div class="menu"><a href="#/collection">My collection <span>›</span></a><a href="#/idhelp">My ID requests <span>›</span></a><a href="#/upgrade">Subscription <span class="small muted">${ROLES[role()]} ›</span></a></div>
+  <div class="menu"><a href="#/collection">My collection <span>›</span></a><a href="#/idhelp">My ID requests <span>›</span></a><a href="#/upgrade">Subscription <span class="small muted">${ROLES[role()]} ›</span></a><a href="${esc(magazine().orderUrl)}" target="_blank" rel="noopener">📖 Order Vintage Runner Magazine <span>↗</span></a></div>
   <h3 class="sec">Demo role switcher</h3><div class="menu roles">${Object.keys(ROLES).map(k=>`<label><span>${ROLES[k]}</span><input type="radio" name="role" value="${k}" ${role()===k?"checked":""}></label>`).join("")}</div>
   <div class="menu"><a href="#/database">Sled Maker and Model Database ${premium()?"":"🔒"}<span>›</span></a><a href="#/identify">Identify a sled from a photo ${premium()?"":"🔒"}<span>›</span></a><a href="#/map">Sled Picker Map ${premium()?"":"🔒"}<span>›</span></a><a href="#/timeline">Coasting Through History ${premium()?"":"🔒"}<span>›</span></a><a href="#/articles">Vintage Runner articles ${premium()?"":"🔒"}<span>›</span></a><a href="#/makers">Sled makers directory <span>›</span></a></div>
   <div class="menu"><a href="#/profile" onclick="return false">About · Rosebud Sled Museum, Schaumburg, IL <span></span></a><a href="#/profile" onclick="return false">Privacy: private sleds are visible only to you <span></span></a><a href="#/terms">Terms &amp; Community Guidelines (draft) <span>›</span></a></div>
