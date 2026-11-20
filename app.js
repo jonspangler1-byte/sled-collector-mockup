@@ -41,15 +41,21 @@ async function lsSave(fn){try{fn()}catch(e){if(!isQuota(e))throw e;if(await migr
 function saveErr(e){console.error(e);toast(isQuota(e)?"Couldn't save: this phone's storage for the app is full. Nothing was lost. Try fewer photos, or tell Sled Finder.":"Couldn't save: "+(e&&e.message||e),6000)}
 // Demo roles: free (never paid), premium (paid member), lapsed (membership ran out), admin (Jonathan / Sled Finder).
 const ROLES={free:"Free (never paid)",premium:"Paid member",lapsed:"Membership lapsed",admin:"Admin · Sled Finder (Jonathan)"};
-const role=()=>{const r=LS.get("role",null);return ROLES[r]?r:(LS.get("premium",false)?"premium":"free")};
-const setRole=r=>{LS.set("role",r);LS.set("premium",r==="premium"||r==="admin")};
+// Live mode (config.js filled in): the role comes from the signed-in account on the server (cloud.js).
+// Only an admin can "view as" another role there, and only on their own screen.
+const CLOUD=window.SFCloud&&window.SFCloud.enabled?window.SFCloud:null;
+const canViewAs=()=>!CLOUD||CLOUD.realRole()==="admin";
+const role=()=>{if(CLOUD)return CLOUD.role();const r=LS.get("role",null);return ROLES[r]?r:(LS.get("premium",false)?"premium":"free")};
+const setRole=r=>{if(CLOUD){if(CLOUD.realRole()==="admin")CLOUD.setViewAs(r);return}LS.set("role",r);LS.set("premium",r==="premium"||r==="admin")};
+const me=()=>CLOUD?(CLOUD.user?(CLOUD.handle()||"you"):"you"):"sample_collector";
+const cloudTouch=(kind,id,op)=>{if(CLOUD)CLOUD.queue(kind,id,op)};
 const premium=()=>{const r=role();return r==="premium"||r==="admin"};
 const isAdmin=()=>role()==="admin";
 const lapsed=()=>role()==="lapsed";
 const userSleds=()=>LS.get("sleds",[]);
 const normPics=s=>{const o=Object.assign({},s);o.imgs=(o.imgs&&o.imgs.length?o.imgs:(o.img?[o.img]:[])).map(phURL).filter(Boolean);o.img=o.imgs[0]||"";o.years=o.years||o.year||"Unknown";return o};
-const allSleds=()=>{const ov=LS.get("edits",{}),del=LS.get("deleted",[]);return userSleds().concat(window.SAMPLE_SLEDS.map(s=>ov[s.id]?Object.assign({},s,ov[s.id]):s)).filter(s=>!del.includes(s.id)).map(normPics)};
-const allListings=()=>{const ov=LS.get("ledits",{}),del=LS.get("ldeleted",[]);return LS.get("listings",[]).concat(window.SALE_LISTINGS.map(l=>ov[l.id]?Object.assign({},l,ov[l.id]):l)).filter(l=>!del.includes(l.id)).map(normPics)};
+const allSleds=()=>{const ov=LS.get("edits",{}),del=LS.get("deleted",[]);return userSleds().concat(CLOUD?CLOUD.sharedSleds():[]).concat(window.SAMPLE_SLEDS.map(s=>ov[s.id]?Object.assign({},s,ov[s.id]):s)).filter(s=>!del.includes(s.id)).map(normPics)};
+const allListings=()=>{const ov=LS.get("ledits",{}),del=LS.get("ldeleted",[]);return LS.get("listings",[]).concat(CLOUD?CLOUD.publicListings():[]).concat(window.SALE_LISTINGS.map(l=>ov[l.id]?Object.assign({},l,ov[l.id]):l)).filter(l=>!del.includes(l.id)).map(normPics)};
 // Grouping: each submission is its own record (one user, one location); same maker + model are grouped for display.
 const modelKey=s=>s.maker+"|"+String(s.model||"").toLowerCase().replace(/[“”"']/g,"").replace(/\s+/g," ").trim();
 const sameModel=s=>allSleds().filter(x=>modelKey(x)===modelKey(s)&&(x.shared||isOwn(x)));
@@ -106,10 +112,14 @@ const bindDriveSync=()=>{const f=$("#dsync");if(!f)return;
   $("#dall").onclick=e=>{e.target.disabled=true;syncAllToDrive(e.target)}};
 // Editing rule: Admin (Sled Finder) can edit/delete ANY submission or sale ad. Paid members only their OWN. Maker histories are never user-editable.
 const canEdit=item=>!!item&&(isAdmin()||(!!(item.mine||item.userAdded)&&premium()));
-function saveSled(s){if(String(s.id).startsWith("u")){const u=userSleds().map(x=>x.id===s.id?s:x);LS.set("sleds",u)}else{const ov=LS.get("edits",{});ov[s.id]=s;LS.set("edits",ov)}}
-function saveListing(l){if(String(l.id).startsWith("ul")){LS.set("listings",LS.get("listings",[]).map(x=>x.id===l.id?l:x))}else{const ov=LS.get("ledits",{});ov[l.id]=l;LS.set("ledits",ov)}}
-function deleteListing(id){if(String(id).startsWith("ul")){LS.set("listings",LS.get("listings",[]).filter(x=>x.id!==id))}else{const d=LS.get("ldeleted",[]);d.push(id);LS.set("ldeleted",d)}}
-function deleteSled(id){if(String(id).startsWith("u")){LS.set("sleds",userSleds().filter(x=>x.id!==id))}else{const d=LS.get("deleted",[]);d.push(id);LS.set("deleted",d)}}
+// Local copy first (works offline); in live mode each change is also queued for upload (cloud.js outbox).
+// "c<uuid>" ids are other members' posts from the cloud; only the admin can change those.
+function saveSled(s){s.updatedAt=Date.now();if(CLOUD&&CLOUD.isCloudId(s.id)){CLOUD.adminSave("sled",s);return}if(String(s.id).startsWith("u")){const u=userSleds().map(x=>x.id===s.id?s:x);LS.set("sleds",u);cloudTouch("sled",s.id)}else{const ov=LS.get("edits",{});ov[s.id]=s;LS.set("edits",ov)}}
+function saveListing(l){l.updatedAt=Date.now();if(CLOUD&&CLOUD.isCloudId(l.id)){CLOUD.adminSave("listing",l);return}if(String(l.id).startsWith("ul")){LS.set("listings",LS.get("listings",[]).map(x=>x.id===l.id?l:x));cloudTouch("listing",l.id)}else{const ov=LS.get("ledits",{});ov[l.id]=l;LS.set("ledits",ov)}}
+function addSled(s){s.updatedAt=Date.now();const u=userSleds();u.unshift(s);LS.set("sleds",u);cloudTouch("sled",s.id)}
+function addListing(l){l.updatedAt=Date.now();const u=LS.get("listings",[]);u.unshift(l);LS.set("listings",u);cloudTouch("listing",l.id)}
+function deleteListing(id){if(CLOUD&&CLOUD.isCloudId(id)){CLOUD.adminDelete("listing",id);return}if(String(id).startsWith("ul")){LS.set("listings",LS.get("listings",[]).filter(x=>x.id!==id));cloudTouch("listing",id,"delete")}else{const d=LS.get("ldeleted",[]);d.push(id);LS.set("ldeleted",d)}}
+function deleteSled(id){if(CLOUD&&CLOUD.isCloudId(id)){CLOUD.adminDelete("sled",id);return}if(String(id).startsWith("u")){LS.set("sleds",userSleds().filter(x=>x.id!==id));cloudTouch("sled",id,"delete")}else{const d=LS.get("deleted",[]);d.push(id);LS.set("deleted",d)}}
 const editBar=(item,editHref,kind)=>{const own=!!(item.mine||item.userAdded);
   const btns=lbl=>`<div class="row2"><a class="btn" href="${editHref}">✎ ${lbl}</a><button class="btn" data-del="${item.id}" data-kind="${kind}" style="color:var(--red);border-color:var(--red)">Delete</button></div>`;
   if(isAdmin())return btns(own?"Edit "+kind:"Admin edit")+(own?"":'<p class="legend" style="margin:6px 0 0;padding:0">Admin (Sled Finder): you can correct or remove any post or ad for accuracy.</p>');
@@ -129,13 +139,13 @@ const makerFields=(id,E)=>`<label>Maker<select name="maker" id="${id}"><option v
 function bindMaker(id,E){const s=$("#"+id),w=$("#"+id+"-cw");if(E)s.value=brandKey(E)||(+E.maker?E.maker:(E.makerText?"custom":"0"));const f=()=>w.classList.toggle("hide",s.value!=="custom");s.onchange=f;f()}
 const makerVals=f=>{const v=String(f.get("maker"));if(SPLIT_BRANDS[v])return {maker:2,brand:SPLIT_BRANDS[v].brand,makerText:""};return v==="custom"?{maker:0,brand:"",makerText:String(f.get("makerText")||"").trim()}:{maker:+v,brand:"",makerText:""}};
 const liked=()=>LS.get("liked",{});
-document.title=window.APP_NAME+" — clickable mockup";
+document.title=window.APP_NAME+(window.SFCloud&&window.SFCloud.enabled?"":" — clickable mockup");
 $("#sideTitle").textContent=window.APP_NAME;
 
 function toast(t,ms){const e=$("#toast");e.textContent=t;e.classList.add("show");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("show"),ms||1900)}
 function bar(title,{back=false,sub="",act=""}={}){
   $("#appbar").innerHTML=(back?'<button class="back" onclick="history.length>1?history.back():location.hash=\'#/home\'" aria-label="Back">‹</button>':"")+
-  '<h2>'+esc(title)+(sub?'<span class="sub">'+esc(sub)+'</span>':"")+'</h2>'+`<label class="viewas" title="Switch the demo role"><span>Viewing as</span><select id="viewAs" aria-label="Viewing as">${[["free","Free"],["premium","Premium"],["lapsed","Lapsed"],["admin","Admin"]].map(([k,l])=>`<option value="${k}" ${role()===k?"selected":""}>${l}</option>`).join("")}</select></label>`+act;
+  '<h2>'+esc(title)+(sub?'<span class="sub">'+esc(sub)+'</span>':"")+'</h2>'+(canViewAs()?`<label class="viewas" title="${CLOUD?"Admin: preview another role on this screen only":"Switch the demo role"}"><span>Viewing as</span><select id="viewAs" aria-label="Viewing as">${[["free","Free"],["premium","Premium"],["lapsed","Lapsed"],["admin","Admin"]].map(([k,l])=>`<option value="${k}" ${role()===k?"selected":""}>${l}</option>`).join("")}</select></label>`:"")+act;
   const va=$("#viewAs");if(va)va.onchange=()=>{setRole(va.value);toast("Viewing as "+va.options[va.selectedIndex].text);route()};
 }
 function tab(t){document.querySelectorAll(".tabbar a").forEach(a=>a.classList.toggle("on",a.dataset.tab===t))}
@@ -252,11 +262,11 @@ R.home=()=>{bar(window.APP_SHORT,{sub:"Rosebud Sled Museum",act:'<a class="act" 
   <div class="hscroll">${free.map(m=>`<a class="card mk" href="#/maker/${m.id}"><div class="th" style="background-image:url('${(mImgs(models(m).find(x=>mImgs(x).length)||{})[0])||""}')"></div><div class="n">${esc(disp(m))}</div><div class="d">${esc(m.area)}</div></a>`).join("")}</div>
   ${premium()?"":`<a class="promo" href="#/upgrade"><img class="cv" src="images/vintage-runner-tuxedo-racer-cover-p1.jpg" alt=""><div><b>Become a member</b><span style="display:block;opacity:.8;margin-bottom:2px">${Object.keys(FREE).length} free · ${61-Object.keys(FREE).length} premium</span><span>Post your sleds, use the Sled Maker and Model Database, full histories, period ads, the timeline, no-frills magazine articles and selling. $15/year.</span></div></a>`}
   <h3 class="sec">Sleds for Sale <a href="#/sale">See all</a></h3>
-  <div class="hscroll">${window.SALE_LISTINGS.slice(0,4).map(l=>`<a class="card mk" href="#/listing/${l.id}"><div class="th" style="background-image:url('${l.img}')"></div><div class="n">${l.price?esc(l.price)+" · ":""}${esc(l.title.replace("[sample] ",""))}</div><div class="d">${esc(l.town)} · Ships: ${esc(l.ship)}</div></a>`).join("")}</div>
+  <div class="hscroll">${allListings().slice(0,4).map(l=>`<a class="card mk" href="#/listing/${l.id}"><div class="th" style="background-image:url('${l.img}')"></div><div class="n">${l.price?esc(l.price)+" · ":""}${esc(l.title.replace("[sample] ",""))}</div><div class="d">${esc(l.town)} · Ships: ${esc(l.ship)}</div></a>`).join("")}</div>
   ${premium()?dbIntro()+`<div class="feed">${feed.map(postCard).join("")}</div>`:""}`;
 };
 R.database=()=>{const html=R.home();setTimeout(()=>{const el=$("#database"),v=$("#view");if(el&&v)v.scrollTop=Math.max(0,el.offsetTop-8)},0);return html};
-R.collection=()=>{bar("My Collection",{sub:"@sample_collector",act:'<a class="act" href="#/add" aria-label="Add">＋</a>'});tab("collection");
+R.collection=()=>{bar("My Collection",{sub:"@"+me(),act:'<a class="act" href="#/add" aria-label="Add">＋</a>'});tab("collection");
   setTimeout(()=>{const g=$("#colgrid");if(!g)return;const tiles=[...g.children];document.querySelectorAll("#colf [data-f]").forEach(b=>b.onclick=()=>{const f=b.dataset.f;document.querySelectorAll("#colf [data-f]").forEach(x=>x.classList.toggle("on",x===b));
     tiles.forEach(t=>t.style.display=(f==="shared"&&t.dataset.sh!=="1")||(f==="private"&&t.dataset.sh==="1")?"none":"");
     (f==="maker"?tiles.slice().sort((a,b)=>a.dataset.mk.localeCompare(b.dataset.mk)):tiles).forEach(t=>g.appendChild(t))})});
@@ -298,7 +308,7 @@ R.add=(editId)=>{const E=editId?allSleds().find(x=>x.id==editId):null;
       const pinNote=lt==="na"||!town?"":(!g?" · no map pin: we couldn't find that town (you can edit it later)":(g.how==="region"||g.how==="state"?" · map pin placed at the "+(cc==="US"?"state":cc==="CA"?"province":"county/region")+" centre":""))+(pc.cut?" · only the first part of the postcode was kept":"");
       const base=E?Object.assign({},E):{id:"u"+Date.now(),user:"you",userAdded:true,mine:true,likes:0};
       const s=Object.assign(base,makerVals(f),{model:f.get("model")||"Untitled sled",years:String(f.get("years")||"").trim()||"Unknown",year:undefined,size:f.get("size")||"—",condition:f.get("condition"),found:f.get("found")||"—",notes:f.get("notes")||"",shared:!!f.get("shared"),locType:lt,country:cc,city:lt==="na"?"":city,region:lt==="na"?"":st,nation:cc==="GB"&&lt!=="na"?nation:"",postal:lt==="na"?"":zip,zip:cc==="US"&&lt!=="na"?zip:"",town:town,lat:g?g.lat:null,lng:g?g.lng:null,geo:g?g.how:null,imgs:getPics().length?await storePics(getPics()):["images/collection-red-swirl-deck-photos-p28.jpg"],img:undefined});s.img=s.imgs[0];if(adminEdit)s.editedBy="Sled Finder";
-      if(E){await lsSave(()=>saveSled(s));toast("Changes saved"+pinNote,pinNote?5000:0)}else{await lsSave(()=>{const u=userSleds();u.unshift(s);LS.set("sleds",u)});try{LS.set("idDraft",null)}catch(x){}toast("Sled saved to your collection"+pinNote,pinNote?5000:0)}
+      if(E){await lsSave(()=>saveSled(s));toast("Changes saved"+pinNote,pinNote?5000:0)}else{await lsSave(()=>addSled(s));try{LS.set("idDraft",null)}catch(x){}toast("Sled saved to your collection"+pinNote,pinNote?5000:0)}
       if(String(s.id).startsWith("u"))autoSync(s);
       location.hash="#/sled/"+s.id}catch(err){saveErr(err)}finally{btn.disabled=false;btn.textContent=lbl}};
   });
@@ -471,7 +481,7 @@ R.article=id=>{if(!premium())return paywall("Vintage Runner articles are include
   </article>`;
 };
 function paywall(reason){return R.upgrade(reason)}
-R.upgrade=(reason)=>{bar(window.APP_NAME+" Premium",{back:true,sub:"Mock paywall"});tab("");
+R.upgrade=(reason)=>{if(CLOUD)return liveUpgrade(reason);bar(window.APP_NAME+" Premium",{back:true,sub:"Mock paywall"});tab("");
   if(premium()){return `<div class="mock-banner">MOCKUP · no real payment was taken</div><div class="pad" style="text-align:center"><p style="font-family:var(--serif);font-size:1.6rem;margin:20px 0 6px">${isAdmin()?"Admin preview (Sled Finder)":"You're previewing Premium"}</p><p class="small muted">All 61 makers, model lists, ads, the timeline, the articles and selling are unlocked in this demo.</p><div style="display:flex;flex-direction:column;gap:10px;margin-top:18px"><a class="btn pine" href="#/makers">Browse all 61 makers</a><a class="btn" href="#/articles">Read the articles</a><a class="btn" href="#/timeline">Open the timeline</a><button class="btn" id="cancelP">End preview (back to Free)</button></div></div>`}
   setTimeout(()=>{$("#buy").onclick=()=>{const was=lapsed();setRole("premium");toast(was?"Mockup: membership renewed, your posts are back":"Mockup: Premium unlocked, no payment taken");location.hash=was?"#/collection":"#/makers"}});
   const r=(t,f,p)=>`<div class="r"><span>${t}</span><span class="${f?"yes":"no"}">${f===true?"✓":f||"—"}</span><span class="yes">✓</span></div>`;
@@ -486,13 +496,15 @@ R.upgrade=(reason)=>{bar(window.APP_NAME+" Premium",{back:true,sub:"Mock paywall
 R.profile=()=>{bar("Profile",{sub:ROLES[role()]});tab("profile");
   setTimeout(()=>{document.querySelectorAll("input[name=role]").forEach(r=>r.onchange=()=>{setRole(r.value);toast("Demo role: "+ROLES[r.value]);route()});bindDriveSync()});
   const mine=allSleds().filter(s=>s.mine||s.userAdded);
-  return `<div class="prof"><span class="av big">SC</span><div><h1>@sample_collector</h1><div class="small muted">Example profile · ${mine.length} sleds · joined 2026</div></div></div>
+  const signedIn=!!(CLOUD&&CLOUD.user);
+  return `<div class="prof"><span class="av big">${esc(initials(me())||"SF")}</span><div><h1>@${esc(me())}</h1><div class="small muted">${CLOUD?(signedIn?esc(CLOUD.email())+" · "+mine.length+" sleds":"Not signed in · "+mine.length+" sleds on this phone"):"Example profile · "+mine.length+" sleds · joined 2026"}</div></div></div>
+  ${CLOUD?`<div class="menu"><a href="#/account">${signedIn?"Account, membership &amp; sync":"Sign in or create an account"} <span class="small muted">${signedIn?(CLOUD.pending()?CLOUD.pending()+" waiting to upload ›":"Synced ›"):"›"}</span></a></div>`:""}
   <div class="menu"><a href="#/collection">My collection <span>›</span></a><a href="#/idhelp">My ID requests <span>›</span></a><a href="#/upgrade">Subscription <span class="small muted">${ROLES[role()]} ›</span></a><a href="${esc(magazine().orderUrl)}" target="_blank" rel="noopener">📖 Order Vintage Runner Magazine <span>↗</span></a><a href="#/suggest">💬 Send a suggestion to the developer <span>›</span></a></div>
   ${driveSyncHTML()}
-  <h3 class="sec">Demo role switcher</h3><div class="menu roles">${Object.keys(ROLES).map(k=>`<label><span>${ROLES[k]}</span><input type="radio" name="role" value="${k}" ${role()===k?"checked":""}></label>`).join("")}</div>
+  ${canViewAs()?`<h3 class="sec">${CLOUD?"Preview as (admin, this screen only)":"Demo role switcher"}</h3><div class="menu roles">${Object.keys(ROLES).map(k=>`<label><span>${ROLES[k]}</span><input type="radio" name="role" value="${k}" ${role()===k?"checked":""}></label>`).join("")}</div>`:""}
   <div class="menu"><a href="#/database">Sled Maker and Model Database ${premium()?"":"🔒"}<span>›</span></a><a href="#/identify">Identify a sled from a photo ${premium()?"":"🔒"}<span>›</span></a><a href="#/map">Sled Picker Map ${premium()?"":"🔒"}<span>›</span></a><a href="#/timeline">Coasting Through History ${premium()?"":"🔒"}<span>›</span></a><a href="#/articles">Vintage Runner articles ${premium()?"":"🔒"}<span>›</span></a><a href="#/makers">Sled makers directory <span>›</span></a></div>
   <div class="menu"><a href="https://rosebudsledmuseum.com/" target="_blank" rel="noopener">About · Rosebud Sled Museum, Schaumburg, IL <span>↗</span></a><a href="#/terms">Privacy: private sleds are visible only to you <span>›</span></a><a href="#/terms">Terms &amp; Community Guidelines (draft) <span>›</span></a></div>
-  <p class="legend" style="padding-bottom:24px">Clickable mockup for review. No accounts, servers or payments.</p>`;
+  <p class="legend" style="padding-bottom:24px">${CLOUD?"Sled Finder "+APP_VER+". Your sleds are kept on this phone and, when you're signed in, in your Sled Finder account.":"Clickable mockup for review. No accounts, servers or payments."}</p>`;
 };
 R.sale=(fcc)=>{fcc=COUNTRIES[fcc]?fcc:"";bar("Sleds for Sale",{sub:"Collector marketplace",act:`<a class="act" href="${canSell()?"#/sell":"#/upgrade"}" aria-label="Sell">${canSell()?"＋":"🔒"}</a>`});tab("sale");
   const all=allListings(),L=all.filter(l=>premium()||!l.mine).filter(l=>!fcc||ccOf(l)===fcc),hid=all.filter(l=>!(premium()||!l.mine)).length;
@@ -514,12 +526,12 @@ R.sell=(editId)=>{const E=editId?allListings().find(x=>x.id==editId):null;
   if(editId&&!canEdit(E))return R.upgrade("Editing your own submissions is a paid-member feature.");
   if(!editId&&!canSell())return R.upgrade("Selling your sleds is a paid-member feature. Browsing listings stays free.");
   const adminEdit=E&&isAdmin()&&!E.mine;
-  bar(E?(adminEdit?"Admin edit · listing":"Edit Listing"):"Post a Sled for Sale",{back:true,sub:adminEdit?"@"+E.user+" · as Sled Finder":"Saved in this browser only"});tab("sale");
+  bar(E?(adminEdit?"Admin edit · listing":"Edit Listing"):"Post a Sled for Sale",{back:true,sub:adminEdit?"@"+E.user+" · as Sled Finder":(CLOUD?(CLOUD.user?"Posted to Sled Finder":"Sign in to post"):"Saved in this browser only")});tab("sale");
   const pics=["sale-flexible-flyer-eagle-deck.jpg","sale-hand-painted-sled.jpg","collection-red-swirl-deck-photos-p28.jpg","collection-pictorial-deck-photos-p31.jpg"];
   setTimeout(()=>{const getPics=picker("sellpk",E?normPics(E).imgs:[],pics.map(p=>"images/"+p));bindMaker("sellmk",E);$("#sellunk").onclick=()=>{$("#sellf").years.value="Unknown"};if(E){const F=$("#sellf");F.title.value=E.title;F.model.value=E.model||"";F.years.value=E.years&&E.years!=="Unknown"?E.years:"";F.condition.value=E.condition||"Good";F.price.value=(E.price||"").replace(/^\$/,"");F.town.value=E.town;F.ship.value=E.ship;F.email.value=E.email;F.desc.value=E.desc||"";$("#scount").textContent=F.desc.value.length+" / 500"}const ta=$("#sdesc"),sc=$("#scount");ta.oninput=()=>{sc.textContent=ta.value.length+" / 500"};
     $("#sellf").onsubmit=async e=>{e.preventDefault();try{const f=new FormData(e.target);const P0=getPics();if(!P0.length){toast("Please add at least one photo");return}const P=await storePics(P0);
       const l=Object.assign({},E||{id:"ul"+Date.now(),user:"you",mine:true},makerVals(f),{years:String(f.get("years")||"").trim()||"Unknown",title:f.get("title"),ship:f.get("ship"),email:f.get("email"),model:f.get("model"),condition:f.get("condition"),price:f.get("price")?"$"+String(f.get("price")).replace(/^\$/,""):"",country:COUNTRIES[f.get("country")]?f.get("country"):"US",town:String(f.get("town")||"").trim(),imgs:P,img:P[0],desc:String(f.get("desc")||"").slice(0,500)});if(adminEdit)l.editedBy="Sled Finder";
-      if(E){await lsSave(()=>saveListing(l));toast("Listing updated")}else{await lsSave(()=>{const u=LS.get("listings",[]);u.unshift(l);LS.set("listings",u)});toast("Listing posted (mockup)")}location.hash="#/listing/"+l.id}catch(err){saveErr(err)}}});
+      if(E){await lsSave(()=>saveListing(l));toast("Listing updated")}else{await lsSave(()=>addListing(l));toast(CLOUD?"Listing posted":"Listing posted (mockup)")}location.hash="#/listing/"+l.id}catch(err){saveErr(err)}}});
   return `<form class="form" id="sellf">${pickerHTML("sellpk",true)}
   <label>Sled name *<input name="title" required placeholder="e.g. Flexible Flyer No. 3C, original paint"></label>
   ${makerFields("sellmk",E)}
@@ -730,7 +742,7 @@ R.unknown=()=>{bar("Unknown / unconfirmed makers",{back:true,sub:"Not filed unde
 // ===== Suggestions to the developer. Delivered free with no keys in the app:
 // 1) a Google Form in Sled Finder's Google account (set SUGGEST_FORM.action + entry ids once the form exists), posted
 //    straight from the app so the existing Google Form alert catches it; 2) otherwise a pre-filled email to the museum.
-const APP_VER="b7";
+const APP_VER="b8";
 const SUGGEST_FORM={action:"https://docs.google.com/forms/d/e/1FAIpQLSeL5-bPPHkSnMlo-utOtZdRJfQN5yUCQRQOt19Bgt4VAjkmBA/formResponse",fields:{category:"entry.1937538793",message:"entry.790371823",name:"entry.1603670551",email:"entry.1586826346",context:"entry.1782360007"}};
 let lastScreen="#/home";window.addEventListener("hashchange",e=>{try{const h=new URL(e.oldURL).hash||"#/home";if(!/^#\/suggest/.test(h))lastScreen=h}catch(x){}});
 const SUGGEST_EMAIL="rbsledmuseum@gmail.com";
@@ -773,6 +785,54 @@ R.terms=()=>{bar("Terms & Guidelines",{back:true,sub:"Draft for review"});tab("p
   <p class="fine">Draft for discussion between Jonathan Spangler and his advisers. This is not legal advice.</p>`;
 };
 window.__toast=toast;
+// ===== Live mode screens: account (email code sign-in), membership, sync, migration =====
+const ago=t=>{if(!t)return "never";const m=Math.round((Date.now()-t)/60000);return m<1?"just now":m<60?m+" min ago":Math.round(m/60)+" h ago"};
+const memberLine=()=>{const p=CLOUD&&CLOUD.profile,r=CLOUD?CLOUD.realRole():"free";if(r==="admin")return "Admin · Sled Finder";if(r==="premium")return "Premium member · renews or ends "+new Date(p.premium_until).toLocaleDateString();if(r==="lapsed")return "Membership lapsed on "+new Date(p.premium_until).toLocaleDateString();return "Free account"};
+R.account=()=>{bar("Account",{back:true,sub:CLOUD&&CLOUD.user?"@"+me():"Sign in"});tab("profile");
+  if(!CLOUD)return `<div class="pad"><p>Accounts are turned off in this demo. Everything you add is saved only in this browser.</p><a class="btn" href="#/profile">Back to Profile</a></div>`;
+  if(!CLOUD.ready&&!CLOUD.lastError)return `<div class="pad"><p class="muted">Connecting…</p></div>`;
+  if(!CLOUD.user){const pe=CLOUD.pendingEmail();
+    setTimeout(()=>{const f=$("#signf");if(f)f.onsubmit=async e=>{e.preventDefault();const b=f.querySelector("button");b.disabled=true;b.textContent="Sending…";
+        try{await CLOUD.sendCode(String(new FormData(f).get("email")).trim());toast("Check your email for the 6-digit code",4000);route()}catch(err){toast("Couldn't send: "+(err.message||err),5000);b.disabled=false;b.textContent="Email me a sign-in code"}};
+      const v=$("#codef");if(v)v.onsubmit=async e=>{e.preventDefault();const b=v.querySelector("button[type=submit]");b.disabled=true;b.textContent="Checking…";
+        try{await CLOUD.verifyCode(pe,new FormData(v).get("code"));toast("Signed in");location.hash="#/account"}catch(err){toast("That code didn't work: "+(err.message||err),5000);b.disabled=false;b.textContent="Sign in"}};
+      const o=$("#otherEmail");if(o)o.onclick=()=>{LS.set("pendingEmail","");route()}});
+    return `<div class="form">${CLOUD.lastError?`<p class="legend" style="color:var(--red)">${esc(CLOUD.lastError)}</p>`:""}
+    ${pe?`<form id="codef" class="form" style="padding:0"><p class="legend" style="padding:0">We emailed a sign-in code to <b>${esc(pe)}</b>. Type it here, or tap the link in that email on this phone.</p>
+      <label>6-digit code<input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6,10}" required></label><button type="submit" class="btn solid">Sign in</button><button type="button" class="btn" id="otherEmail">Use a different email</button></form>`
+    :`<form id="signf" class="form" style="padding:0"><p class="legend" style="padding:0">No password needed. Enter your email and we'll send you a sign-in code. New here? This also creates your free account.</p>
+      <label>Email<input name="email" type="email" autocomplete="email" required></label><button type="submit" class="btn solid">Email me a sign-in code</button></form>`}
+    <small class="muted">Sleds you saved on this phone stay here; after you sign in you can add them to your account.</small></div>`}
+  const r=CLOUD.realRole(),n=CLOUD.unclaimedCount(),pend=CLOUD.pending();
+  setTimeout(()=>{
+    const h=$("#handlef");if(h)h.onsubmit=async e=>{e.preventDefault();try{await CLOUD.setHandle(new FormData(h).get("handle"));toast("Name saved")}catch(err){toast(err.message,5000)}};
+    const m=$("#migrate");if(m)m.onclick=async()=>{m.disabled=true;m.textContent="Uploading…";await CLOUD.claimLocal();toast(CLOUD.pending()?"Some sleds are still waiting to upload":"Your sleds are in your account");route()};
+    const k=$("#skipmig");if(k)k.onclick=()=>{CLOUD.skipMigration();route()};
+    const y=$("#syncnow");if(y)y.onclick=async()=>{y.disabled=true;y.textContent="Syncing…";await CLOUD.syncNow();toast(CLOUD.lastError?"Sync problem: "+CLOUD.lastError:"Synced");route()};
+    const dl=$("#delacct");if(dl)dl.onclick=async()=>{if(!confirm("Delete your Sled Finder account? This removes your account, your shared sleds, sale ads and uploaded photos from Sled Finder for good, and cancels your membership. Sleds on this phone stay on this phone."))return;if(prompt("Type DELETE to confirm")!=="DELETE")return;dl.disabled=true;try{await CLOUD.deleteAccount();toast("Account deleted",4000);location.hash="#/profile"}catch(err){dl.disabled=false;toast(err.message,6000)}};
+    const o=$("#signout");if(o)o.onclick=async()=>{if(!confirm("Sign out of Sled Finder on this phone?"))return;try{await CLOUD.signOut();toast("Signed out");location.hash="#/profile"}catch(err){toast(err.message,6000)}}});
+  return `<div class="form">
+  <h3 class="sec" style="margin:0">Membership</h3><p style="margin:0"><b>${esc(memberLine())}</b></p>
+  ${r==="premium"||r==="admin"?(CLOUD.portalUrl()&&r==="premium"?`<a class="btn" href="${esc(CLOUD.portalUrl())}" target="_blank" rel="noopener">Manage or cancel membership ↗</a>`:""):`<a class="btn gold" href="#/upgrade">${r==="lapsed"?"Renew membership · $15/yr":"Join Premium · $15/yr"}</a>`}
+  ${n&&!CLOUD.migrationAsked()?`<div class="card" style="padding:12px"><b>${n} item${n===1?"":"s"} saved on this phone</b><p class="small" style="margin:6px 0">These were saved before you had an account. Add them to your account so they show on your other devices and on the website?${r==="premium"||r==="admin"?"":" They upload once your membership is active."}</p><div class="row2"><button type="button" class="btn solid" id="migrate">Add to my account</button><button type="button" class="btn" id="skipmig">Not now</button></div></div>`:(n?`<button type="button" class="btn" id="migrate">Add ${n} item${n===1?"":"s"} saved on this phone to my account</button>`:"")}
+  <h3 class="sec" style="margin:8px 0 0">Your public name</h3>
+  <form id="handlef" class="row2" style="align-items:end"><label style="flex:1">Shown as @name on shared sleds<input name="handle" value="${esc(CLOUD.handle())}" pattern="[a-z0-9_]{3,30}" required></label><button class="btn" type="submit">Save</button></form>
+  <h3 class="sec" style="margin:8px 0 0">Sync</h3>
+  <p class="small" style="margin:0">${pend?pend+" change"+(pend===1?"":"s")+" waiting to upload":"Everything on this phone is uploaded"} · last synced ${ago(CLOUD.lastSync)}${navigator.onLine?"":" · offline"}</p>
+  ${CLOUD.lastError?`<p class="small" style="color:var(--red);margin:0">${esc(CLOUD.lastError)}</p>`:""}
+  <button type="button" class="btn" id="syncnow">Sync now</button>
+  <p class="small muted" style="margin:0">Signed in as ${esc(CLOUD.email())}</p>
+  <button type="button" class="btn" id="signout" style="color:var(--red);border-color:var(--red)">Sign out</button>
+  <button type="button" class="linkbtn small" id="delacct" style="color:var(--red);margin-top:6px">Delete my account…</button></div>`};
+function liveUpgrade(reason){bar(window.APP_NAME+" Premium",{back:true,sub:"$15 per year"});tab("");
+  const r=CLOUD.realRole(),signedIn=!!CLOUD.user;
+  if(r==="premium"||r==="admin")return `<div class="pad" style="text-align:center"><p style="font-family:var(--serif);font-size:1.6rem;margin:20px 0 6px">${r==="admin"?"Admin (Sled Finder)":"You're a Premium member"}</p><p class="small muted">${esc(memberLine())}</p><div style="display:flex;flex-direction:column;gap:10px;margin-top:18px"><a class="btn pine" href="#/makers">Browse all 61 makers</a><a class="btn" href="#/account">Account &amp; membership</a></div></div>`;
+  const cta=!signedIn?`<a class="btn gold" href="#/account">Sign in to join · $15/yr</a>`:(CLOUD.paymentsOn()?`<a class="btn gold" href="${esc(CLOUD.checkoutUrl())}" rel="noopener">${r==="lapsed"?"Renew membership · $15/yr":"Join Premium · $15/yr"}</a><p class="small muted" style="text-align:center">Secure checkout by Stripe. Back in the app, tap “I've paid, refresh” if Premium doesn't switch on by itself.</p><button type="button" class="btn" id="refreshP">I've paid, refresh</button>`:`<button class="btn gold" disabled>Memberships open soon</button>`);
+  setTimeout(()=>{const b=$("#refreshP");if(b)b.onclick=async()=>{b.disabled=true;await CLOUD.loadProfile();await CLOUD.syncNow();toast(premium()?"Premium is on. Thank you!":"Not showing yet. Give it a minute and try again.",4000);route()}});
+  return `<div class="pw-hero"><p class="eyebrow" style="color:#e7b7a5">${esc(window.APP_NAME)} Premium</p><h1>${r==="lapsed"?"Welcome back. Renew to bring your posts back.":"Post, see and sell sleds. All 61 makers."}</h1><p>${esc(typeof reason==="string"?reason:(r==="lapsed"?lapsedText(allSleds().filter(isOwn).length):"Your research library and community for antique sleds."))}</p></div>
+  <div class="price"><div><div class="small muted">Yearly · renews automatically</div><b>$15.00 / year</b></div></div>
+  <div class="pad">${cta}<a class="btn" style="margin-top:10px;border:0" href="#/home">Not now</a></div>
+  <p class="fine">The membership renews each year until you cancel. You can cancel any time from Account → Manage membership; it stays active until the end of the year you paid for. If a membership lapses, your posts stay in Sled Finder and come back when you renew. See the <a href="#/terms">Terms &amp; Community Guidelines (draft)</a>.</p>`}
 function route(){
   const h=(location.hash||"#/home").slice(2).split("/");const fn=R[h[0]]||R.home;
   $("#view").innerHTML=fn(h.length>2?h.slice(1).join(","):h[1]);$("#view").scrollTop=0;bindLikes();bindGalleries();
@@ -799,5 +859,12 @@ function tourShow(){let o=$("#tour");if(tourI<0||tourI>=TOUR.length){if(o)o.remo
 window.startTour=()=>{tourI=0;tourShow()};
 document.addEventListener("invalid",e=>{const t=e.target,l=t.closest("label");toast(t.name==="ack"?"Please tick the agreement box to save.":"Please fill in: "+(l?(l.childNodes[0].textContent||"").replace("*","").trim()||t.name:t.name),4000)},true);
 $("#resetDemo").onclick=()=>{["premium","role","sleds","liked","lastq","edits","deleted","listings","ledits","ldeleted","idDraft"].forEach(k=>localStorage.removeItem("svc_"+k));location.hash="#/home";route();toast("Demo reset")};
-Promise.race([phOpen(),new Promise(r=>setTimeout(()=>r(null),3000))]).then(async db=>{PH.db=db;if(db)await phLoadAll(db);route()});
+window.SFApp={phURL};
+// Live mode: re-draw when the account or synced data changes, but never while someone is typing in a form.
+const NO_LIVE_REDRAW=["add","edit","sell","editlisting","suggest","identify"];
+if(CLOUD){CLOUD.onChange(()=>{const a=document.activeElement;if(a&&/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)&&a.closest("#view"))return;if(NO_LIVE_REDRAW.includes((location.hash||"#/home").slice(2).split("/")[0]))return;const rs1=$("#roleSel");if(rs1)rs1.closest("p").style.display=canViewAs()?"":"none";if(PH.ready)route()});
+  const sn=document.querySelector(".side-note .eyebrow");if(sn)sn.textContent="Sled Finder · live beta";
+  const rd=$("#resetDemo");if(rd)rd.parentNode.style.display="none";
+  const rs0=$("#roleSel");if(rs0&&!canViewAs())rs0.closest("p").style.display="none"}
+Promise.race([phOpen(),new Promise(r=>setTimeout(()=>r(null),3000))]).then(async db=>{PH.db=db;if(db)await phLoadAll(db);PH.ready=true;route();if(CLOUD)CLOUD.init().catch(e=>console.error("cloud init",e))});
 })();

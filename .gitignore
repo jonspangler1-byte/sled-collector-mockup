@@ -2,3 +2,7 @@ _src/
 screenshots/
 *.png.tmp
 incoming/
+www/
+node_modules
+ios/
+android/
