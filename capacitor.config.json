@@ -1,0 +1,6 @@
+{
+  "appId": "com.rosebudsledmuseum.sledfinder",
+  "appName": "Sled Finder",
+  "webDir": "www",
+  "server": { "androidScheme": "https" }
+}
