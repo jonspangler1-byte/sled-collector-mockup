@@ -415,3 +415,17 @@ h3.sec a{font-family:var(--sans);font-size:.72rem;font-weight:600;letter-spacing
 .map-lock-card p{margin:0;font-size:.84rem;color:var(--ink-soft);line-height:1.45}
 .map-lock-card .btn{width:100%}
 button.chip{font-family:var(--sans);color:var(--ink);cursor:pointer}
+.appbar .viewas{display:flex;flex-direction:column;align-items:flex-end;gap:1px;margin-left:auto;font-size:.56rem;letter-spacing:.08em;text-transform:uppercase;color:#cfe0d6;flex:none}
+.appbar .viewas select{font:600 .72rem var(--sans);background:var(--gold);color:#1b1a18;border:0;border-radius:12px;padding:3px 8px;cursor:pointer;-webkit-appearance:none;appearance:none}
+.appbar .viewas + .act{margin-left:8px}
+.post .bar button[data-soon]{color:inherit}
+.id-try{background:#fff7e6;border:1px solid #ecd9a8;border-radius:12px;padding:12px;font-size:.82rem;margin-bottom:12px}
+.id-try .btn.sm{display:table;width:auto;padding:8px 12px;font-size:.68rem}
+.tour{position:absolute;left:0;right:0;bottom:70px;z-index:2000;padding:0 12px;pointer-events:none}
+.tour-card{pointer-events:auto;background:#fff;border:2px solid var(--pine);border-radius:16px;padding:14px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.tour-card b{display:block;font-family:var(--serif);font-size:1.25rem;margin:2px 0 4px}
+.tour-card p{font-size:.84rem;margin:0 0 10px;line-height:1.45}
+.tour-card .btn{padding:10px}
+table.ins{width:100%;border-collapse:collapse;font-size:.76rem;background:#fff}
+table.ins th,table.ins td{border-bottom:1px solid var(--line);padding:6px 4px;text-align:left}
+@media print{.side-note,.appbar,.tabbar,.statusbar,.notch,#toast,.tour,.btn{display:none!important}.phone,.screen,.view{all:unset;display:block}}

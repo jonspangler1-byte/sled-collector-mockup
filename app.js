@@ -96,7 +96,8 @@ $("#sideTitle").textContent=window.APP_NAME;
 function toast(t,ms){const e=$("#toast");e.textContent=t;e.classList.add("show");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("show"),ms||1900)}
 function bar(title,{back=false,sub="",act=""}={}){
   $("#appbar").innerHTML=(back?'<button class="back" onclick="history.length>1?history.back():location.hash=\'#/home\'" aria-label="Back">‹</button>':"")+
-  '<h2>'+esc(title)+(sub?'<span class="sub">'+esc(sub)+'</span>':"")+'</h2>'+(isAdmin()?'<span class="badge-prem">Admin</span>':premium()?'<span class="badge-prem">Premium</span>':(lapsed()?'<span class="badge-prem" style="background:#b9a98c">Lapsed</span>':""))+act;
+  '<h2>'+esc(title)+(sub?'<span class="sub">'+esc(sub)+'</span>':"")+'</h2>'+`<label class="viewas" title="Switch the demo role"><span>Viewing as</span><select id="viewAs" aria-label="Viewing as">${[["free","Free"],["premium","Premium"],["lapsed","Lapsed"],["admin","Admin"]].map(([k,l])=>`<option value="${k}" ${role()===k?"selected":""}>${l}</option>`).join("")}</select></label>`+act;
+  const va=$("#viewAs");if(va)va.onchange=()=>{setRole(va.value);toast("Viewing as "+va.options[va.selectedIndex].text);route()};
 }
 function tab(t){document.querySelectorAll(".tabbar a").forEach(a=>a.classList.toggle("on",a.dataset.tab===t))}
 const isOwn=s=>!!(s.mine||s.userAdded);
@@ -116,7 +117,7 @@ function postCard(s){
   <div class="meta"><div class="who"><span class="av">${initials(s.user)}</span>@${esc(s.user)}${sampleTag(s)}</div>
   <a href="#/sled/${s.id}" style="text-decoration:none"><div class="t">${esc(mk(s))} ${esc(s.model)}</div>
   <div class="m">Est. ${esc(s.years)} · ${esc(s.condition)}${s.town&&s.locType!=="na"?" · 📍 "+esc(s.town):""}</div></a>${editedNote(s)}${nudge(s)}
-  <div class="bar"><button data-like="${s.id}">${L?"♥":"♡"} ${s.likes+(L?1:0)}</button><span>💬 Comment</span><span>↗ Share</span></div></div></article>`;
+  <div class="bar"><button data-like="${s.id}">${L?"♥":"♡"} ${s.likes+(L?1:0)}</button><button type="button" data-soon>💬 Comment</button><button type="button" data-soon>↗ Share</button></div></div></article>`;
 }
 function bindLikes(){document.querySelectorAll("[data-like]").forEach(b=>b.onclick=()=>{const l=liked();l[b.dataset.like]=!l[b.dataset.like];LS.set("liked",l);route()})}
 
@@ -202,8 +203,8 @@ R.home=()=>{bar(window.APP_SHORT,{sub:"Rosebud Sled Museum",act:'<a class="act" 
   const feed=allSleds().filter(s=>s.shared);
   const free=MAKERS.filter(isFree);
   return `<div class="hero" style="background-image:url(images/hero-flexible-flyer-3c-deck-p60.jpg)"><div class="in"><b>Coasting Through History</b><span>American sled makers, 1850–1990 · tap for the timeline</span></div><a href="#/timeline" style="position:absolute;inset:0;z-index:2" aria-label="Timeline"></a></div>
-  <div class="chips"><a class="chip on" href="#/database">Sled Maker and Model Database</a><a class="chip" href="#/identify">📷 Photo ID ${premium()?"":"🔒"}</a><a class="chip" href="#/idhelp">What sled is this?</a><a class="chip" href="#/map">🗺 Sled Picker Map ${premium()?"":"🔒"}</a><a class="chip" href="#/sale">Sleds for Sale</a><a class="chip" href="#/search">Search</a><a class="chip" href="#/timeline">Timeline ${premium()?"":"🔒"}</a><a class="chip" href="#/articles">Articles ${premium()?"":"🔒"}</a></div>
-  <div class="pad" style="padding-top:12px;padding-bottom:0"><a class="btn pine" href="#/identify">📷 Identify a sled from a photo${premium()?"":" 🔒"}</a>${orderMagBtn("margin-top:10px")}</div>
+  <div class="chips"><a class="chip on" href="#/database">Sled Maker and Model Database</a><a class="chip" href="#/identify">📷 Photo ID</a><a class="chip" href="#/idhelp">What sled is this?</a><a class="chip" href="#/map">🗺 Sled Picker Map ${premium()?"":"🔒"}</a><a class="chip" href="#/sale">Sleds for Sale</a><a class="chip" href="#/search">Search</a><a class="chip" href="#/timeline">Timeline ${premium()?"":"🔒"}</a><a class="chip" href="#/articles">Articles ${premium()?"":"🔒"}</a></div>
+  <div class="pad" style="padding-top:12px;padding-bottom:0"><a class="btn pine" href="#/identify">📷 Identify a sled from a photo${premium()?"":" · try the demo"}</a>${orderMagBtn("margin-top:10px")}<button type="button" class="btn" style="margin-top:10px" onclick="startTour()">▶ Start tour</button><p class="legend" style="margin:8px 0 0;padding:0;text-align:center"><a href="#/suggest">💬 Send a suggestion to the developer</a></p></div>
   ${premium()?"":dbIntro()+databaseGate()}
   ${!premium()?"":`<h3 class="sec">What sled is this? <a href="#/idhelp">See all</a></h3>
   <div style="padding:0 16px">${window.ID_POSTS.slice(0,1).map(q=>`<a class="card idcard" href="#/idhelp"><div class="th" style="background-image:url('${q.img}')"></div><div><div class="small" style="font-weight:600">@${esc(q.user)} <span class="sample-tag">Example</span></div><div style="font-size:.84rem;margin-top:3px">${esc(q.q)}</div><div class="small muted" style="margin-top:3px">${q.answers.length} answer${q.answers.length==1?"":"s"} · Help identify →</div></div></a>`).join("")}</div>`}
@@ -216,13 +217,16 @@ R.home=()=>{bar(window.APP_SHORT,{sub:"Rosebud Sled Museum",act:'<a class="act" 
 };
 R.database=()=>{const html=R.home();setTimeout(()=>{const el=$("#database"),v=$("#view");if(el&&v)v.scrollTop=Math.max(0,el.offsetTop-8)},0);return html};
 R.collection=()=>{bar("My Collection",{sub:"@sample_collector",act:'<a class="act" href="#/add" aria-label="Add">＋</a>'});tab("collection");
+  setTimeout(()=>{const g=$("#colgrid");if(!g)return;const tiles=[...g.children];document.querySelectorAll("#colf [data-f]").forEach(b=>b.onclick=()=>{const f=b.dataset.f;document.querySelectorAll("#colf [data-f]").forEach(x=>x.classList.toggle("on",x===b));
+    tiles.forEach(t=>t.style.display=(f==="shared"&&t.dataset.sh!=="1")||(f==="private"&&t.dataset.sh==="1")?"none":"");
+    (f==="maker"?tiles.slice().sort((a,b)=>a.dataset.mk.localeCompare(b.dataset.mk)):tiles).forEach(t=>g.appendChild(t))})});
   const mine=allSleds().filter(s=>s.mine||s.userAdded);
   if(!premium())return lapsed()?`<div class="lapsed-ghost">${mine.slice(0,4).map(()=>'<div class="lgt"></div>').join("")}</div>${gate("Membership lapsed",lapsedText(mine.length)+" While it's lapsed, your posts are hidden, including from you.")}`
     :gate("Post your sleds with membership","Cataloging and sharing sleds is part of Sled Finder membership ($15/yr). Free members can browse the free makers' curated galleries, the maker directory and Sleds for Sale.");
   const makers=new Set(mine.map(s=>s.maker));
   return `<div class="stats"><div><b>${mine.length}</b><span>Sleds</span></div><div><b>${makers.size}</b><span>Makers</span></div><div><b>${mine.filter(s=>s.shared).length}</b><span>Shared</span></div></div>
-  <div class="chips"><span class="chip on">All</span><span class="chip">Shared</span><span class="chip">Private</span><span class="chip">By maker</span><a class="chip" href="#/upgrade">🖨 Insurance list ${premium()?"":"🔒"}</a></div>
-  <div class="grid2">${mine.map(s=>`<a class="card tile" href="#/sled/${s.id}"><div class="th" style="background-image:url('${s.img}')"></div><span class="vis">${s.shared?"Shared":"🔒 Private"}</span><div class="n">${esc(mk(s))}</div><div class="d">${esc(s.model)} · ${esc(s.years)}</div><div class="d">📍 ${esc(s.locType==="na"?"Location NA":(s.town||"—"))}</div>${s.editedBy?'<div class="d edited-s">✎ Edited by Sled Finder</div>':""}${+s.maker&&M(s.maker)&&!isFree(M(s.maker))&&!premium()?'<div class="d" style="color:var(--red);font-weight:600">🔒 Unlock full history</div>':""}</a>`).join("")}</div>
+  <div class="chips" id="colf"><button type="button" class="chip on" data-f="all">All</button><button type="button" class="chip" data-f="shared">Shared</button><button type="button" class="chip" data-f="private">Private</button><button type="button" class="chip" data-f="maker">By maker</button><a class="chip" href="#/insurance">🖨 Insurance list</a></div>
+  <div class="grid2" id="colgrid">${mine.map(s=>`<a class="card tile" href="#/sled/${s.id}" data-sh="${s.shared?1:0}" data-mk="${esc(mk(s))}"><div class="th" style="background-image:url('${s.img}')"></div><span class="vis">${s.shared?"Shared":"🔒 Private"}</span><div class="n">${esc(mk(s))}</div><div class="d">${esc(s.model)} · ${esc(s.years)}</div><div class="d">📍 ${esc(s.locType==="na"?"Location NA":(s.town||"—"))}</div>${s.editedBy?'<div class="d edited-s">✎ Edited by Sled Finder</div>':""}${+s.maker&&M(s.maker)&&!isFree(M(s.maker))&&!premium()?'<div class="d" style="color:var(--red);font-weight:600">🔒 Unlock full history</div>':""}</a>`).join("")}</div>
   <p class="legend" style="margin-bottom:20px">Sleds marked as samples are example data for this mockup. Sleds you add here are stored only in this browser. Paid members can edit or delete their own posts.</p>`;
 };
 R.add=(editId)=>{const E=editId?allSleds().find(x=>x.id==editId):null;
@@ -300,7 +304,7 @@ R.makers=()=>{bar("Makers",{sub:"61 American sled companies",act:'<a class="act"
   <h3 class="sec">${premium()?"Premium profiles":"Premium · name & dates only"} (${rest.length}) ${premium()?"":'<a href="#/upgrade">Unlock</a>'}</h3><div class="list card">${rest.map(row).join("")}</div>
   <h3 class="sec">Unknown / unconfirmed makers</h3><div class="list card"><a class="mrow" href="#/unknown"><span class="num">?</span><span class="tx"><div class="n">Sleds with an unknown or custom maker</div><div class="d">${allSleds().filter(s=>!+s.maker&&(s.shared||isOwn(s))).length} posts · not filed under any real maker</div></span>${premium()?'<span class="lk">›</span>':'<span class="lk">🔒</span>'}</a></div><div style="height:16px"></div>`;
 };
-function lockBox(title,sub){return `<div class="locked"><div class="blur">Company history, founders, factory locations, model guide with dates, catalog numbers and identifying marks, and period advertisements from the trade press. This text is a placeholder that sits behind the paywall in the mockup.</div><div class="ov">🔒<b>${title}</b><span>${sub}</span><a class="btn gold" href="#/upgrade">See Premium · $15/yr</a></div></div>`}
+function lockBox(title,sub){return `<div class="locked"><div class="blur">Company history, founders, factory locations, model guide with dates, catalog numbers and identifying marks, and period advertisements from the trade press.</div><div class="ov">🔒<b>${title}</b><span>${sub}</span><a class="btn gold" href="#/upgrade">See Premium · $15/yr</a></div></div>`}
 R.maker=id=>{const m=M(id);if(!m)return R.makers();const p=m.p,free=isFree(m),P=premium(),ms=models(m);
   bar(disp(m),{back:true,sub:P?"Premium profile":(free?"Free · limited":"Premium maker · locked")});tab("makers");
   const facts=`<dl class="facts"><div><dt>Production area</dt><dd>${esc(m.area||"—")}</dd></div><div><dt>Years (matrix)</dt><dd>${esc(m.years||"—")}</dd></div><div><dt>Sled type</dt><dd>${esc(m.type||"—")}</dd></div><div><dt>Source</dt><dd>${m.book?"Palicia's books":"Spangler find"}</dd></div></dl>`;
@@ -343,8 +347,10 @@ R.idhelp=()=>{bar("What sled is this?",{back:true,sub:"Community ID help"});tab(
   ${q.answers.map(a=>`<div style="margin-top:8px;padding:8px 10px;background:var(--stone);border-radius:10px;font-size:.8rem">${esc(a)}</div>`).join("")}
   <div class="bar"><span>💬 ${q.answers.length} answers</span><span>✋ I know this one</span></div></div></article>`).join("")}</div>`;
 };
-R.timeline=()=>{if(!premium())return paywall("The Coasting Through History timeline is part of Premium.");
-  bar("Coasting Through History",{back:true,sub:"Sledding in America"});tab("home");
+R.timeline=()=>{bar("Coasting Through History",{back:true,sub:premium()?"Sledding in America":"Preview · Premium"});tab("home");
+  if(!premium()){const T=window.TIMELINE||[];return `<p class="legend" style="margin-top:14px">A preview of the Rosebud Sled Museum timeline. The full timeline is part of Premium.</p>
+  <ol class="tl">${T.slice(0,3).map(t=>`<li class="${t.il?"il":""}"><div class="y">${esc(t.y)}${t.il?"<em>Illinois</em>":""}</div><p>${esc(t.t)}</p></li>`).join("")}</ol>
+  <div class="locked" style="margin:0 16px 20px"><div class="blur">${T.slice(3,6).map(t=>esc(t.y+" — "+t.t)).join(" ")}</div><div class="ov">🔒<b>${T.length-3} more moments</b><span>The full Coasting Through History timeline is Premium.</span><a class="btn gold" href="#/upgrade">${lapsed()?"Renew membership · $15/yr":"Join · $15/yr"}</a></div></div>`}
   return `<p class="legend" style="margin-top:14px">From the Rosebud Sled Museum timeline prepared for the Gail Borden Public Library display (Jan 2027). Green dots are Illinois stories.</p>
   <ol class="tl">${window.TIMELINE.map(t=>`<li class="${t.il?"il":""}"><div class="y">${esc(t.y)}${t.il?"<em>Illinois</em>":""}</div><p>${esc(t.t)}</p></li>`).join("")}</ol>`;
 };
@@ -352,11 +358,11 @@ function magazine(){return window.MAGAZINE||{articles:[],orderUrl:"https://roseb
 // Online-only exclusive articles (not printed in the magazine). Titles and
 // teasers are placeholders only — no invented historical facts.
 const EXCLUSIVES=[
-  {id:"placeholder-1",title:"PLACEHOLDER: Online-only article 1",dek:"A short exclusive will be published here. This is a placeholder title and teaser only — no article has been written yet."},
-  {id:"placeholder-2",title:"PLACEHOLDER: Online-only article 2",dek:"Reserved for a future short article that will not appear in the printed Vintage Runner."},
-  {id:"placeholder-3",title:"PLACEHOLDER: Online-only article 3",dek:"Placeholder only. The finished piece will be added later; nothing here is a historical claim."}
+  {id:"placeholder-1",title:"Coming soon: online-only article 1",dek:"A short exclusive for members, not printed in the magazine."},
+  {id:"placeholder-2",title:"Coming soon: online-only article 2",dek:"A future short article that will not appear in the printed Vintage Runner."},
+  {id:"placeholder-3",title:"Coming soon: online-only article 3",dek:"Another members-only short piece, being written now."}
 ];
-const exclusivePlaceholderBody="This is placeholder copy for the mockup. The exclusive article has not been written yet. When it is ready, it will be a short, online-only piece for paid members, and it will not be printed in the magazine.";
+const exclusivePlaceholderBody="This exclusive article is still being written. When it is ready, paid members will read it here. It is online only and will not be printed in the magazine.";
 // Order link for everyone (all tiers): the magazine section on rosebudsledmuseum.com (same link the app already uses).
 const orderMagBtn=(st)=>`<a class="btn gold" href="${esc(magazine().orderUrl)}" target="_blank" rel="noopener"${st?` style="${st}"`:""}>📖 Order Vintage Runner Magazine</a>`;
 function magCta(){
@@ -381,11 +387,11 @@ R.magazine=()=>{
   const M=magazine(), arts=M.articles||[], P=premium();
   bar("Articles",{back:true,sub:P?"Vintage Runner · Issue 1 + exclusives":"Titles and teasers"});tab("home");
   const go=(href,n,title,dek,extra)=>`<a class="art-row" href="${href}"><span class="art-n">${n}</span><span class="art-meta"><b>${esc(title)}</b><em>${esc(dek)}</em>${extra||""}</span><span class="${P?"art-go":"art-lock"}">${P?"›":"🔒"}</span></a>`;
-  const exTags=`<span class="art-tags"><span class="sample-tag">PLACEHOLDER</span><span class="sample-tag">Online only</span></span>`;
+  const exTags=`<span class="art-tags"><span class="sample-tag">Coming soon</span><span class="sample-tag">Online only</span></span>`;
   return `<div class="art-issue">
   <div style="margin:0 0 14px">${orderMagBtn()}</div>
   <h3 class="sec" style="margin:0 0 8px">Exclusive (online only)</h3>
-  <p class="legend" style="margin:0 0 10px">Short articles for paid members, not printed in the magazine. Free and lapsed members can read the titles and teasers. Opening an article is part of Premium. Titles marked PLACEHOLDER are standing in until the real pieces are written — they are not finished articles and make no historical claims.</p>
+  <p class="legend" style="margin:0 0 10px">Short articles for paid members, not printed in the magazine. Free and lapsed members can read the titles and teasers. Opening an article is part of Premium. Articles marked Coming soon are still being written.</p>
   <div class="art-list">${EXCLUSIVES.map((a,i)=>go("#/exclusive/"+a.id,String(i+1).padStart(2,"0"),a.title,a.dek,exTags)).join("")}</div>
   <div class="art-hero" style="margin-top:22px"><img src="${esc(M.cover)}" alt="Vintage Runner cover"><div><div class="eyebrow">${esc(M.issue)} · ${esc(M.edition)}</div><b>Vintage Runner</b><p>No-frills text editions of the articles, to read in the app. The printed magazine keeps the photographs and the layout.</p></div></div>
   ${magCta()}
@@ -398,7 +404,7 @@ R.exclusive=id=>{
   if(!premium())return paywall("Exclusive articles are included with Premium. They are short, online-only pieces and are not printed in the magazine.");
   bar("Exclusive",{back:true,sub:"Online only · not in the magazine"});tab("home");
   return `<article class="art-read">
-    <div class="mock-banner">PLACEHOLDER · online only · not printed in the magazine · no article written yet</div>
+    <div class="mock-banner">Coming soon · online only · not printed in the magazine</div>
     <p class="eyebrow">Exclusive · Online only</p>
     <h1>${esc(a.title)}</h1>
     <p class="art-dek">${esc(a.dek)}</p>
@@ -440,10 +446,10 @@ R.profile=()=>{bar("Profile",{sub:ROLES[role()]});tab("profile");
   setTimeout(()=>{document.querySelectorAll("input[name=role]").forEach(r=>r.onchange=()=>{setRole(r.value);toast("Demo role: "+ROLES[r.value]);route()})});
   const mine=allSleds().filter(s=>s.mine||s.userAdded);
   return `<div class="prof"><span class="av big">SC</span><div><h1>@sample_collector</h1><div class="small muted">Example profile · ${mine.length} sleds · joined 2026</div></div></div>
-  <div class="menu"><a href="#/collection">My collection <span>›</span></a><a href="#/idhelp">My ID requests <span>›</span></a><a href="#/upgrade">Subscription <span class="small muted">${ROLES[role()]} ›</span></a><a href="${esc(magazine().orderUrl)}" target="_blank" rel="noopener">📖 Order Vintage Runner Magazine <span>↗</span></a></div>
+  <div class="menu"><a href="#/collection">My collection <span>›</span></a><a href="#/idhelp">My ID requests <span>›</span></a><a href="#/upgrade">Subscription <span class="small muted">${ROLES[role()]} ›</span></a><a href="${esc(magazine().orderUrl)}" target="_blank" rel="noopener">📖 Order Vintage Runner Magazine <span>↗</span></a><a href="#/suggest">💬 Send a suggestion to the developer <span>›</span></a></div>
   <h3 class="sec">Demo role switcher</h3><div class="menu roles">${Object.keys(ROLES).map(k=>`<label><span>${ROLES[k]}</span><input type="radio" name="role" value="${k}" ${role()===k?"checked":""}></label>`).join("")}</div>
   <div class="menu"><a href="#/database">Sled Maker and Model Database ${premium()?"":"🔒"}<span>›</span></a><a href="#/identify">Identify a sled from a photo ${premium()?"":"🔒"}<span>›</span></a><a href="#/map">Sled Picker Map ${premium()?"":"🔒"}<span>›</span></a><a href="#/timeline">Coasting Through History ${premium()?"":"🔒"}<span>›</span></a><a href="#/articles">Vintage Runner articles ${premium()?"":"🔒"}<span>›</span></a><a href="#/makers">Sled makers directory <span>›</span></a></div>
-  <div class="menu"><a href="#/profile" onclick="return false">About · Rosebud Sled Museum, Schaumburg, IL <span></span></a><a href="#/profile" onclick="return false">Privacy: private sleds are visible only to you <span></span></a><a href="#/terms">Terms &amp; Community Guidelines (draft) <span>›</span></a></div>
+  <div class="menu"><a href="https://rosebudsledmuseum.com/" target="_blank" rel="noopener">About · Rosebud Sled Museum, Schaumburg, IL <span>↗</span></a><a href="#/terms">Privacy: private sleds are visible only to you <span>›</span></a><a href="#/terms">Terms &amp; Community Guidelines (draft) <span>›</span></a></div>
   <p class="legend" style="padding-bottom:24px">Clickable mockup for review. No accounts, servers or payments.</p>`;
 };
 R.sale=(fcc)=>{fcc=COUNTRIES[fcc]?fcc:"";bar("Sleds for Sale",{sub:"Collector marketplace",act:`<a class="act" href="${canSell()?"#/sell":"#/upgrade"}" aria-label="Sell">${canSell()?"＋":"🔒"}</a>`});tab("sale");
@@ -517,7 +523,7 @@ const ID_DEMO={
 
 R.identify=()=>{
   bar("Identify a sled",{back:true,sub:"Photo search · demo"});tab("home");
-  if(!premium())return databaseGate()+`<p class="legend">The photo-ID spec left membership as an open question. This mockup follows the existing membership pattern: running an identification, like the Sled Picker Map and the Sled Maker and Model Database, is for paid members. Posting after a match still needs membership too.</p>`;
+  const tryNote=premium()?"":`<div class="id-try"><b>Try the demo.</b> Use the sample photo to see how Photo ID works. Real identifications are part of Premium.<a class="btn gold sm" href="#/upgrade" style="margin-top:8px">${lapsed()?"Renew membership · $15/yr":"Join · $15/yr"}</a></div>`;
   setTimeout(()=>{
     const preview=$("#idpreview"), file=$("#idfile"), go=$("#idgo"), results=$("#idresults"), hint=$("#idhint");
     const showPreview=src=>{preview.style.backgroundImage=`url('${src}')`;preview.classList.add("has");preview.dataset.src=src;go.disabled=false;hint.textContent="You can retake or choose a different photo, then run the demo identification."};
@@ -526,7 +532,7 @@ R.identify=()=>{
     const renderResults=(mode,busy)=>{
       if(busy){results.innerHTML=`<div class="id-busy"><span class="spin"></span> Identifying…</div>`;results.classList.remove("hide");return}
       const demo=ID_DEMO[mode]||ID_DEMO.high, low=demo.band==="low";
-      const rows=demo.rows.map((r,i)=>{const m=mapByKey(r.key);return `<label class="id-row"><input type="radio" name="idpick" value="${r.key}" ${!low&&i===0?"checked":""}><span class="id-sw" style="background:${m?m.color:"#888"}"></span><span class="id-name">${esc(m?m.label:r.key)}</span><span class="id-pct">${r.pct}%</span><span class="id-bar"><i style="width:${r.pct}%;background:${m?m.color:"#888"}"></i></span></label>`}).join("");
+      const rows=demo.rows.map((r,i)=>{const m=mapByKey(r.key);return `<label class="id-row"><input type="radio" name="idpick" value="${r.key}" ${!low&&i===0?"checked":""}><span class="id-sw" style="background:${m?m.color:"#888"}"></span><span class="id-name">${esc(m?m.label:r.key)} <span class="sample-tag">Sample result</span></span><span class="id-pct">${r.pct}%</span><span class="id-bar"><i style="width:${r.pct}%;background:${m?m.color:"#888"}"></i></span></label>`}).join("");
       results.classList.remove("hide");
       results.innerHTML=`<div class="id-banner">Demo — sample results, not a real identification.</div>
         <div class="id-head"><b>${esc(demo.title)}</b><p>${esc(demo.note)}</p></div>
@@ -561,7 +567,7 @@ R.identify=()=>{
     go.onclick=()=>{if(!preview.dataset.src){toast("Add a photo first");return}renderResults("high",true);setTimeout(()=>renderResults("high",false),700)};
   });
   return `<div class="id-banner">Demo — sample results, not a real identification.</div>
-    <div class="pad id-flow">
+    <div class="pad id-flow">${tryNote}
       <p class="id-lead">Take or upload a photo of a vintage sled. This mockup does not run a real model; it shows how ranked matches, confirm/correct, and the add-sled form will work.</p>
       <div class="id-preview" id="idpreview"><span>No photo yet</span></div>
       <div class="row2">
@@ -650,7 +656,7 @@ R.map=()=>{const locked=!premium();
         <b>The Sled Picker Map is for members</b>
         <p>${lapsed()?"Renew to pan, zoom and open pins.":"Join to pan, zoom and open pins. This preview shows the Northeast demo."}</p>
         <a class="btn gold" href="#/upgrade">${lapsed()?"Renew membership · $15/yr":"Join · $15/yr"}</a>
-        <button type="button" class="btn" id="mapPreview">Preview as member (demo)</button>
+        <button type="button" class="btn" id="mapPreview">Try the demo as Premium</button>
       </div>
     </div>`;
   return `${banner}
@@ -677,6 +683,33 @@ R.unknown=()=>{bar("Unknown / unconfirmed makers",{back:true,sub:"Not filed unde
   return `<p class="legend" style="margin-top:12px">Posts whose maker is unknown or typed in as a guess. They stay here, not under any of the 61 makers, until Sled Finder confirms and reassigns them.${isAdmin()?" As admin, open a post and use Admin edit to pick the real maker.":""}</p>
   ${Object.keys(G).sort().map(k=>`<p class="grp-h"><b>${esc(k==="Unknown maker"?k:k+" (unconfirmed)")}</b> · ${G[k].length} post${G[k].length==1?"":"s"}</p>${groupList(G[k],null,true)}`).join("")||'<p class="small muted" style="padding:0 16px">No posts yet.</p>'}<div style="height:20px"></div>`;
 };
+// ===== Suggestions to the developer. Delivered free with no keys in the app:
+// 1) a Google Form in Sled Finder's Google account (set SUGGEST_FORM.action + entry ids once the form exists), posted
+//    straight from the app so the existing Google Form alert catches it; 2) otherwise a pre-filled email to the museum.
+const SUGGEST_FORM={action:"",fields:{category:"",message:"",name:"",email:"",context:""}};
+const SUGGEST_EMAIL="rbsledmuseum@gmail.com";
+const SUGGEST_CATS=["Suggestion","Bug / something isn't working","Missing maker or info","Other"];
+R.insurance=()=>{bar("Insurance list",{back:true,sub:premium()?"Printable list of your sleds":"Preview · Premium"});tab("collection");
+  const mine=allSleds().filter(isOwn);
+  const rows=(arr)=>`<table class="ins"><thead><tr><th>Maker</th><th>Model</th><th>Years</th><th>Condition</th><th>Size</th></tr></thead><tbody>${arr.map(s=>`<tr><td>${esc(mk(s))}</td><td>${esc(s.model)}</td><td>${esc(s.years)}</td><td>${esc(s.condition||"")}</td><td>${esc(s.size||"")}</td></tr>`).join("")||'<tr><td colspan="5" class="muted">No sleds yet. Add one with ＋.</td></tr>'}</tbody></table>`;
+  if(!premium())return `<p class="legend" style="margin-top:14px">A printable list of your collection (maker, model, years, condition, size and photos) to give your insurer. Part of Premium.</p>
+  <div class="locked" style="margin:12px 16px 20px"><div class="blur">${rows([{maker:1,model:"No. 3C",years:"c. 1925",condition:"Good",size:"42 in."},{maker:7,model:"Coast to Coast",years:"1969–1970",condition:"Good",size:"66 in."}])}</div><div class="ov">🔒<b>Insurance list is Premium</b><span>Print or save a list of every sled you own.</span><a class="btn gold" href="#/upgrade">${lapsed()?"Renew membership · $15/yr":"Join · $15/yr"}</a></div></div>`;
+  return `<div class="pad"><p class="small muted" style="margin:0 0 10px">${mine.length} sled${mine.length===1?"":"s"} · ${new Date().toLocaleDateString()}</p>${rows(mine)}<button type="button" class="btn solid" style="margin-top:14px" onclick="window.print()">🖨 Print or save as PDF</button></div>`};
+R.suggest=()=>{bar("Send a suggestion",{back:true,sub:"To the Sled Finder developer"});tab("profile");
+  setTimeout(()=>{const F=$("#sugf");if(!F)return;F.onsubmit=async e=>{e.preventDefault();const f=new FormData(F);const msg=String(f.get("message")||"").trim();
+    if(msg.length<3){toast("Please write a short message first.",3500);return}
+    const d={category:f.get("category"),message:msg.slice(0,3000),name:String(f.get("name")||"").trim().slice(0,100),email:String(f.get("email")||"").trim().slice(0,200),context:"Sled Finder app · viewing as "+ROLES[role()]+" · "+navigator.userAgent.slice(0,120)};
+    const btn=F.querySelector("button[type=submit]");btn.disabled=true;btn.textContent="Sending…";let how="form";
+    try{if(!SUGGEST_FORM.action)throw new Error("no form");const b=new URLSearchParams();Object.keys(SUGGEST_FORM.fields).forEach(k=>{if(SUGGEST_FORM.fields[k])b.append(SUGGEST_FORM.fields[k],d[k]||"")});
+      await fetch(SUGGEST_FORM.action,{method:"POST",mode:"no-cors",body:b})}
+    catch(err){how="email";const body=`${d.message}\n\n— ${d.name||"(no name)"}${d.email?" · "+d.email:""}\nCategory: ${d.category}\n${d.context}`;location.href=`mailto:${SUGGEST_EMAIL}?subject=${encodeURIComponent("Sled Finder suggestion: "+d.category)}&body=${encodeURIComponent(body)}`}
+    $("#view").innerHTML=`<div class="pad" style="text-align:center;padding-top:40px"><div style="font-size:2.4rem">🙏</div><h2 style="font-family:var(--serif);margin:8px 0">Thank you!</h2><p class="small muted" style="max-width:300px;margin:0 auto 18px">${how==="form"?"Your note went straight to the Sled Finder developer.":"Your email app should have opened with your note filled in. Press <b>Send</b> there to deliver it."}${d.email?" We'll reply to "+esc(d.email)+" if needed.":""}</p><a class="btn solid" href="#/home">Back to Home</a><a class="btn" style="margin-top:10px" href="#/suggest">Send another</a></div>`}});
+  return `<form class="form" id="sugf"><p class="legend" style="margin:0;padding:0">Ideas, bugs, a missing maker or a fact to fix: tell us here. It goes to the person building Sled Finder.</p>
+  <label>Category<select name="category">${SUGGEST_CATS.map(c=>`<option>${esc(c)}</option>`).join("")}</select></label>
+  <label>Message *<textarea name="message" required maxlength="3000" placeholder="What would make Sled Finder better?"></textarea></label>
+  <div class="row2"><label>Your name (optional)<input name="name" maxlength="100" autocomplete="name"></label><label>Email for a reply (optional)<input name="email" type="email" maxlength="200" autocomplete="email"></label></div>
+  <small class="muted" style="font-size:.7rem">Please don't include a street address or anything private.</small>
+  <button class="btn solid" type="submit">Send suggestion</button></form>`};
 R.terms=()=>{bar("Terms & Guidelines",{back:true,sub:"Draft for review"});tab("profile");
   const S=(h,ps)=>`<h3 class="sec">${h}</h3><div class="prose">${ps.map(p=>`<p>${p}</p>`).join("")}</div>`;
   return `<div class="mock-banner">DRAFT · plain-language summary for review · not legal advice · have a lawyer review before launch</div>
@@ -687,7 +720,7 @@ R.terms=()=>{bar("Terms & Guidelines",{back:true,sub:"Draft for review"});tab("p
   ${S("4. Keep it accurate",["Give the maker, model, estimated years of manufacture and location as accurately as you can. A best guess is fine. Choose “Unknown” or use a custom maker such as “Likely Pratt” when you're not sure.","Use town-level locations only. Never post a street address."])}
   ${S("5. Sled Finder may edit or remove posts",["To keep the record accurate, Sled Finder may correct a post's maker, model, years, location, name or photos, or remove posts and ads. Corrected posts show a small “Edited by Sled Finder” note.","Sled Finder may remove posts that break these guidelines, such as photos you don't have the right to share, off-topic or offensive content, or spam."])}
   ${S("6. Editing and deleting your own posts",["Paid members can edit or delete their own posts and ads. You can't edit other members' posts or Sled Finder's own content, such as maker histories."])}
-  ${S("7. If your membership lapses",["Your posts stay in Sled Finder. While your membership is lapsed you can't see the Sled Maker and Model Database, including your own posts, and you can't post or edit. When you renew, your posts come back.","[To decide: whether a lapsed member's posts stay visible to other paid members in the meantime.]"])}
+  ${S("7. If your membership lapses",["Your posts stay in Sled Finder. While your membership is lapsed you can't see the Sled Maker and Model Database, including your own posts, and you can't post or edit. When you renew, your posts come back."])}
   ${S("8. Sleds for Sale",["Buying and selling happen directly between members by email. Sled Finder isn't part of the sale and doesn't hold payments or guarantee items, descriptions or shipping."])}
   ${S("9. Be respectful",["Be kind and helpful, especially when helping identify sleds. No harassment, spam or misleading listings."])}
   ${S("10. Changes",["Sled Finder may update these terms. If changes are significant, members will be told in the app."])}
@@ -704,6 +737,20 @@ function route(){
     else{deleteSled(b.dataset.del);toast("Sled deleted");location.hash=isOwn(it)?"#/collection":"#/home"}});
 }
 window.addEventListener("hashchange",route);
+document.addEventListener("click",e=>{const t=e.target.closest("[data-soon]");if(t){e.preventDefault();toast("Coming in the real app")}});
+const TOUR=[
+ {h:"#/home",t:"Welcome to Sled Finder",b:"A quick look around. Tap “Viewing as” at the top any time to see the app as Free, Premium, Lapsed or Admin."},
+ {h:"#/identify",t:"Photo ID",b:"Snap or upload a sled photo and get ranked maker matches. This demo shows sample results; tap “Use a sample photo”, then Identify."},
+ {h:"#/maker/1",t:"Maker pages",b:"Each of the 61 makers has a page: where and when they worked, models, photos and history. Some makers are free; the rest are Premium."},
+ {h:"#/map",t:"Sled Picker Map",b:"Where sleds were found, coloured by maker, across the US, Canada, the UK and Ireland. Town level only, never an address. Members can pan, zoom and filter."},
+ {h:"#/sale",t:"Sleds for Sale",b:"Anyone can browse sleds for sale and filter by country. Members can post their own listings."}];
+let tourI=-1;
+function tourShow(){let o=$("#tour");if(tourI<0||tourI>=TOUR.length){if(o)o.remove();tourI=-1;return}
+  if(!o){o=document.createElement("div");o.id="tour";o.className="tour";document.querySelector(".screen").appendChild(o)}
+  const st=TOUR[tourI];o.innerHTML=`<div class="tour-card"><div class="small muted">Tour · ${tourI+1} of ${TOUR.length}</div><b>${esc(st.t)}</b><p>${esc(st.b)}</p><div class="row2"><button type="button" class="btn" id="tourSkip">Skip</button><button type="button" class="btn solid" id="tourNext">${tourI===TOUR.length-1?"Done":"Next"}</button></div></div>`;
+  $("#tourSkip").onclick=()=>{tourI=-1;tourShow()};$("#tourNext").onclick=()=>{tourI++;if(tourI<TOUR.length)location.hash=TOUR[tourI].h;tourShow()};
+  if(location.hash!==st.h)location.hash=st.h}
+window.startTour=()=>{tourI=0;tourShow()};
 document.addEventListener("invalid",e=>{const t=e.target,l=t.closest("label");toast(t.name==="ack"?"Please tick the agreement box to save.":"Please fill in: "+(l?(l.childNodes[0].textContent||"").replace("*","").trim()||t.name:t.name),4000)},true);
 $("#resetDemo").onclick=()=>{["premium","role","sleds","liked","lastq","edits","deleted","listings","ledits","ldeleted","idDraft"].forEach(k=>localStorage.removeItem("svc_"+k));location.hash="#/home";route();toast("Demo reset")};
 Promise.race([phOpen(),new Promise(r=>setTimeout(()=>r(null),3000))]).then(async db=>{PH.db=db;if(db)await phLoadAll(db);route()});
