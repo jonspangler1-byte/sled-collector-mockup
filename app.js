@@ -56,15 +56,50 @@ function bindGalleries(){document.querySelectorAll(".gal").forEach(g=>{const t=g
   t.onscroll=()=>{const i=Math.round(t.scrollLeft/t.clientWidth);d.forEach((x,j)=>x.classList.toggle("on",j===i));c.textContent=(i+1)+" / "+d.length};
   d.forEach((x,j)=>x.onclick=()=>t.scrollTo({left:j*t.clientWidth,behavior:"smooth"}))})}
 // Multi-photo picker: real file upload (resized in the browser) plus demo photos. First photo = cover.
-function resizeFile(file){return new Promise(res=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1000/Math.max(im.width,im.height));const c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",.72))};im.src=r.result};r.readAsDataURL(file)})}
+function resizeFile(file,max,q){max=max||1000;q=q||.72;return new Promise(res=>{const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,max/Math.max(im.width,im.height));const c=document.createElement("canvas");c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext("2d").drawImage(im,0,0,c.width,c.height);res(c.toDataURL("image/jpeg",q))};im.src=r.result};r.readAsDataURL(file)})}
 const pickerHTML=(id,req)=>`<div class="picker" id="${id}"><div class="pk-thumbs"></div><div class="row2"><label class="btn pk-up">📷 Add photos${req?" *":""}<input type="file" accept="image/*" multiple hidden></label><button type="button" class="btn pk-demo">＋ Demo photo</button></div><small class="muted pk-help">Add several photos. The first one is the cover; tap a photo to make it the cover.</small></div>`;
 function picker(id,initial,demo){const root=$("#"+id),T=root.querySelector(".pk-thumbs");let pics=(initial||[]).slice();
   const draw=()=>{T.innerHTML=pics.map((u,i)=>`<div class="pk-t" data-i="${i}" style="background-image:url('${u}')">${i===0?'<span class="pk-cover">Cover</span>':""}<button type="button" class="pk-x" data-x="${i}" aria-label="Remove">×</button></div>`).join("")||'<div class="pk-empty">No photos yet</div>';
     T.querySelectorAll(".pk-x").forEach(b=>b.onclick=e=>{e.stopPropagation();pics.splice(+b.dataset.x,1);draw()});
     T.querySelectorAll(".pk-t").forEach(t=>t.onclick=()=>{const i=+t.dataset.i;if(i){const [p]=pics.splice(i,1);pics.unshift(p);draw();toast("Cover photo set")}})};
-  root.querySelector("input[type=file]").onchange=async e=>{for(const f of [...e.target.files].slice(0,10)){pics.push(await resizeFile(f))}e.target.value="";draw()};
+  root.querySelector("input[type=file]").onchange=async e=>{for(const f of [...e.target.files].slice(0,10)){const sm=await resizeFile(f);pics.push(sm);if(driveSyncOn()){try{HIRES.set(sm,await resizeFile(f,1600,.85))}catch(x){}}}e.target.value="";draw()};
   root.querySelector(".pk-demo").onclick=()=>{const left=demo.filter(u=>!pics.includes(u));pics.push(left.length?left[0]:demo[Math.floor(Math.random()*demo.length)]);draw();toast("Demo photo added (sample image)")};
   draw();return ()=>pics.slice()}
+// ===== Drive sync (admin only): copies each saved sled (photos + maker, model, years, origin ZIP, notes)
+// into Jonathan's "Sled Finder Uploads" Google Drive folder via a Google Apps Script web app.
+// The token is never in this file: it is typed once on the admin's device and kept in that browser.
+// localStorage stays the source of truth; failed uploads queue and can be retried from Profile.
+const DRIVE_SYNC_URL=""; // paste the Apps Script web app /exec URL here after it is deployed
+const HIRES=new Map(); // small photo -> larger copy (1600px) for training, this session only
+const syncUrl=()=>LS.get("syncUrl","")||DRIVE_SYNC_URL;
+const driveSyncOn=()=>isAdmin()&&!!syncUrl()&&!!LS.get("syncToken","");
+const syncedMap=()=>LS.get("synced",{});
+const unsyncedSleds=()=>{const sm=syncedMap();return userSleds().filter(s=>sm[s.id]!==sledSig(s))};
+const sledSig=s=>[s.maker,s.country,s.region,s.postal,s.makerText,s.model,s.years,s.zip,s.condition,s.size,s.found,s.notes,s.shared,(s.imgs||[]).length,(s.imgs||[]).map(u=>String(u).length).join(".")].join("|");
+async function drivePost(body){const r=await fetch(syncUrl(),{method:"POST",headers:{"Content-Type":"text/plain;charset=utf-8"},body:JSON.stringify(Object.assign({token:LS.get("syncToken","")},body))});return r.json()}
+async function pushSledToDrive(s){
+  const own=(s.imgs||[]).map(phURL).filter(u=>/^data:image\//.test(u)); // idb: refs resolved to the stored photo // only photos taken/uploaded on this device; demo sample images are skipped
+  const m=+s.maker?M(s.maker):null;
+  const sled={id:s.id,maker:+s.maker||0,makerText:s.makerText||"",model:s.model,years:s.years,zip:ccOf(s)!=="US"?"":(/^\d{5}$/.test(String(s.zip||""))?s.zip:((String(s.town||"").match(/^ZIP (\d{5})$/)||[])[1]||"")),country:ccOf(s),region:s.locType==="na"?"":(s.region||""),nation:s.nation||"",postalArea:ccOf(s)==="US"||s.locType==="na"?"":(s.postal||""),locType:s.locType,condition:s.condition,size:s.size,found:s.found,notes:s.notes,shared:!!s.shared};
+  const res=await drivePost({action:"upsert",sled,makerLabel:m?disp(m):(s.makerText?s.makerText+" (custom)":"Unknown maker"),photos:own.map(u=>HIRES.get(u)||u)});
+  if(!res||!res.ok)throw new Error(res&&res.error||"upload failed");
+  const sm=syncedMap();sm[s.id]=sledSig(s);LS.set("synced",sm);return res}
+function autoSync(s){if(!driveSyncOn())return;pushSledToDrive(s).then(r=>toast("Copied to Drive · "+r.folder+" · "+r.photos+" photo"+(r.photos===1?"":"s"))).catch(e=>toast("Saved here; Drive copy failed ("+e.message+"). Retry from Profile."))}
+async function syncAllToDrive(btn){const list=unsyncedSleds();if(!list.length){toast("Everything is already in Drive");return}
+  let ok=0,fail=0;for(const s of list){btn.textContent="Uploading "+(ok+fail+1)+" of "+list.length+"…";try{await pushSledToDrive(s);ok++}catch(e){fail++}}
+  toast(ok+" sled"+(ok===1?"":"s")+" copied to Drive"+(fail?" · "+fail+" failed":""));route()}
+const driveSyncHTML=()=>{if(!isAdmin())return "";const n=userSleds().length,u=unsyncedSleds().length,set=!!syncUrl()&&!!LS.get("syncToken","");
+  return `<h3 class="sec">Drive sync · training photos (admin)</h3><div class="form" id="dsync" style="padding-top:0">
+  <p class="legend" style="margin:0;padding:0">Copies each sled you save (photos, maker, model, years, origin ZIP, notes) to the “Sled Finder Uploads” folder in Google Drive, sorted by maker, for training the photo identifier. ZIP only, never a street address.</p>
+  <label>Upload link<input name="url" value="${esc(syncUrl())}" placeholder="https://script.google.com/macros/s/…/exec"></label>
+  <label>Sync key<input name="token" type="password" value="${esc(LS.get("syncToken",""))}" placeholder="Paste the key once on this phone"></label>
+  <div class="row2"><button type="button" class="btn" id="dsave">Save</button><button type="button" class="btn" id="dtest">Test</button></div>
+  <button type="button" class="btn solid" id="dall" ${set?"":"disabled"}>Sync my saved sleds to Drive (${u} of ${n} not yet copied)</button>
+  <small class="muted" style="font-size:.7rem">${set?"New sleds you save are copied automatically.":"Not connected yet: sleds are saved only in this browser."} Don't tap “Reset demo” before syncing; it erases sleds saved on this phone.</small></div>`};
+const bindDriveSync=()=>{const f=$("#dsync");if(!f)return;
+  $("#dsave").onclick=()=>{LS.set("syncUrl",f.querySelector("[name=url]").value.trim());LS.set("syncToken",f.querySelector("[name=token]").value.trim());toast("Drive sync settings saved on this device");route()};
+  $("#dtest").onclick=async()=>{LS.set("syncUrl",f.querySelector("[name=url]").value.trim());LS.set("syncToken",f.querySelector("[name=token]").value.trim());try{const r=await drivePost({action:"ping"});toast(r&&r.ok?"Connected to Drive ✓":"Drive said: "+(r&&r.error||"no answer"))}catch(e){toast("Couldn't reach the upload link")}};
+  $("#dall").onclick=e=>{e.target.disabled=true;syncAllToDrive(e.target)}};
 // Editing rule: Admin (Sled Finder) can edit/delete ANY submission or sale ad. Paid members only their OWN. Maker histories are never user-editable.
 const canEdit=item=>!!item&&(isAdmin()||(!!(item.mine||item.userAdded)&&premium()));
 function saveSled(s){if(String(s.id).startsWith("u")){const u=userSleds().map(x=>x.id===s.id?s:x);LS.set("sleds",u)}else{const ov=LS.get("edits",{});ov[s.id]=s;LS.set("edits",ov)}}
@@ -227,7 +262,7 @@ R.collection=()=>{bar("My Collection",{sub:"@sample_collector",act:'<a class="ac
   return `<div class="stats"><div><b>${mine.length}</b><span>Sleds</span></div><div><b>${makers.size}</b><span>Makers</span></div><div><b>${mine.filter(s=>s.shared).length}</b><span>Shared</span></div></div>
   <div class="chips" id="colf"><button type="button" class="chip on" data-f="all">All</button><button type="button" class="chip" data-f="shared">Shared</button><button type="button" class="chip" data-f="private">Private</button><button type="button" class="chip" data-f="maker">By maker</button><a class="chip" href="#/insurance">🖨 Insurance list</a></div>
   <div class="grid2" id="colgrid">${mine.map(s=>`<a class="card tile" href="#/sled/${s.id}" data-sh="${s.shared?1:0}" data-mk="${esc(mk(s))}"><div class="th" style="background-image:url('${s.img}')"></div><span class="vis">${s.shared?"Shared":"🔒 Private"}</span><div class="n">${esc(mk(s))}</div><div class="d">${esc(s.model)} · ${esc(s.years)}</div><div class="d">📍 ${esc(s.locType==="na"?"Location NA":(s.town||"—"))}</div>${s.editedBy?'<div class="d edited-s">✎ Edited by Sled Finder</div>':""}${+s.maker&&M(s.maker)&&!isFree(M(s.maker))&&!premium()?'<div class="d" style="color:var(--red);font-weight:600">🔒 Unlock full history</div>':""}</a>`).join("")}</div>
-  <p class="legend" style="margin-bottom:20px">Sleds marked as samples are example data for this mockup. Sleds you add here are stored only in this browser. Paid members can edit or delete their own posts.</p>`;
+  <p class="legend" style="margin-bottom:20px">Sleds marked as samples are example data for this mockup. ${driveSyncOn()?"Sleds you add are saved in this browser and copied to Sled Finder's Google Drive.":"Sleds you add here are stored only in this browser."} Paid members can edit or delete their own posts.</p>`;
 };
 R.add=(editId)=>{const E=editId?allSleds().find(x=>x.id==editId):null;
   const draft=!editId?LS.get("idDraft",null):null;
@@ -259,6 +294,7 @@ R.add=(editId)=>{const E=editId?allSleds().find(x=>x.id==editId):null;
       const base=E?Object.assign({},E):{id:"u"+Date.now(),user:"you",userAdded:true,mine:true,likes:0};
       const s=Object.assign(base,makerVals(f),{model:f.get("model")||"Untitled sled",years:String(f.get("years")||"").trim()||"Unknown",year:undefined,size:f.get("size")||"—",condition:f.get("condition"),found:f.get("found")||"—",notes:f.get("notes")||"",shared:!!f.get("shared"),locType:lt,country:cc,city:lt==="na"?"":city,region:lt==="na"?"":st,nation:cc==="GB"&&lt!=="na"?nation:"",postal:lt==="na"?"":zip,zip:cc==="US"&&lt!=="na"?zip:"",town:town,lat:g?g.lat:null,lng:g?g.lng:null,geo:g?g.how:null,imgs:getPics().length?await storePics(getPics()):["images/collection-red-swirl-deck-photos-p28.jpg"],img:undefined});s.img=s.imgs[0];if(adminEdit)s.editedBy="Sled Finder";
       if(E){await lsSave(()=>saveSled(s));toast("Changes saved"+pinNote,pinNote?5000:0)}else{await lsSave(()=>{const u=userSleds();u.unshift(s);LS.set("sleds",u)});try{LS.set("idDraft",null)}catch(x){}toast("Sled saved to your collection"+pinNote,pinNote?5000:0)}
+      if(String(s.id).startsWith("u"))autoSync(s);
       location.hash="#/sled/"+s.id}catch(err){saveErr(err)}finally{btn.disabled=false;btn.textContent=lbl}};
   });
   const [ci,stt]=(E&&E.town&&E.town!=="NA"&&!/^ZIP /.test(E.town))?E.town.split(/,\s*/):["",""];
@@ -443,10 +479,11 @@ R.upgrade=(reason)=>{bar(window.APP_NAME+" Premium",{back:true,sub:"Mock paywall
   <p class="fine">In the real app, payment would go through the App Store. The subscription renews each year unless cancelled at least 24 hours before renewal in your phone's Settings. This mockup does not charge anything. If a membership lapses, your posts stay in Sled Finder and come back when you renew. See the <a href="#/terms">Terms &amp; Community Guidelines (draft)</a>.</p>`;
 };
 R.profile=()=>{bar("Profile",{sub:ROLES[role()]});tab("profile");
-  setTimeout(()=>{document.querySelectorAll("input[name=role]").forEach(r=>r.onchange=()=>{setRole(r.value);toast("Demo role: "+ROLES[r.value]);route()})});
+  setTimeout(()=>{document.querySelectorAll("input[name=role]").forEach(r=>r.onchange=()=>{setRole(r.value);toast("Demo role: "+ROLES[r.value]);route()});bindDriveSync()});
   const mine=allSleds().filter(s=>s.mine||s.userAdded);
   return `<div class="prof"><span class="av big">SC</span><div><h1>@sample_collector</h1><div class="small muted">Example profile · ${mine.length} sleds · joined 2026</div></div></div>
   <div class="menu"><a href="#/collection">My collection <span>›</span></a><a href="#/idhelp">My ID requests <span>›</span></a><a href="#/upgrade">Subscription <span class="small muted">${ROLES[role()]} ›</span></a><a href="${esc(magazine().orderUrl)}" target="_blank" rel="noopener">📖 Order Vintage Runner Magazine <span>↗</span></a><a href="#/suggest">💬 Send a suggestion to the developer <span>›</span></a></div>
+  ${driveSyncHTML()}
   <h3 class="sec">Demo role switcher</h3><div class="menu roles">${Object.keys(ROLES).map(k=>`<label><span>${ROLES[k]}</span><input type="radio" name="role" value="${k}" ${role()===k?"checked":""}></label>`).join("")}</div>
   <div class="menu"><a href="#/database">Sled Maker and Model Database ${premium()?"":"🔒"}<span>›</span></a><a href="#/identify">Identify a sled from a photo ${premium()?"":"🔒"}<span>›</span></a><a href="#/map">Sled Picker Map ${premium()?"":"🔒"}<span>›</span></a><a href="#/timeline">Coasting Through History ${premium()?"":"🔒"}<span>›</span></a><a href="#/articles">Vintage Runner articles ${premium()?"":"🔒"}<span>›</span></a><a href="#/makers">Sled makers directory <span>›</span></a></div>
   <div class="menu"><a href="https://rosebudsledmuseum.com/" target="_blank" rel="noopener">About · Rosebud Sled Museum, Schaumburg, IL <span>↗</span></a><a href="#/terms">Privacy: private sleds are visible only to you <span>›</span></a><a href="#/terms">Terms &amp; Community Guidelines (draft) <span>›</span></a></div>
