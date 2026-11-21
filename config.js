@@ -21,5 +21,5 @@ window.SF_CONFIG = {
   // Web Push (installed PWA / browser). Public VAPID key only. Generate a pair with
   // `node scripts/generate-vapid-keys.mjs` and set the private key as the Supabase
   // secret VAPID_PRIVATE_KEY — never put the private key in this file or in the repo.
-  VAPID_PUBLIC_KEY: ""
+  VAPID_PUBLIC_KEY: "BH1sH0p7furLSS0TAq61RDV9ZIVGr7Qse7e5VuF9QfORVHh-KojbOLo7EPXwbv9h_U-dTzi9tbCurVuHO4LaC_o"
 };
