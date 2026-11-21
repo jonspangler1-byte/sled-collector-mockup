@@ -12,11 +12,69 @@ await new Promise(r => srv.listen(0, r)); const BASE = `http://127.0.0.1:${srv.a
 let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log((c ? "PASS " : "FAIL ") + m) };
 
 // ───── fake server state ─────
-const S = { users: {}, profiles: {}, sleds: [], listings: [], photo_posts: [], comments: [], articles: [], uploads: [] };
+const S = { users: {}, profiles: {}, sleds: [], listings: [], photo_posts: [], comments: [], articles: [], notifications: [], notification_reads: [], notification_settings: {}, push_subscriptions: [], uploads: [] };
 const isPrem = uid => { const p = S.profiles[uid]; return !!p && (p.is_admin || (p.premium_until && Date.parse(p.premium_until) > Date.now())) };
 const match = (r, f) => f.every(([op, c, v]) => op === "eq" ? r[c] === v : op === "neq" ? r[c] !== v : op === "is" ? (r[c] ?? null) === v : true);
+function emitNotice(kind, row) {
+  if (!kind || !row || !row.id) return;
+  if (kind === "sled" && !(row.shared && !row.deleted_at)) return;
+  if (kind === "listing" && !((row.status || "active") === "active" && !row.deleted_at)) return;
+  if (kind === "photo" && row.deleted_at) return;
+  if (kind === "article" && (!row.published || row.example)) return;
+  const tid = String(row.id);
+  if (S.notifications.some(n => n.kind === kind && n.target_id === tid)) return;
+  const handle = row.owner_handle;
+  let title, body, href;
+  if (kind === "sled") { title = "New shared sled"; body = (handle ? "@" + handle + " shared " : "A member shared ") + (row.model || "a sled"); href = "#/sled/c" + row.id }
+  else if (kind === "photo") { title = "New community photo"; body = (handle ? "@" + handle + " posted a photo" : "A member posted a photo"); href = "#/photopost/c" + row.id }
+  else if (kind === "listing") { title = "New sled for sale"; body = (row.title || "A sled is for sale") + (row.price ? " · " + row.price : ""); href = "#/listing/c" + row.id }
+  else { title = row.category === "magazine" ? "New Vintage Runner article" : "New exclusive article"; body = row.title || "A new article is up"; href = (row.category === "magazine" ? "#/article/" : "#/exclusive/") + row.id }
+  S.notifications.push({ id: crypto.randomUUID(), kind, target_id: tid, actor_id: row.owner || null, title, body, href, created_at: new Date().toISOString() });
+}
 function query(q) {
   const uid = q.uid;
+  if (q.table === "notification_settings") {
+    if (q.op === "select") { const row = uid ? S.notification_settings[uid] : null; return { data: q.single ? row || null : (row ? [row] : []), error: null } }
+    if (q.op === "upsert" || q.op === "update") {
+      if (!uid) return { error: { message: "permission denied" } };
+      const cur = S.notification_settings[uid] || { user_id: uid, notify_sleds: true, notify_articles: true, notify_photos: true, notify_listings: true, push_enabled: false };
+      Object.assign(cur, q.row || {}, { user_id: uid }); S.notification_settings[uid] = cur;
+      return { data: q.single ? cur : [cur], error: null };
+    }
+  }
+  if (q.table === "notification_reads") {
+    if (q.op === "select") return { data: S.notification_reads.filter(r => r.user_id === uid), error: null };
+    if (q.op === "upsert" || q.op === "insert") {
+      if (!uid) return { error: { message: "permission denied" } };
+      const rows = Array.isArray(q.row) ? q.row : [q.row];
+      rows.forEach(row => {
+        if (!row || row.user_id !== uid) return;
+        if (!S.notification_reads.some(r => r.user_id === uid && r.notification_id === row.notification_id))
+          S.notification_reads.push({ user_id: uid, notification_id: row.notification_id, read_at: new Date().toISOString() });
+      });
+      return { data: null, error: null };
+    }
+  }
+  if (q.table === "push_subscriptions") {
+    if (q.op === "select") return { data: S.push_subscriptions.filter(r => r.user_id === uid), error: null };
+    if (q.op === "upsert") {
+      if (!uid) return { error: { message: "permission denied" } };
+      let r = S.push_subscriptions.find(x => x.endpoint === q.row.endpoint);
+      if (r && r.user_id !== uid) return { error: { message: "permission denied" } };
+      if (!r) { r = { id: crypto.randomUUID(), created_at: new Date().toISOString() }; S.push_subscriptions.push(r) }
+      Object.assign(r, q.row, { user_id: uid, updated_at: new Date().toISOString() }); return { data: r, error: null };
+    }
+    if (q.op === "delete") {
+      const ep = (q.filters.find(f => f[0] === "eq" && f[1] === "endpoint") || [])[2];
+      S.push_subscriptions = S.push_subscriptions.filter(r => !(r.user_id === uid && (!ep || r.endpoint === ep)));
+      return { data: null, error: null };
+    }
+  }
+  if (q.table === "notifications") {
+    if (q.op !== "select") return { error: { message: "permission denied" } };
+    const rows = S.notifications.filter(n => n.actor_id !== uid && (n.kind === "article" || (isPrem(uid) && (!n.actor_id || isPrem(n.actor_id)))));
+    return { data: rows.map(r => JSON.parse(JSON.stringify(r))), error: null };
+  }
   if (q.table === "profiles") {
     if (q.op === "select") { const rows = Object.values(S.profiles).filter(p => p.id === uid && match(p, q.filters)); return { data: q.single ? rows[0] || null : rows, error: null } }
     if (q.op === "update") { const p = S.profiles[uid]; if (!p) return { data: null, error: null }; if (Object.keys(q.row).some(k => k !== "handle" && k !== "display_name")) return { error: { message: "permission denied for table profiles" } };
@@ -40,18 +98,28 @@ function query(q) {
     if (q.table === "comments" && !(String(q.row.body||"").length || (q.row.photos && q.row.photos.length))) return { error: { message: "comment needs text or a photo" } };
     let r = T.find(x => x.owner === uid && x.client_id === q.row.client_id);
     if (!r) { r = { id: crypto.randomUUID(), created_at: new Date().toISOString(), status: "active" }; T.push(r) }
-    Object.assign(r, q.row, { owner_handle: S.profiles[uid].handle, updated_at: new Date().toISOString() }); return { data: null, error: null };
+    Object.assign(r, q.row, { owner_handle: S.profiles[uid].handle, updated_at: new Date().toISOString() }); emitNotice({ sleds: "sled", listings: "listing", photo_posts: "photo", articles: "article" }[q.table], r); return { data: null, error: null };
   }
   if (q.op === "update") {
     const rows = T.filter(r => match(r, q.filters) && ((r.owner === uid && isPrem(uid)) || S.profiles[uid].is_admin));
-    rows.forEach(r => Object.assign(r, q.row, { updated_at: new Date().toISOString() })); return { data: null, error: null };
+    const kind = { sleds: "sled", listings: "listing", photo_posts: "photo", articles: "article" }[q.table];
+    rows.forEach(r => {
+      Object.assign(r, q.row, { updated_at: new Date().toISOString() });
+      const live = kind === "sled" ? (r.shared && !r.deleted_at)
+        : kind === "listing" ? ((r.status || "active") === "active" && !r.deleted_at)
+        : kind === "photo" ? !r.deleted_at
+        : kind === "article" ? (r.published && !r.example)
+        : true;
+      if (!live) S.notifications = S.notifications.filter(n => !(n.kind === kind && n.target_id === String(r.id)));
+    });
+    return { data: null, error: null };
   }
 }
 async function fakeOp(op, a) {
   if (op === "otp") return { error: null };
   if (op === "verify") { if (a.token !== "123456") return { error: { message: "Token has expired or is invalid" } };
     let u = Object.values(S.users).find(x => x.email === a.email);
-    if (!u) { u = { id: crypto.randomUUID(), email: a.email }; S.users[u.id] = u; S.profiles[u.id] = { id: u.id, handle: "collector_" + u.id.replace(/-/g, "").slice(0, 8), display_name: "", is_admin: false, premium_until: null, created_at: new Date().toISOString() } }
+    if (!u) { u = { id: crypto.randomUUID(), email: a.email }; S.users[u.id] = u; S.profiles[u.id] = { id: u.id, handle: "collector_" + u.id.replace(/-/g, "").slice(0, 8), display_name: "", is_admin: false, premium_until: null, created_at: new Date().toISOString() }; S.notification_settings[u.id] = { user_id: u.id, notify_sleds: true, notify_articles: true, notify_photos: true, notify_listings: true, push_enabled: false } }
     return { data: { session: { user: u, access_token: "t" } }, error: null } }
   if (op === "upload") { if (!a.uid || !isPrem(a.uid) || !a.path.startsWith(a.uid + "/")) return { error: { message: "new row violates row-level security policy" } }; S.uploads.push(a.path); return { error: null } }
   if (op === "query") return query(a);
@@ -68,7 +136,7 @@ async function fakeOp(op, a) {
     return { data: { url: "https://billing.stripe.com/session/test_portal_" + a.uid }, error: null };
   }
   if (op === "fn" && a.name === "delete-account") { if (!a.uid) return { data: null, error: { message: "not signed in" } };
-    delete S.users[a.uid]; delete S.profiles[a.uid]; S.sleds = S.sleds.filter(r => r.owner !== a.uid); S.listings = S.listings.filter(r => r.owner !== a.uid); S.photo_posts = S.photo_posts.filter(r => r.owner !== a.uid); S.comments = S.comments.filter(r => r.owner !== a.uid);
+    delete S.users[a.uid]; delete S.profiles[a.uid]; delete S.notification_settings[a.uid]; S.sleds = S.sleds.filter(r => r.owner !== a.uid); S.listings = S.listings.filter(r => r.owner !== a.uid); S.photo_posts = S.photo_posts.filter(r => r.owner !== a.uid); S.comments = S.comments.filter(r => r.owner !== a.uid); S.notification_reads = S.notification_reads.filter(r => r.user_id !== a.uid); S.push_subscriptions = S.push_subscriptions.filter(r => r.user_id !== a.uid);
     S.uploads = S.uploads.filter(x => !x.startsWith(a.uid + "/")); return { data: { deleted: true }, error: null } }
 }
 
@@ -110,7 +178,7 @@ async function addSled(page, model, shared) {
   const { ctx, page, errors } = await device(false);
   ok(await page.title() === "Sled Finder — clickable mockup" || (await page.title()).includes("clickable mockup"), "demo: title still says clickable mockup");
   ok((await ls(page, "outbox")) === null, "demo: no outbox / no cloud activity");
-  for (const h of ["#/home", "#/collection", "#/makers", "#/maker/1", "#/sale", "#/profile", "#/upgrade", "#/account", "#/map", "#/identify", "#/search", "#/suggest", "#/events", "#/ticket", "#/photos", "#/articles"]) { await go(page, h); }
+  for (const h of ["#/home", "#/collection", "#/makers", "#/maker/1", "#/sale", "#/profile", "#/upgrade", "#/account", "#/map", "#/identify", "#/search", "#/suggest", "#/events", "#/ticket", "#/photos", "#/articles", "#/notifications"]) { await go(page, h); }
   ok(await page.locator("#viewAs").count() === 1, "demo: Viewing-as switcher still shown");
   ok((await page.textContent("#view")).length > 0, "demo: screens render");
   await page.evaluate(() => { localStorage.setItem("svc_role", JSON.stringify("premium")) });
@@ -154,6 +222,23 @@ async function addSled(page, model, shared) {
   ok(prof.includes("YouTube: Sleddy Mercury") && prof.includes("Rosebud Sled Museum website"), "demo: profile menu shows YouTube and museum website together");
   ok(await page.locator('#view a[href="https://youtube.com/@sleddymercury"]').count() >= 1, "demo: profile has the YouTube channel link");
   ok(await page.locator('#view a[href="https://rosebudsledmuseum.com/"]').count() >= 1, "demo: profile has the museum website link");
+  ok(await page.locator('#appbar a.bell[href="#/notifications"]').count() === 1, "demo: bell is in the app bar");
+  await page.evaluate(() => { localStorage.setItem("svc_role", JSON.stringify("free")) });
+  await go(page, "#/notifications");
+  const freeN = await page.textContent("#view");
+  ok(freeN.includes("New exclusive article") && freeN.includes("Example") && !freeN.includes("New shared sled") && !freeN.includes("New sled for sale") && !freeN.includes("New community photo"), "demo: free user sees only example article notices, not sale/sled/photo");
+  ok(await page.locator("#appbar .bell-count").count() === 1, "demo: unread badge on the bell");
+  await page.evaluate(() => { localStorage.setItem("svc_role", JSON.stringify("premium")) });
+  await go(page, "#/home");
+  await go(page, "#/notifications");
+  const premN = await page.textContent("#view");
+  ok(premN.includes("New shared sled") && premN.includes("New exclusive article") && premN.includes("New community photo") && premN.includes("New sled for sale") && (premN.match(/Example/g) || []).length >= 4, "demo: premium sees all example notifications, labeled as examples");
+  await page.click('#nList a[href="#/sled/s5"]'); await page.waitForTimeout(400);
+  ok((await page.textContent("#view")).includes("Streamline Klipper"), "demo: notification links to the shared sled");
+  await go(page, "#/notifications");
+  ok(await page.locator('#nList a.unread[href="#/sled/s5"]').count() === 0, "demo: opened notice is no longer unread");
+  await page.uncheck('[data-nset="listings"]'); await page.waitForTimeout(400);
+  ok(!(await page.textContent("#nList")).includes("New sled for sale"), "demo: turning off sale notices hides that category");
   ok(errors.length === 0, "demo: no JS errors " + (errors.length ? JSON.stringify(errors) : ""));
   await ctx.close();
 }
@@ -249,6 +334,10 @@ const Cm = await device(true);
   await p.evaluate(id => { location.hash = "#/sled/" + id }, sh[0].id); await p.waitForTimeout(400);
   ok((await p.textContent("#view")).includes("rosebud_jon"), "premium member 2: shared sled page shows @handle");
   ok(await p.locator("[data-del]").count() === 0, "premium member 2: cannot edit/delete someone else's sled");
+  await go(p, "#/notifications");
+  const nt = await p.textContent("#view");
+  ok(nt.includes("New shared sled") && nt.includes("Cloud Speedster") && !nt.includes("Example") && !nt.includes("Offline Clipper"), "live: member 2 is notified of Jonathan's new shared sled, not a private one");
+  ok(await p.locator('#appbar a.bell[href="#/notifications"]').count() === 1, "live: bell is in the app bar");
   // sign out wipes account copies
   await go(p, "#/account"); p.once("dialog", d => d.accept()); await p.click("#signout"); await p.waitForTimeout(800);
   ok(await p.evaluate(() => !SFCloud.user) && ((await ls(p, "cloudShared")) || []).length === 0, "sign out clears synced copies from the phone");

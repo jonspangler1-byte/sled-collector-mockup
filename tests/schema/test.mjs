@@ -69,4 +69,35 @@ await expectOk("anon can read article teasers","anon",`select id,category,title 
 await expectOk("free cannot read exclusive article body","free",`select body from articles`, r=>r.rows.length===0);
 await expectOk("prem can read exclusive article body","prem",`select body from articles where category='exclusive'`, r=>r.rows.length===3&&r.rows.every(x=>/example placeholder/i.test(x.body)));
 await expectErr("prem cannot write articles","prem",`insert into articles(id,category,title) values('x','exclusive','nope')`);
+
+await expectOk("shared sled insert created a notification","prem2",`select kind,title,body from notifications where kind='sled' and body like '%Speedster%'`, r=>r.rows.length===1&&r.rows[0].title==="New shared sled");
+await expectOk("poster cannot read their own sled notification","prem",`select * from notifications where kind='sled' and body like '%Speedster%'`, r=>r.rows.length===0);
+await expectOk("free cannot read shared-sled notifications","free",`select * from notifications where kind='sled'`, r=>r.rows.length===0);
+await expectOk("private sled created no notification","admin",`select * from notifications where target_id=(select id::text from sleds where client_id='u2')`, r=>r.rows.length===0);
+await expectOk("sale listing created a notification","prem2",`select kind,title from notifications where kind='listing'`, r=>r.rows.length===1&&r.rows[0].title==="New sled for sale");
+await expectOk("free cannot read sale notifications","free",`select * from notifications where kind='listing'`, r=>r.rows.length===0);
+await expectOk("lapsed poster listing notice is hidden from others","prem2",`select * from notifications where kind='listing' and target_id=(select id::text from listings where client_id='ul2')`, r=>r.rows.length===0);
+await expectOk("community photo created a notification","prem2",`select kind from notifications where kind='photo' and body like '%Flexy Racer%'`, r=>r.rows.length===1);
+await expectOk("free cannot read photo notifications","free",`select * from notifications where kind='photo'`, r=>r.rows.length===0);
+await expectOk("placeholder articles did not notify","admin",`select * from notifications where kind='article'`, r=>r.rows.length===0);
+await db.exec(`insert into articles(id,category,title,body,published,example,sort_order) values('vr-test','exclusive','A real exclusive for members','Body of a real exclusive article.',true,false,10)`);
+await expectOk("published exclusive creates an article notification","free",`select title,href from notifications where kind='article'`, r=>r.rows.length===1&&r.rows[0].title==="New exclusive article"&&r.rows[0].href==="#/exclusive/vr-test");
+await expectOk("example article still does not notify","admin",`insert into articles(id,category,title,published,example) values('ex-test','exclusive','Just a placeholder',true,true) returning id`, r=>r.rows.length===1);
+await expectOk("still only one article notification","admin",`select * from notifications where kind='article'`, r=>r.rows.length===1);
+await expectOk("new user has default notification settings","prem",`select notify_sleds,notify_articles,notify_photos,notify_listings,push_enabled from notification_settings`, r=>r.rows.length===1&&r.rows[0].notify_sleds===true&&r.rows[0].push_enabled===false);
+await expectOk("prem can turn off sale notices","prem",`update notification_settings set notify_listings=false where user_id='`+ids.prem+`' returning notify_listings`, r=>r.rows.length===1&&r.rows[0].notify_listings===false);
+await expectErr("prem cannot read prem2 settings","prem",`select * from notification_settings where user_id='`+ids.prem2+`'`);
+await expectOk("prem2 marks a notice read","prem2",`insert into notification_reads(user_id,notification_id) select '`+ids.prem2+`', id from notifications where kind='sled' and body like '%Speedster%' returning notification_id`, r=>r.rows.length===1);
+await expectOk("prem cannot read prem2's read state","prem",`select * from notification_reads`, r=>r.rows.length===0);
+await expectOk("prem can store a push subscription","prem",`insert into push_subscriptions(endpoint,p256dh,auth) values('https://push.example.test/prem','dGVzdHAyNTZkaA','dGVzdGF1dGg') returning user_id`, r=>r.rows.length===1&&r.rows[0].user_id===ids.prem);
+await expectErr("prem cannot insert a subscription for prem2","prem",`insert into push_subscriptions(user_id,endpoint,p256dh,auth) values('`+ids.prem2+`','https://push.example.test/hijack','dGVzdHAyNTZkaA','dGVzdGF1dGg')`);
+await expectOk("prem cannot read prem2 subscriptions","prem",`select * from push_subscriptions`, r=>r.rows.length===1&&r.rows[0].endpoint==="https://push.example.test/prem");
+await expectErr("anon cannot read notifications","anon",`select * from notifications`);
+await expectErr("authenticated cannot insert a raw notification","prem",`insert into notifications(kind,target_id,title,href) values('sled','x','hack','#/home')`);
+await expectOk("unsharing a sled retracts its notification","prem",`update sleds set shared=false where client_id='u-flexy' returning id`, r=>r.rows.length===1);
+await expectOk("unshared Flexy Racer notice is gone","prem2",`select * from notifications where target_id=(select id::text from sleds where client_id='u-flexy')`, r=>r.rows.length===0);
+await expectOk("resharing creates the notice again","prem",`update sleds set shared=true where client_id='u-flexy' returning id`, r=>r.rows.length===1);
+await expectOk("reshared sled is visible as a notice again","prem2",`select title from notifications where target_id=(select id::text from sleds where client_id='u-flexy')`, r=>r.rows.length===1&&r.rows[0].title==="New shared sled");
+
+
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail?1:0);

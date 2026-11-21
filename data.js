@@ -196,6 +196,15 @@ window.SAMPLE_COMMENTS = [
  {id:"cmt3", user:"demo_flyer_hunter", targetType:"sled", targetId:"s15", body:"[sample] Example comment on the Flexy Racer sled post.", imgs:[], created:Date.UTC(2026,10,15)}
 ];
 
+// ===== Notifications (EXAMPLE DATA, demo mode only) =====
+// Live mode hides these unless SHOW_SAMPLE_DATA is true. Each row is tagged as an example.
+window.SAMPLE_NOTIFICATIONS = [
+ {id:"n1", kind:"sled", title:"New shared sled", body:"@example_runner_fan shared a Streamline Klipper (Runner)", href:"#/sled/s5", example:true, created:Date.now()-2*3600000},
+ {id:"n2", kind:"article", title:"New exclusive article", body:"Coming soon: online-only article 1", href:"#/exclusive/placeholder-1", example:true, created:Date.now()-5*3600000},
+ {id:"n3", kind:"photo", title:"New community photo", body:"@example_runner_fan posted a photo", href:"#/photopost/pp2", example:true, created:Date.now()-26*3600000},
+ {id:"n4", kind:"listing", title:"New sled for sale", body:"[sample] Flexible Flyer with eagle deck · $185", href:"#/listing/l1", example:true, created:Date.now()-30*3600000}
+];
+
 window.FREE_MAKERS = {
   1:"Flexible Flyer (S. L. Allen & Co.)",
   4:"Lightning Guider (Standard Novelty Works)",

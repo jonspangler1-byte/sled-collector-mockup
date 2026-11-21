@@ -13,7 +13,7 @@
       select() { return b }, eq(c, v) { q.filters.push(["eq", c, v]); return b }, neq(c, v) { q.filters.push(["neq", c, v]); return b },
       is(c, v) { q.filters.push(["is", c, v]); return b }, order() { return b }, limit() { return b },
       maybeSingle() { q.single = true; return b },
-      update(row) { q.op = "update"; q.row = row; return b }, upsert(row, opts) { q.op = "upsert"; q.row = row; q.opts = opts; return b },
+      update(row) { q.op = "update"; q.row = row; return b }, upsert(row, opts) { q.op = "upsert"; q.row = row; q.opts = opts; return b }, delete() { q.op = "delete"; return b },
       then(res, rej) { return call("query", Object.assign({ uid: session && session.user.id }, q)).then(res, rej) },
     };
     return b;

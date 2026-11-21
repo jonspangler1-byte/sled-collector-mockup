@@ -47,17 +47,20 @@ Five pieces, in the order to do them:
 
 | File | What it does |
 |---|---|
-| `config.js` | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `STRIPE_CHECKOUT`, `STRIPE_PAYMENT_LINK`, `STRIPE_PORTAL_LINK`, `SITE_URL`, `SHOW_SAMPLE_DATA`. Empty Supabase keys mean demo mode. Set `STRIPE_CHECKOUT` to `true` after the Checkout function is deployed. Payment Link / portal login links are fallbacks only. The anon key is public by design. **Never** put the service_role key or a Stripe secret key here. |
-| `cloud.js` | Sign-in (6-digit email code, or the magic link on the same phone), membership role from the server, an offline **outbox** (saves go to the phone first, then upload when online), photo upload to Storage, pulling the member's sleds onto any device, shared sleds from other Premium members, public sale ads, admin corrections, account deletion, Checkout and Customer Portal session starts. |
-| `app.js` | Account screen (`#/account`), real paywall (Join opens a server-created Checkout Session), Profile shows `@handle`. The "Viewing as" switcher is gone for members and kept for the admin as a screen-only preview. Sample collectors and ads are hidden when live. |
-| `docs/supabase-schema.sql` | Tables `profiles` (including `stripe_subscription_status` and `display_name`), `sleds` and `listings` (including `sled_type`, with **Flexy Racer**), `photo_posts`, `comments`, `articles` (magazine vs exclusive), `stripe_events`, a `photos` storage bucket, and all RLS policies. Safe to re-run. If the project already exists, run the migrations in `docs/migrations/` in the SQL editor of project `cpmieqcsbvozwrbjagqm` (do not run them from this machine): first `2026-11-20-stripe-subscription-status.sql` if it hasn't been run, then `2026-11-21-community-articles-ticket-sale.sql`. |
+| `config.js` | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `STRIPE_CHECKOUT`, `STRIPE_PAYMENT_LINK`, `STRIPE_PORTAL_LINK`, `SITE_URL`, `SHOW_SAMPLE_DATA`, `VAPID_PUBLIC_KEY`. Empty Supabase keys mean demo mode. Set `STRIPE_CHECKOUT` to `true` after the Checkout function is deployed. Payment Link / portal login links are fallbacks only. The anon key is public by design. The VAPID **public** key (only) goes here for Web Push; generate a pair with `node scripts/generate-vapid-keys.mjs`. **Never** put the service_role key, a Stripe secret, or the VAPID **private** key here. |
+| `cloud.js` | Sign-in (6-digit email code, or the magic link on the same phone), membership role from the server, an offline **outbox** (saves go to the phone first, then upload when online), photo upload to Storage, pulling the member's sleds onto any device, shared sleds from other Premium members, sale ads, in-app notifications, Web Push subscriptions, admin corrections, account deletion, Checkout and Customer Portal session starts. |
+| `app.js` | Account screen (`#/account`), real paywall (Join opens a server-created Checkout Session), Profile shows `@handle`, a notifications bell (`#/notifications`) with an unread count, and per-category notification settings. The "Viewing as" switcher is gone for members and kept for the admin as a screen-only preview. Sample collectors, ads and example notifications are hidden when live. |
+| `docs/supabase-schema.sql` | Tables `profiles` (including `stripe_subscription_status` and `display_name`), `sleds` and `listings` (including `sled_type`, with **Flexy Racer**), `photo_posts`, `comments`, `articles` (magazine vs exclusive), `notifications`, `notification_reads`, `notification_settings`, `push_subscriptions`, `stripe_events`, a `photos` storage bucket, and all RLS policies. Safe to re-run. If the project already exists, run the migrations in `docs/migrations/` in the SQL editor of project `cpmieqcsbvozwrbjagqm` (do not run them from this machine): first `2026-11-20-stripe-subscription-status.sql` if it hasn't been run, then `2026-11-21-community-articles-ticket-sale.sql`, then `2026-11-21-notifications.sql`. |
 | `supabase/functions/create-checkout` | JWT-required. Creates a Stripe Checkout Session for the signed-in member (or sends them to the Customer Portal if they already have an active or past-due subscription). |
 | `supabase/functions/create-portal-session` | JWT-required. Opens a Customer Portal session for the signed-in member. |
 | `supabase/functions/stripe-webhook` | Sets `premium_until` and Stripe ids from Stripe events. Signature-verified; idempotent. |
 | `supabase/functions/delete-account` | In-app account deletion (required by Apple and Google). Does not delete the login if Stripe cancel fails and the subscription still exists. |
-| `tests/schema` | RLS checks against real Postgres (PGlite): free users can't post, lapsed members are hidden, members can't grant themselves Premium or change Stripe columns, etc. |
-| `tests/e2e` | Browser checks: the demo is unchanged, Flexy Racer as a type, community photos, exclusive articles vs the magazine, upcoming events, the museum ticket, Sleds for Sale locked for free users, sign-in, migration, Checkout session start, payment refresh, portal for an open subscription, offline then back online, second phone, other member's view, delete, sign-out, account deletion. |
+| `supabase/functions/dispatch-push` | Sends Web Push to opted-in PWA / browser subscribers when a notification row is inserted. Called by a Database Webhook; checks `PUSH_WEBHOOK_SECRET`. Uses VAPID keys from Supabase secrets (free; no OneSignal or other paid push vendor). |
+| `sw.js` | Service worker: push and notification-click only (no asset caching, so the app cannot go stale). |
+| `tests/schema` | RLS checks against real Postgres (PGlite): free users can't post, lapsed members are hidden, members can't grant themselves Premium or change Stripe columns, notification triggers and gating, etc. |
+| `tests/e2e` | Browser checks: the demo is unchanged, Flexy Racer as a type, community photos, exclusive articles vs the magazine, upcoming events, the museum ticket, Sleds for Sale locked for free users, in-app notifications (bell, example labels, membership gating, settings), sign-in, migration, Checkout session start, payment refresh, portal for an open subscription, offline then back online, second phone, other member's view, delete, sign-out, account deletion. |
 | `tests/stripe` | Unit checks for membership helpers (trusted user id, paid-only grants, refunds, disputes, cancel errors, return URLs). |
+| `tests/notify` | Unit checks for who receives a notice (poster excluded, membership gating, category toggles) and for VAPID / Web Push payload construction. Confirms the private key is not committed. |
 
 **Rules the server enforces** (not just the app)
 
@@ -66,6 +69,7 @@ Five pieces, in the order to do them:
 - When a membership lapses, that member's shared sleds and ads disappear for others. They come back on renewal. The owner always keeps their own data and can delete it.
 - Only the server (the Stripe webhook or the SQL editor) can change `premium_until` or `is_admin`.
 - `lat`/`lng` are rounded to about 1 km on save. Locations are town level only, never a street address.
+- **Notifications:** triggers create one broadcast row when a shared sled, published non-example article, community photo post, or active sale listing is added. The poster never sees their own notice. Sale, shared-sled and photo notices are Premium-only (and only while the actor is still a current member). Article notices are visible to any signed-in user. Members can turn categories off in `#/notifications`.
 
 **Migration of sleds already saved on phones**
 
@@ -84,6 +88,8 @@ are still waiting to upload.
 - The Drive training sync still uploads from the admin's phone. Later, the Apps Script can read from Supabase Storage instead.
 - Sale-ad contact email is shown to paid members only, as listings themselves are. Consider a "contact seller" form later.
 - Upcoming Events are a copy of https://rosebudsledmuseum.com/#upcoming (see `events.js`). Keep that file in sync when the website events section changes. A later `events.json` on the museum site can be fetched automatically.
+- Magazine issue text lives in `articles.js` and does **not** fire a notification by itself. To notify people of a new magazine or exclusive article, insert (or publish) a non-example row in `public.articles`. Placeholder / `example = true` rows are skipped.
+- Native App Store / Google Play push (FCM / APNs) is **not** built yet. Web Push covers installed PWA and browser users only. See section 5.
 
 ---
 
@@ -111,7 +117,7 @@ If the Checkout function is not turned on (`STRIPE_CHECKOUT` is false) and a Pay
 
 Do this in **Test mode** (or a sandbox) first. Do not create live products until a test payment has upgraded a test account.
 
-1. If the Supabase project already exists, run these in the SQL editor of project `cpmieqcsbvozwrbjagqm` (do not run them from this machine): `docs/migrations/2026-11-20-stripe-subscription-status.sql` if it hasn't been run, then `docs/migrations/2026-11-21-community-articles-ticket-sale.sql`. (A brand-new run of `docs/supabase-schema.sql` already includes everything.)
+1. If the Supabase project already exists, run these in the SQL editor of project `cpmieqcsbvozwrbjagqm` (do not run them from this machine): `docs/migrations/2026-11-20-stripe-subscription-status.sql` if it hasn't been run, then `docs/migrations/2026-11-21-community-articles-ticket-sale.sql`, then `docs/migrations/2026-11-21-notifications.sql`. (A brand-new run of `docs/supabase-schema.sql` already includes everything.)
 2. Stripe → Product catalog → **Add product** "Sled Finder Premium", **Recurring, Yearly, $15.00 USD**. Copy the price id (`price_...`). Do not enable Stripe Tax.
 3. Settings → Billing → **Customer portal** → activate. Allow payment-method updates, cancel at period end, and invoice history. Do not offer other plans. A portal login link can be copied into `STRIPE_PORTAL_LINK` as a fallback; the app prefers `create-portal-session`.
 4. Optional fallback: Payment Links → **New** for that price, redirect to `https://<domain>/#/upgrade` after payment, and paste the `https://buy.stripe.com/...` URL into `STRIPE_PAYMENT_LINK`. Not required once Checkout Sessions work.
@@ -120,6 +126,7 @@ Do this in **Test mode** (or a sandbox) first. Do not create live products until
    `supabase functions deploy create-portal-session`
    `supabase functions deploy delete-account`
    `supabase functions deploy stripe-webhook --no-verify-jwt`
+   `supabase functions deploy dispatch-push --no-verify-jwt`
 6. Stripe → Developers → Webhooks → **Add endpoint** `https://cpmieqcsbvozwrbjagqm.supabase.co/functions/v1/stripe-webhook`
    (use the Test mode endpoint first), events:
    `checkout.session.completed`,
@@ -147,6 +154,31 @@ this could change). Outside the US, Apple still requires in-app purchase for dig
 Google Play (US) has opt-in programs for alternative billing or external links, with service fees (about 10% on
 subscriptions) and reporting. The simplest launch: **sell memberships on the website**, and have the apps sign in to
 an existing membership (or link out on the US storefront). Re-check both stores' rules right before submitting.
+
+
+---
+
+## 2b. In-app notifications and Web Push (free)
+
+In-app notices (bell, list, settings) work as soon as the notifications migration has been run. Web Push (a banner on an installed PWA or browser) needs VAPID keys, the `dispatch-push` function, and a Database Webhook. All of this stays on the Supabase free plan. Do not sign up for OneSignal, Pusher, or another paid push service.
+
+**What Jonathan (or the agent, after he approves) needs to set up**
+
+1. Run `docs/migrations/2026-11-21-notifications.sql` in the SQL editor of project `cpmieqcsbvozwrbjagqm` if it has not been run (do not run it from this machine). A brand-new run of `docs/supabase-schema.sql` already includes these tables and triggers.
+2. Generate a VAPID key pair on a trusted machine: `node scripts/generate-vapid-keys.mjs`. Put the **public** key in `config.js` as `VAPID_PUBLIC_KEY`. Set the **private** key as a Supabase secret only. Do not commit it or paste it in chat.
+3. Pick a long random webhook secret (a password manager is fine). Then set secrets (Dashboard → Edge Functions → Secrets, or the CLI):
+
+   `supabase secrets set VAPID_PUBLIC_KEY='...' VAPID_PRIVATE_KEY='...' VAPID_SUBJECT='mailto:rbsledmuseum@gmail.com' PUSH_WEBHOOK_SECRET='...'`
+
+4. Deploy the function: `supabase functions deploy dispatch-push --no-verify-jwt`
+5. In the Supabase Dashboard → Database → Webhooks, add a hook on `public.notifications` **Insert**. URL:
+
+   `https://cpmieqcsbvozwrbjagqm.supabase.co/functions/v1/dispatch-push`
+
+   HTTP method POST. Add header `x-push-secret` with the same `PUSH_WEBHOOK_SECRET` value. Leave the body as the default record payload.
+6. Members turn on "Notify me on this device" under `#/notifications`. On iPhone, Web Push only works after **Add to Home Screen** (Safari, iOS 16.4+). Android and desktop browsers can use the installed PWA or the tab they opted in from.
+
+The poster is never pushed about their own post. Sale, shared-sled and photo pushes go only to current Premium (or admin) members who still have that category on. Article pushes go to any signed-in subscriber who has articles on.
 
 ---
 
@@ -213,6 +245,15 @@ Store requirements to plan for:
 - Apple may reject "just a website in a wrapper" (guideline 4.2). Native camera access for Photo ID and offline use help. Plan for possible review back-and-forth.
 - Email-only sign-in means "Sign in with Apple" is **not** required (it's only required alongside Google or Facebook sign-in).
 
+**Native push (later, not built).** Web Push on this branch is for people who install the website as a PWA (Add to Home Screen) or opt in from a desktop/Android browser. It will **not** reliably reach a Capacitor App Store / Google Play wrapper. When those store apps ship, the path is:
+
+1. **Firebase Cloud Messaging (FCM)** for Android, and as a relay for iOS if desired. The FCM free tier is enough to start; do not add a paid push vendor.
+2. **Apple Push Notification service (APNs)** for iOS, either through FCM or a Capacitor push plugin (`@capacitor/push-notifications`) with an Apple Push key (Apple Developer account required).
+3. Store device tokens in a new table (or extend `push_subscriptions` with a `platform` / token column). The same `dispatch-push` function, or a sibling, would send to FCM/APNs using server keys kept as Supabase secrets — never in the repo or in `config.js`.
+4. Reuse the existing `notifications` rows, membership gating, and per-user category settings so in-app and native banners stay in sync.
+
+Do not implement FCM/APNs until the store apps exist. The in-app bell already works in the wrapped web view without native push.
+
 ---
 
 ## Ordered checklist: who does what
@@ -230,6 +271,6 @@ Store requirements to plan for:
 **The agent can do after each sign-up** (no cost):
 - Run `docs/supabase-schema.sql`, paste the URL and anon key into `config.js`, and set up the auth URLs, the email template and SMTP.
 - Make Jonathan's account the admin (SQL at the bottom of the schema file).
-- Create the Stripe product and yearly price in **test mode**, deploy the four Edge Functions, set restricted-key secrets and the webhook events listed above, set `STRIPE_CHECKOUT: true`, and test end-to-end with card 4242 4242 4242 4242. After that, repeat with live keys. Remind Jonathan to run any pending SQL migrations in `docs/migrations/` in the project's SQL editor if they haven't been run, especially `2026-11-21-community-articles-ticket-sale.sql`.
+- Create the Stripe product and yearly price in **test mode**, deploy the four Edge Functions, set restricted-key secrets and the webhook events listed above, set `STRIPE_CHECKOUT: true`, and test end-to-end with card 4242 4242 4242 4242. After that, repeat with live keys. Remind Jonathan to run any pending SQL migrations in `docs/migrations/` in the project's SQL editor if they haven't been run, especially `2026-11-21-community-articles-ticket-sale.sql` and `2026-11-21-notifications.sql`. After that, generate VAPID keys, set the secrets, deploy `dispatch-push`, and add the Database Webhook as in section 2b.
 - Wire up DNS and GitHub Pages for the domain.
 - Merge `backend` → `main` **only after Jonathan has tried it** on a preview.

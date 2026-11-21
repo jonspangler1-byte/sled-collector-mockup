@@ -164,9 +164,63 @@ document.title=window.APP_NAME+(window.SFCloud&&window.SFCloud.enabled?"":" — 
 $("#sideTitle").textContent=window.APP_NAME;
 
 function toast(t,ms){const e=$("#toast");e.textContent=t;e.classList.add("show");clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove("show"),ms||1900)}
+const DEFAULT_NOTIFY_SETTINGS={sleds:true,articles:true,photos:true,listings:true};
+function notifySettings(){
+  const src=CLOUD&&CLOUD.notifySettings?CLOUD.notifySettings():LS.get("notifySettings",{});
+  return Object.assign({},DEFAULT_NOTIFY_SETTINGS,src||{});
+}
+function setNotifySetting(key,on){
+  if(CLOUD&&CLOUD.saveNotifySettings){CLOUD.saveNotifySettings({[key]:!!on});return}
+  const s=notifySettings();s[key]=!!on;LS.set("notifySettings",s);
+}
+function notifyReads(){
+  if(CLOUD&&CLOUD.notifyReads)return CLOUD.notifyReads()||{};
+  return LS.get("notifyReads",{})||{};
+}
+function markNotificationRead(id){
+  if(!id)return;
+  if(CLOUD&&CLOUD.markNotificationRead){CLOUD.markNotificationRead(id);return}
+  const r=notifyReads();r[id]=true;LS.set("notifyReads",r);
+}
+function markAllNotificationsRead(){
+  const ids=visibleNotifications().map(n=>n.id);
+  if(CLOUD&&CLOUD.markNotificationsRead){CLOUD.markNotificationsRead(ids);return}
+  const r=notifyReads();ids.forEach(id=>r[id]=true);LS.set("notifyReads",r);
+}
+function rawNotifications(){
+  if(CLOUD&&CLOUD.enabled&&CLOUD.user&&CLOUD.notifications)return CLOUD.notifications()||[];
+  return window.SAMPLE_NOTIFICATIONS||[];
+}
+function visibleNotifications(){
+  const st=notifySettings();
+  return rawNotifications().filter(n=>{
+    if(!n||!n.kind)return false;
+    if((n.kind==="listing"||n.kind==="sled"||n.kind==="photo")&&!premium())return false;
+    if(n.kind==="sled"&&st.sleds===false)return false;
+    if(n.kind==="article"&&st.articles===false)return false;
+    if(n.kind==="photo"&&st.photos===false)return false;
+    if(n.kind==="listing"&&st.listings===false)return false;
+    return true;
+  }).slice().sort((a,b)=>(b.created||0)-(a.created||0));
+}
+function unreadNotificationCount(){const r=notifyReads();return visibleNotifications().filter(n=>!r[n.id]).length}
+function notifyWhen(ts){
+  const t=+ts||0;if(!t)return"";
+  const d=Date.now()-t;
+  if(d<60000)return"Just now";
+  if(d<3600000)return Math.floor(d/60000)+" min ago";
+  if(d<86400000)return Math.floor(d/3600000)+" hr ago";
+  return new Date(t).toLocaleDateString();
+}
+const NOTIFY_ICONS={sled:"❄",article:"📖",photo:"📷",listing:"$"};
+function bellBtn(){
+  const n=unreadNotificationCount();
+  const on=(location.hash||"").indexOf("#/notifications")===0;
+  return `<a class="act bell${on?" on":""}" href="#/notifications" aria-label="${n?n+" unread notifications":"Notifications"}">${n?`<span class="bell-count">${n>9?"9+":n}</span>`:""}<span class="bell-ic" aria-hidden="true">🔔</span></a>`;
+}
 function bar(title,{back=false,sub="",act=""}={}){
   $("#appbar").innerHTML=(back?'<button class="back" onclick="history.length>1?history.back():location.hash=\'#/home\'" aria-label="Back">‹</button>':"")+
-  '<h2>'+esc(title)+(sub?'<span class="sub">'+esc(sub)+'</span>':"")+'</h2>'+(canViewAs()?`<label class="viewas" title="${CLOUD?"Admin: preview another role on this screen only":"Switch the demo role"}"><span>Viewing as</span><select id="viewAs" aria-label="Viewing as">${[["free","Free"],["premium","Premium"],["lapsed","Lapsed"],["admin","Admin"]].map(([k,l])=>`<option value="${k}" ${role()===k?"selected":""}>${l}</option>`).join("")}</select></label>`:"")+act;
+  '<h2>'+esc(title)+(sub?'<span class="sub">'+esc(sub)+'</span>':"")+'</h2>'+(canViewAs()?`<label class="viewas" title="${CLOUD?"Admin: preview another role on this screen only":"Switch the demo role"}"><span>Viewing as</span><select id="viewAs" aria-label="Viewing as">${[["free","Free"],["premium","Premium"],["lapsed","Lapsed"],["admin","Admin"]].map(([k,l])=>`<option value="${k}" ${role()===k?"selected":""}>${l}</option>`).join("")}</select></label>`:"")+bellBtn()+act;
   const va=$("#viewAs");if(va)va.onchange=()=>{setRole(va.value);toast("Viewing as "+va.options[va.selectedIndex].text);route()};
 }
 function tab(t){document.querySelectorAll(".tabbar a").forEach(a=>a.classList.toggle("on",a.dataset.tab===t))}
@@ -548,7 +602,7 @@ R.profile=()=>{bar("Profile",{sub:ROLES[role()]});tab("profile");
   const signedIn=!!(CLOUD&&CLOUD.user);
   return `<div class="prof"><span class="av big">${esc(initials(me())||"SF")}</span><div><h1>@${esc(me())}</h1><div class="small muted">${CLOUD?(signedIn?esc(CLOUD.email())+" · "+mine.length+" sleds":"Not signed in · "+mine.length+" sleds on this phone"):"Example profile · "+mine.length+" sleds · joined 2026"}</div></div></div>
   ${CLOUD?`<div class="menu"><a href="#/account">${signedIn?"Account, membership &amp; sync":"Sign in or create an account"} <span class="small muted">${signedIn?(CLOUD.pending()?CLOUD.pending()+" waiting to upload ›":"Synced ›"):"›"}</span></a></div>`:""}
-  <div class="menu"><a href="#/collection">My collection <span>›</span></a><a href="#/photos">Community photos ${premium()?"":"🔒"}<span>›</span></a><a href="#/ticket">Museum ticket ${premium()?"":"🔒"}<span>›</span></a><a href="#/idhelp">My ID requests <span>›</span></a><a href="#/upgrade">Subscription <span class="small muted">${ROLES[role()]} ›</span></a><a href="${esc(magazine().orderUrl)}" target="_blank" rel="noopener">📖 Order Vintage Runner Magazine <span>↗</span></a><a href="#/suggest">💬 Send a suggestion to the developer <span>›</span></a></div>
+  <div class="menu"><a href="#/notifications">Notifications ${unreadNotificationCount()?`<span class="small muted">${unreadNotificationCount()} new ›</span>`:"<span>›</span>"}</a><a href="#/collection">My collection <span>›</span></a><a href="#/photos">Community photos ${premium()?"":"🔒"}<span>›</span></a><a href="#/ticket">Museum ticket ${premium()?"":"🔒"}<span>›</span></a><a href="#/idhelp">My ID requests <span>›</span></a><a href="#/upgrade">Subscription <span class="small muted">${ROLES[role()]} ›</span></a><a href="${esc(magazine().orderUrl)}" target="_blank" rel="noopener">📖 Order Vintage Runner Magazine <span>↗</span></a><a href="#/suggest">💬 Send a suggestion to the developer <span>›</span></a></div>
   ${driveSyncHTML()}
   ${canViewAs()?`<h3 class="sec">${CLOUD?"Preview as (admin, this screen only)":"Demo role switcher"}</h3><div class="menu roles">${Object.keys(ROLES).map(k=>`<label><span>${ROLES[k]}</span><input type="radio" name="role" value="${k}" ${role()===k?"checked":""}></label>`).join("")}</div>`:""}
   <div class="menu"><a href="#/database">Sled Maker and Model Database ${premium()?"":"🔒"}<span>›</span></a><a href="#/identify">Identify a sled from a photo ${premium()?"":"🔒"}<span>›</span></a><a href="#/map">Sled Picker Map ${premium()?"":"🔒"}<span>›</span></a><a href="#/timeline">Coasting Through History ${premium()?"":"🔒"}<span>›</span></a><a href="#/articles">Vintage Runner Magazine ${premium()?"":"🔒"}<span>›</span></a><a href="#/articles">Exclusive Articles ${premium()?"":"🔒"}<span>›</span></a><a href="#/events">Upcoming Events <span>›</span></a><a href="#/makers">Sled makers directory <span>›</span></a></div>
@@ -802,11 +856,50 @@ R.unknown=()=>{bar("Unknown / unconfirmed makers",{back:true,sub:"Not filed unde
 // ===== Suggestions to the developer. Delivered free with no keys in the app:
 // 1) a Google Form in Sled Finder's Google account (set SUGGEST_FORM.action + entry ids once the form exists), posted
 //    straight from the app so the existing Google Form alert catches it; 2) otherwise a pre-filled email to the museum.
-const APP_VER="b10";
+const APP_VER="b11";
 const SUGGEST_FORM={action:"https://docs.google.com/forms/d/e/1FAIpQLSeL5-bPPHkSnMlo-utOtZdRJfQN5yUCQRQOt19Bgt4VAjkmBA/formResponse",fields:{category:"entry.1937538793",message:"entry.790371823",name:"entry.1603670551",email:"entry.1586826346",context:"entry.1782360007"}};
 let lastScreen="#/home";window.addEventListener("hashchange",e=>{try{const h=new URL(e.oldURL).hash||"#/home";if(!/^#\/suggest/.test(h))lastScreen=h}catch(x){}});
 const SUGGEST_EMAIL="rbsledmuseum@gmail.com";
 const SUGGEST_CATS=[["Suggestion","Suggestion"],["Bug","Bug / something isn't working"],["Missing maker or info","Missing maker or info"],["Other","Other"]]; // values must match the Google Form choices exactly
+
+R.notifications=()=>{
+  bar("Notifications",{back:true,sub:CLOUD&&CLOUD.user?"Your alerts":"Example alerts"});tab("profile");
+  const list=visibleNotifications();
+  const reads=notifyReads();
+  const st=notifySettings();
+  const signed=!(CLOUD&&CLOUD.enabled)||!!(CLOUD&&CLOUD.user);
+  setTimeout(()=>{
+    document.querySelectorAll("[data-nread]").forEach(a=>a.addEventListener("click",()=>markNotificationRead(a.dataset.nread)));
+    const all=$("#nAllRead");if(all)all.onclick=()=>{markAllNotificationsRead();toast("All caught up");route()};
+    document.querySelectorAll("[data-nset]").forEach(inp=>inp.onchange=()=>{setNotifySetting(inp.dataset.nset,inp.checked);toast(inp.checked?"You'll be notified":"This category is off");route()});
+    const push=$("#nPush");if(push)push.onclick=()=>{if(!CLOUD||!CLOUD.enablePush)return;push.disabled=true;CLOUD.enablePush().then(()=>{toast("This device will get alerts");route()}).catch(e=>{push.disabled=false;toast(e.message||String(e),4000)})};
+    const unpush=$("#nUnpush");if(unpush)unpush.onclick=()=>{if(!CLOUD||!CLOUD.disablePush)return;CLOUD.disablePush().then(()=>{toast("Alerts on this device are off");route()}).catch(e=>{toast(e.message||String(e),4000)})};
+  });
+  const rows=list.map(n=>{
+    const unread=!reads[n.id];
+    const when=notifyWhen(n.created);
+    const tag=n.example?' <span class="sample-tag">Example</span>':"";
+    return `<a class="${unread?"unread":""}" data-nread="${esc(n.id)}" href="${esc(n.href||"#/notifications")}"><span class="nk">${NOTIFY_ICONS[n.kind]||"•"}</span><span><div class="nt">${esc(n.title||"Sled Finder")}${tag}</div><div class="nb">${esc(n.body||"")}</div><div class="nm">${when}${unread?" · New":""}</div></span></a>`;
+  }).join("");
+  const empty=signed?`<p class="legend">No notifications right now. When someone shares a sled, posts a photo, publishes an article, or (for members) lists a sled for sale, it will show up here.</p>`:`<p class="legend">Sign in to see notifications when the community or Sled Finder adds something new.</p><div class="pad"><a class="btn solid" href="#/account">Sign in</a></div>`;
+  const cats=`<div class="nset card" style="margin:16px;padding:8px 16px"><h3 class="sec" style="margin:8px 0 4px">Notify me about</h3>
+    <label>Shared sleds <input type="checkbox" data-nset="sleds" ${st.sleds?"checked":""} ${premium()?"":"disabled"}></label>
+    <label>Articles <input type="checkbox" data-nset="articles" ${st.articles?"checked":""}></label>
+    <label>Community photos <input type="checkbox" data-nset="photos" ${st.photos?"checked":""} ${premium()?"":"disabled"}></label>
+    <label>Sleds for Sale ${premium()?"":"· members only "}<input type="checkbox" data-nset="listings" ${st.listings?"checked":""} ${premium()?"":"disabled"}></label>
+    ${premium()?"":'<p class="small muted">Shared sleds, community photos and sale listings notify paid members only.</p>'}
+  </div>`;
+  const vapid=!!(window.SF_CONFIG&&window.SF_CONFIG.VAPID_PUBLIC_KEY);
+  const pushOn=CLOUD&&CLOUD.pushEnabled&&CLOUD.pushEnabled();
+  const livePush=CLOUD&&CLOUD.user&&vapid;
+  const pushBox=CLOUD?`<div class="nset card" style="margin:16px;padding:12px 16px" id="nPushBox"><h3 class="sec" style="margin:0 0 8px">Alerts on this device</h3>
+    ${livePush?(pushOn
+      ?`<p class="small muted">This installed app or browser will get a banner when something new is posted (and the category is on).</p><button type="button" class="btn" id="nUnpush">Turn off alerts on this device</button>`
+      :`<p class="small muted">Install Sled Finder (Add to Home Screen) or keep it in this browser, then turn on alerts. On iPhone, the app must be added to the Home Screen first.</p><button type="button" class="btn solid" id="nPush">Notify me on this device</button>`
+    ):(CLOUD.user?`<p class="small muted">Web push will be available once the VAPID public key is set in config.js (see docs/go-live.md). In-app notices still work.</p>`:`<p class="small muted">Sign in to turn on alerts on this device.</p>`)}</div>`:`<div class="nset card" style="margin:16px;padding:12px 16px"><p class="small muted">This is the demo. Sample notifications are marked Example. Device alerts are part of the live app.</p></div>`;
+  return `${list.length?`<div class="n-actions">${list.some(n=>!reads[n.id])?`<button type="button" class="btn" id="nAllRead">Mark all read</button>`:""}</div><div class="nlist" id="nList">${rows}</div>`:empty}${cats}${pushBox}`;
+};
+
 R.insurance=()=>{bar("Insurance list",{back:true,sub:premium()?"Printable list of your sleds":"Preview · Premium"});tab("collection");
   const mine=allSleds().filter(isOwn);
   const rows=(arr)=>`<table class="ins"><thead><tr><th>Maker</th><th>Model</th><th>Years</th><th>Condition</th><th>Size</th></tr></thead><tbody>${arr.map(s=>`<tr><td>${esc(mk(s))}</td><td>${esc(s.model)}</td><td>${esc(s.years)}</td><td>${esc(s.condition||"")}</td><td>${esc(s.size||"")}</td></tr>`).join("")||'<tr><td colspan="5" class="muted">No sleds yet. Add one with ＋.</td></tr>'}</tbody></table>`;

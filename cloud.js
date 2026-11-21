@@ -23,7 +23,7 @@
   };
   window.SFCloud = Cloud;
   // In live mode the made-up sample collectors and sample sale ads are hidden unless config says otherwise.
-  if (enabled && !C.SHOW_SAMPLE_DATA) { window.SAMPLE_SLEDS = []; window.SALE_LISTINGS = []; window.SAMPLE_PHOTO_POSTS = []; window.SAMPLE_COMMENTS = []; }
+  if (enabled && !C.SHOW_SAMPLE_DATA) { window.SAMPLE_SLEDS = []; window.SALE_LISTINGS = []; window.SAMPLE_PHOTO_POSTS = []; window.SAMPLE_COMMENTS = []; window.SAMPLE_NOTIFICATIONS = []; }
 
   const emit = () => listeners.forEach(fn => { try { fn() } catch (e) { console.error(e) } });
   Cloud.onChange = fn => listeners.push(fn);
@@ -266,6 +266,7 @@
         const aq = await db.from("articles").select("*").eq("published", true).order("sort_order", { ascending: true }).limit(50);
         if (!aq.error) set("cloudExclusives", (aq.data || []).filter(a => a.category === "exclusive"));
       } catch (e) { /* table may not exist until the migration is run */ }
+      await pullNotifications();
       Cloud.lastSync = Date.now(); set("lastSync", Cloud.lastSync);
       if (!outbox().length) Cloud.lastError = "";   // keep an upload problem visible until it's resolved
     } catch (e) { console.warn("cloud pull failed", e); Cloud.lastError = String(e.message || e); }
@@ -327,7 +328,7 @@
     await Cloud.client.auth.signOut();
     // Remove this account's synced copies from the phone; they come back on next sign-in.
     ["sleds", "listings", "photoPosts", "comments"].forEach(k => set(k, get(k, []).filter(x => !x.cloudOwner || x.cloudOwner !== uid)));
-    set("cloudShared", []); set("cloudListings", []); set("cloudPhotos", []); set("cloudComments", []); set("cloudExclusives", null); set("cloudProfile", null); set("adminViewAs", ""); set("migrationAsked", false);
+    set("cloudShared", []); set("cloudListings", []); set("cloudPhotos", []); set("cloudComments", []); set("cloudExclusives", null); set("cloudNotifications", []); set("notifyReads", {}); set("notifySettings", null); set("pushEndpoint", ""); set("cloudProfile", null); set("adminViewAs", ""); set("migrationAsked", false);
   };
   // Permanently deletes the account, its sleds, ads and photos, and cancels any Stripe subscription
   // (supabase/functions/delete-account). Sleds still on this phone are kept as local-only copies.
@@ -336,7 +337,7 @@
     if (error || !data || !data.deleted) throw new Error((error && error.message) || (data && data.error) || "Couldn't delete the account");
     const uid = Cloud.user.id;
     ["sleds", "listings", "photoPosts", "comments"].forEach(k => set(k, get(k, []).map(x => { if (x.cloudOwner === uid) { const y = Object.assign({}, x); delete y.cloudOwner; return y } return x })));
-    set("outbox", []); set("cloudShared", []); set("cloudListings", []); set("cloudPhotos", []); set("cloudComments", []); set("cloudExclusives", null); set("cloudProfile", null); set("migrationAsked", true);
+    set("outbox", []); set("cloudShared", []); set("cloudListings", []); set("cloudPhotos", []); set("cloudComments", []); set("cloudExclusives", null); set("cloudNotifications", []); set("notifyReads", {}); set("notifySettings", null); set("pushEndpoint", ""); set("cloudProfile", null); set("migrationAsked", true);
     await Cloud.client.auth.signOut().catch(() => {});
   };
   Cloud.loadProfile = async () => {
@@ -435,7 +436,136 @@
     return u;
   };
 
-  async function onSession(session) {
+
+  // ───────── notifications + web push ─────────
+  const SETTING_KEYS = { sleds: "notify_sleds", articles: "notify_articles", photos: "notify_photos", listings: "notify_listings" };
+  Cloud.notifications = () => (enabled && Cloud.user ? get("cloudNotifications", []) : []);
+  Cloud.notifyReads = () => get("notifyReads", {});
+  Cloud.notifySettings = () => get("notifySettings", { sleds: true, articles: true, photos: true, listings: true });
+  Cloud.pushEnabled = () => !!(get("pushEndpoint", "") || (Cloud.notifySettings() && get("notifySettings", {}).push));
+  function rowToNotice(r) {
+    return {
+      id: r.id, kind: r.kind, title: r.title, body: r.body || "", href: r.href || "#/notifications",
+      actor_id: r.actor_id || null, target_id: r.target_id, example: false,
+      created: r.created_at ? Date.parse(r.created_at) : 0,
+    };
+  }
+  async function pullNotifications() {
+    if (!Cloud.user) { set("cloudNotifications", []); return; }
+    const db = Cloud.client;
+    try {
+      const nq = await db.from("notifications").select("*").order("created_at", { ascending: false }).limit(100);
+      if (nq.error) {
+        if (!/could not find|does not exist|schema cache|relation/i.test(nq.error.message || "")) console.warn("notifications pull", nq.error.message);
+        return;
+      }
+      set("cloudNotifications", (nq.data || []).map(rowToNotice));
+      const rq = await db.from("notification_reads").select("notification_id");
+      if (!rq.error) {
+        const reads = {};
+        (rq.data || []).forEach(r => { reads[r.notification_id] = true });
+        set("notifyReads", reads);
+      }
+      const sq = await db.from("notification_settings").select("*").eq("user_id", Cloud.user.id).maybeSingle();
+      if (!sq.error && sq.data) {
+        set("notifySettings", {
+          sleds: sq.data.notify_sleds !== false,
+          articles: sq.data.notify_articles !== false,
+          photos: sq.data.notify_photos !== false,
+          listings: sq.data.notify_listings !== false,
+          push: !!sq.data.push_enabled,
+        });
+      } else if (!sq.error && !sq.data) {
+        const ins = await db.from("notification_settings").upsert({ user_id: Cloud.user.id }).select("*").maybeSingle();
+        if (ins && ins.data) set("notifySettings", { sleds: true, articles: true, photos: true, listings: true, push: !!ins.data.push_enabled });
+      }
+      const pq = await db.from("push_subscriptions").select("endpoint").eq("user_id", Cloud.user.id);
+      if (!pq.error && pq.data && pq.data.length) set("pushEndpoint", pq.data[0].endpoint);
+    } catch (e) { console.warn("notifications pull failed", e); }
+  }
+  Cloud.saveNotifySettings = async (partial) => {
+    const cur = Object.assign({}, Cloud.notifySettings(), partial || {});
+    set("notifySettings", cur);
+    emit();
+    if (!Cloud.user) return;
+    const row = { user_id: Cloud.user.id };
+    Object.keys(SETTING_KEYS).forEach(k => { if (k in cur) row[SETTING_KEYS[k]] = !!cur[k] });
+    if ("push" in cur) row.push_enabled = !!cur.push;
+    const { error } = await Cloud.client.from("notification_settings").upsert(row, { onConflict: "user_id" });
+    if (error) { Cloud.lastError = error.message; console.warn("notification settings", error); }
+  };
+  Cloud.markNotificationRead = async (id) => {
+    Cloud.markNotificationsRead([id]);
+  };
+  Cloud.markNotificationsRead = async (ids) => {
+    const list = (ids || []).filter(Boolean).map(String);
+    if (!list.length) return;
+    const reads = Object.assign({}, get("notifyReads", {}));
+    list.forEach(id => { reads[id] = true });
+    set("notifyReads", reads);
+    emit();
+    if (!Cloud.user) return;
+    const rows = list.map(id => ({ user_id: Cloud.user.id, notification_id: id }));
+    const { error } = await Cloud.client.from("notification_reads").upsert(rows, { onConflict: "user_id,notification_id" });
+    if (error && !/could not find|does not exist|schema cache/i.test(error.message || "")) console.warn("notification reads", error);
+  };
+
+  function urlBase64ToUint8Array(b64) {
+    const pad = "=".repeat((4 - (b64.length % 4)) % 4);
+    const raw = atob((b64 + pad).replace(/-/g, "+").replace(/_/g, "/"));
+    const out = new Uint8Array(raw.length);
+    for (let i = 0; i < raw.length; i++) out[i] = raw.charCodeAt(i);
+    return out;
+  }
+  async function ensureServiceWorker() {
+    if (!("serviceWorker" in navigator)) throw new Error("This browser can't receive device alerts.");
+    return navigator.serviceWorker.register("sw.js");
+  }
+  Cloud.registerPushWorker = async () => {
+    if (!enabled || !C.VAPID_PUBLIC_KEY || !("serviceWorker" in navigator)) return null;
+    try { return await ensureServiceWorker(); } catch (e) { console.warn("service worker", e); return null; }
+  };
+  Cloud.enablePush = async () => {
+    if (!Cloud.user) throw new Error("Sign in first");
+    if (!C.VAPID_PUBLIC_KEY) throw new Error("Device alerts aren't configured yet.");
+    if (!window.isSecureContext) throw new Error("Device alerts need a secure (https) page.");
+    const reg = await ensureServiceWorker();
+    if (typeof Notification !== "undefined" && Notification.permission !== "granted") {
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") throw new Error("Alerts were not allowed. You can turn them on in the browser settings.");
+    }
+    const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(C.VAPID_PUBLIC_KEY) });
+    const json = sub.toJSON();
+    const { error } = await Cloud.client.from("push_subscriptions").upsert({
+      user_id: Cloud.user.id,
+      endpoint: json.endpoint,
+      p256dh: json.keys && json.keys.p256dh,
+      auth: json.keys && json.keys.auth,
+      user_agent: String(navigator.userAgent || "").slice(0, 200),
+    }, { onConflict: "endpoint" });
+    if (error) throw new Error(error.message);
+    set("pushEndpoint", json.endpoint);
+    await Cloud.saveNotifySettings({ push: true });
+  };
+  Cloud.disablePush = async () => {
+    try {
+      if ("serviceWorker" in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration();
+        const sub = reg && await reg.pushManager.getSubscription();
+        if (sub) {
+          const endpoint = sub.endpoint;
+          await sub.unsubscribe().catch(() => {});
+          if (Cloud.user && endpoint) await Cloud.client.from("push_subscriptions").delete().eq("endpoint", endpoint);
+        }
+      }
+    } finally {
+      set("pushEndpoint", "");
+      await Cloud.saveNotifySettings({ push: false });
+    }
+  };
+
+
+    async function onSession(session) {
     const prev = Cloud.user && Cloud.user.id;
     Cloud.user = session ? session.user : null;
     if (Cloud.user && Cloud.user.id !== prev) forgetOtherAccounts(Cloud.user.id);
@@ -467,5 +597,10 @@
     window.addEventListener("online", () => Cloud.syncNow());
     document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") { Cloud.loadProfile().then(() => Cloud.syncNow()) } });
     setInterval(() => { if (document.visibilityState === "visible") Cloud.syncNow() }, 5 * 60 * 1000);
+    Cloud.registerPushWorker();
+    if (navigator.serviceWorker) navigator.serviceWorker.addEventListener("message", ev => {
+      const d = ev.data || {};
+      if (d.type === "sf-open" && d.href) location.hash = String(d.href).charAt(0) === "#" ? d.href : "#/" + String(d.href).replace(/^#\/?/, "");
+    });
   };
 })();

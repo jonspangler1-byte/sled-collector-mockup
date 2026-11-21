@@ -17,5 +17,9 @@ window.SF_CONFIG = {
   // Where magic-link emails send people back to. Empty = the page they signed in from.
   SITE_URL: "",              // e.g. "https://sledfinder.app/"
   // Show the made-up sample collectors and sample sale ads when live? Keep false for the real launch.
-  SHOW_SAMPLE_DATA: false
+  SHOW_SAMPLE_DATA: false,
+  // Web Push (installed PWA / browser). Public VAPID key only. Generate a pair with
+  // `node scripts/generate-vapid-keys.mjs` and set the private key as the Supabase
+  // secret VAPID_PRIVATE_KEY — never put the private key in this file or in the repo.
+  VAPID_PUBLIC_KEY: ""
 };

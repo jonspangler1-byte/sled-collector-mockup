@@ -10,3 +10,6 @@ verify_jwt = true
 
 [functions.create-portal-session]
 verify_jwt = true
+
+[functions.dispatch-push]
+verify_jwt = false   # Database Webhook posts here; the function checks PUSH_WEBHOOK_SECRET

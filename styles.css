@@ -29,6 +29,20 @@ img{display:block;max-width:100%}
 .appbar h2{font-family:var(--serif);font-weight:600;font-size:1.45rem;margin:0;line-height:1.1;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .appbar .sub{display:block;font-family:var(--sans);font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;opacity:.75;margin-top:3px}
 .appbar .act{color:#fff;text-decoration:none;font-size:1.6rem;opacity:.95;padding:0 4px}
+.appbar .bell{position:relative;font-size:1.25rem;line-height:1;display:inline-flex;align-items:center;justify-content:center;min-width:32px;min-height:32px}
+.appbar .bell-count{position:absolute;top:-2px;right:-2px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--gold);color:#1b1a18;font-size:.58rem;font-weight:700;font-family:var(--sans);display:flex;align-items:center;justify-content:center;letter-spacing:0}
+.nlist{display:flex;flex-direction:column;gap:0;background:#fff;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.nlist a,.nlist .nrow{display:flex;gap:12px;padding:12px 16px;text-decoration:none;color:inherit;border-bottom:1px solid var(--line);align-items:flex-start}
+.nlist a:last-child,.nlist .nrow:last-child{border-bottom:0}
+.nlist a.unread{background:#f7f1e4}
+.nlist .nk{font-size:1.1rem;line-height:1.2;width:1.4rem;flex:none;text-align:center}
+.nlist .nt{font-weight:600;font-size:.88rem}
+.nlist .nb{font-size:.8rem;color:var(--muted);margin-top:2px}
+.nlist .nm{font-size:.68rem;color:var(--muted);margin-top:4px}
+.nset{padding:8px 16px 20px}
+.nset label{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:.88rem}
+.nset label:last-child{border-bottom:0}
+.n-actions{display:flex;gap:8px;padding:12px 16px 0;flex-wrap:wrap}
 .badge-prem{font-size:.6rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;background:var(--gold);color:#1b1a18;padding:3px 7px;border-radius:20px}
 .view{flex:1;overflow-y:auto;overflow-x:hidden;background:var(--stone);-webkit-overflow-scrolling:touch}
 .pad{padding:16px}
