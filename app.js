@@ -61,6 +61,12 @@ const typeOf=x=>(x&&SLED_TYPES.includes(x.sledType)?x.sledType:"");
 const typeSel=(name,cur)=>`<select name="${name}"><option value="">Type (optional)</option>${SLED_TYPES.map(t=>`<option value="${esc(t)}"${cur===t?" selected":""}>${esc(t)}</option>`).join("")}</select>`;
 const typeLine=x=>{const t=typeOf(x);return t?`<div><dt>Sled type</dt><dd>${esc(t)}</dd></div>`:""};
 const typeChipBar=(cur,makeHref)=>`<div class="chips" id="typef"><a class="chip ${cur?"":"on"}" href="${makeHref("")}">All types</a>${SLED_TYPES.map(t=>`<a class="chip ${cur===t?"on":""}" href="${makeHref(t)}">${esc(t)}</a>`).join("")}</div>`;
+const YT_URL="https://youtube.com/@sleddymercury";
+const MUSEUM_URL="https://rosebudsledmuseum.com/";
+const OUT_LINKS=[["YouTube: Sleddy Mercury",YT_URL],["Rosebud Sled Museum website",MUSEUM_URL]];
+const outLinkChips=()=>OUT_LINKS.map(([l,u])=>`<a class="chip" href="${u}" target="_blank" rel="noopener">${esc(l)} ↗</a>`).join("");
+const outLinkMenu=()=>`<div class="menu">${OUT_LINKS.map(([l,u])=>`<a href="${u}" target="_blank" rel="noopener">${esc(l)} <span>↗</span></a>`).join("")}</div>`;
+const outLinkAbout=()=>`<div class="about-links" id="about"><h3 class="sec">About</h3>${outLinkMenu()}</div>`;
 const userPhotos=()=>LS.get("photoPosts",[]);
 const userComments=()=>LS.get("comments",[]);
 const allPhotoPosts=()=>{const ov=LS.get("pedits",{}),del=LS.get("pdeleted",[]);return userPhotos().concat(CLOUD?CLOUD.sharedPhotos():[]).concat((window.SAMPLE_PHOTO_POSTS||[]).map(s=>ov[s.id]?Object.assign({},s,ov[s.id]):s)).filter(s=>!del.includes(s.id)).map(x=>{const o=normPics(x);o.caption=o.caption||"";return o})};
@@ -290,7 +296,7 @@ R.home=()=>{bar(window.APP_SHORT,{sub:"Rosebud Sled Museum",act:'<a class="act" 
   const feed=allSleds().filter(s=>s.shared);
   const free=MAKERS.filter(isFree);
   return `<div class="hero" style="background-image:url(images/hero-flexible-flyer-3c-deck-p60.jpg)"><div class="in"><b>Coasting Through History</b><span>American sled makers, 1850–1990 · tap for the timeline</span></div><a href="#/timeline" style="position:absolute;inset:0;z-index:2" aria-label="Timeline"></a></div>
-  <div class="chips"><a class="chip on" href="#/database">Sled Maker and Model Database</a><a class="chip" href="#/identify">📷 Photo ID</a><a class="chip" href="#/idhelp">What sled is this?</a><a class="chip" href="#/map">🗺 Sled Picker Map ${premium()?"":"🔒"}</a><a class="chip" href="#/sale">Sleds for Sale ${premium()?"":"🔒"}</a><a class="chip" href="#/photos">Community photos ${premium()?"":"🔒"}</a><a class="chip" href="#/search">Search</a><a class="chip" href="#/timeline">Timeline ${premium()?"":"🔒"}</a><a class="chip" href="#/articles">Articles ${premium()?"":"🔒"}</a><a class="chip" href="#/events">Upcoming Events</a><a class="chip" href="https://rosebudsledmuseum.com/" target="_blank" rel="noopener">Rosebud Sled Museum ↗</a></div>
+  <div class="chips"><a class="chip on" href="#/database">Sled Maker and Model Database</a><a class="chip" href="#/identify">📷 Photo ID</a><a class="chip" href="#/idhelp">What sled is this?</a><a class="chip" href="#/map">🗺 Sled Picker Map ${premium()?"":"🔒"}</a><a class="chip" href="#/sale">Sleds for Sale ${premium()?"":"🔒"}</a><a class="chip" href="#/photos">Community photos ${premium()?"":"🔒"}</a><a class="chip" href="#/search">Search</a><a class="chip" href="#/timeline">Timeline ${premium()?"":"🔒"}</a><a class="chip" href="#/articles">Articles ${premium()?"":"🔒"}</a><a class="chip" href="#/events">Upcoming Events</a>${outLinkChips()}</div>
   <div class="pad" style="padding-top:12px;padding-bottom:0"><a class="btn pine" href="#/identify">📷 Identify a sled from a photo${premium()?"":" · try the demo"}</a>${orderMagBtn("margin-top:10px")}<button type="button" class="btn" style="margin-top:10px" onclick="startTour()">▶ Start tour</button><p class="legend" style="margin:8px 0 0;padding:0;text-align:center"><a href="#/suggest">💬 Send a suggestion to the developer</a></p></div>
   ${premium()?"":dbIntro()+databaseGate()}
   ${!premium()?"":`<h3 class="sec">What sled is this? <a href="#/idhelp">See all</a></h3>
@@ -300,7 +306,8 @@ R.home=()=>{bar(window.APP_SHORT,{sub:"Rosebud Sled Museum",act:'<a class="act" 
   ${premium()?"":`<a class="promo" href="#/upgrade"><img class="cv" src="images/vintage-runner-tuxedo-racer-cover-p1.jpg" alt=""><div><b>Become a member</b><span style="display:block;opacity:.8;margin-bottom:2px">${Object.keys(FREE).length} free · ${61-Object.keys(FREE).length} premium</span><span>Post your sleds, use the Sled Maker and Model Database, full histories, period ads, the timeline, no-frills magazine articles and selling. $15/year.</span></div></a>`}
   <h3 class="sec">Sleds for Sale <a href="#/sale">See all</a></h3>
   ${premium()?`<div class="hscroll">${allListings().slice(0,4).map(l=>`<a class="card mk" href="#/listing/${l.id}"><div class="th" style="background-image:url('${l.img}')"></div><div class="n">${l.price?esc(l.price)+" · ":""}${esc(l.title.replace("[sample] ",""))}</div><div class="d">${esc(l.town)} · Ships: ${esc(l.ship)}</div></a>`).join("")}</div>`:`<div style="padding:0 16px 8px">${gate("Sleds for Sale is for members","Only paid members can browse listings or post a sled for sale.")}</div>`}
-  ${premium()?dbIntro()+`<div class="feed">${feed.map(postCard).join("")}</div>`:""}`;
+  ${premium()?dbIntro()+`<div class="feed">${feed.map(postCard).join("")}</div>`:""}
+  ${outLinkAbout()}`;
 };
 R.database=()=>{const html=R.home();setTimeout(()=>{const el=$("#database"),v=$("#view");if(el&&v)v.scrollTop=Math.max(0,el.offsetTop-8)},0);return html};
 R.collection=()=>{bar("My Collection",{sub:"@"+me(),act:'<a class="act" href="#/add" aria-label="Add">＋</a>'});tab("collection");
@@ -545,7 +552,9 @@ R.profile=()=>{bar("Profile",{sub:ROLES[role()]});tab("profile");
   ${driveSyncHTML()}
   ${canViewAs()?`<h3 class="sec">${CLOUD?"Preview as (admin, this screen only)":"Demo role switcher"}</h3><div class="menu roles">${Object.keys(ROLES).map(k=>`<label><span>${ROLES[k]}</span><input type="radio" name="role" value="${k}" ${role()===k?"checked":""}></label>`).join("")}</div>`:""}
   <div class="menu"><a href="#/database">Sled Maker and Model Database ${premium()?"":"🔒"}<span>›</span></a><a href="#/identify">Identify a sled from a photo ${premium()?"":"🔒"}<span>›</span></a><a href="#/map">Sled Picker Map ${premium()?"":"🔒"}<span>›</span></a><a href="#/timeline">Coasting Through History ${premium()?"":"🔒"}<span>›</span></a><a href="#/articles">Vintage Runner Magazine ${premium()?"":"🔒"}<span>›</span></a><a href="#/articles">Exclusive Articles ${premium()?"":"🔒"}<span>›</span></a><a href="#/events">Upcoming Events <span>›</span></a><a href="#/makers">Sled makers directory <span>›</span></a></div>
-  <div class="menu"><a href="https://rosebudsledmuseum.com/" target="_blank" rel="noopener">Rosebud Sled Museum website <span>↗</span></a><a href="#/terms">Privacy: private sleds are visible only to you <span>›</span></a><a href="#/terms">Terms &amp; Community Guidelines (draft) <span>›</span></a></div>
+  <h3 class="sec">About</h3>
+  ${outLinkMenu()}
+  <div class="menu"><a href="#/terms">Privacy: private sleds are visible only to you <span>›</span></a><a href="#/terms">Terms &amp; Community Guidelines (draft) <span>›</span></a></div>
   <p class="legend" style="padding-bottom:24px">${CLOUD?"Sled Finder "+APP_VER+". Your sleds are kept on this phone and, when you're signed in, in your Sled Finder account.":"Clickable mockup for review. No accounts, servers or payments."}</p>`;
 };
 R.sale=(arg)=>{const parts=String(arg||"").split(",").filter(Boolean);const fcc=COUNTRIES[parts[0]]?parts[0]:"";const typ=SLED_TYPES.includes(parts[0])?parts[0]:(SLED_TYPES.includes(parts[1])?parts[1]:"");
@@ -793,7 +802,7 @@ R.unknown=()=>{bar("Unknown / unconfirmed makers",{back:true,sub:"Not filed unde
 // ===== Suggestions to the developer. Delivered free with no keys in the app:
 // 1) a Google Form in Sled Finder's Google account (set SUGGEST_FORM.action + entry ids once the form exists), posted
 //    straight from the app so the existing Google Form alert catches it; 2) otherwise a pre-filled email to the museum.
-const APP_VER="b8";
+const APP_VER="b10";
 const SUGGEST_FORM={action:"https://docs.google.com/forms/d/e/1FAIpQLSeL5-bPPHkSnMlo-utOtZdRJfQN5yUCQRQOt19Bgt4VAjkmBA/formResponse",fields:{category:"entry.1937538793",message:"entry.790371823",name:"entry.1603670551",email:"entry.1586826346",context:"entry.1782360007"}};
 let lastScreen="#/home";window.addEventListener("hashchange",e=>{try{const h=new URL(e.oldURL).hash||"#/home";if(!/^#\/suggest/.test(h))lastScreen=h}catch(x){}});
 const SUGGEST_EMAIL="rbsledmuseum@gmail.com";

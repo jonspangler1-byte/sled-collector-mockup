@@ -144,7 +144,16 @@ async function addSled(page, model, shared) {
   ok(art.includes("Exclusive Articles") && art.includes("throughout the year") && /Thanksgiving/.test(art) && art.includes("Vintage Runner Magazine"), "demo: Exclusive Articles are separate from the annual magazine");
   await go(page, "#/photos");
   ok((await page.textContent("#view")).includes("Post photos") && (await page.textContent("#view")).includes("Flexy Racer"), "demo: premium sees the community photo gallery");
-  ok(await page.locator('a[href="https://rosebudsledmuseum.com/"]').count() > 0, "demo: Rosebud Sled Museum website link is in the app");
+  await go(page, "#/home");
+  const home = await page.textContent("#view");
+  ok(home.includes("YouTube: Sleddy Mercury") && home.includes("Rosebud Sled Museum website"), "demo: home shows YouTube and museum website labels together");
+  ok(await page.locator('#view a[href="https://youtube.com/@sleddymercury"]').count() >= 2, "demo: YouTube channel link is on home (chips and about)");
+  ok(await page.locator('#view a[href="https://rosebudsledmuseum.com/"]').count() >= 2, "demo: museum website link is on home (chips and about)");
+  await go(page, "#/profile");
+  const prof = await page.textContent("#view");
+  ok(prof.includes("YouTube: Sleddy Mercury") && prof.includes("Rosebud Sled Museum website"), "demo: profile menu shows YouTube and museum website together");
+  ok(await page.locator('#view a[href="https://youtube.com/@sleddymercury"]').count() >= 1, "demo: profile has the YouTube channel link");
+  ok(await page.locator('#view a[href="https://rosebudsledmuseum.com/"]').count() >= 1, "demo: profile has the museum website link");
   ok(errors.length === 0, "demo: no JS errors " + (errors.length ? JSON.stringify(errors) : ""));
   await ctx.close();
 }

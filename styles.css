@@ -471,3 +471,7 @@ table.ins th,table.ins td{border-bottom:1px solid var(--line);padding:6px 4px;te
 .sale-tease .lgt{flex:1;height:90px;border-radius:12px;background:linear-gradient(90deg,#ece7de,#e0dbd2,#ece7de);background-size:200% 100%;opacity:.7}
 
 @media print{.ticket-wrap,.ticket{box-shadow:none}}
+
+/* About / outbound museum + YouTube links */
+.about-links{padding-bottom:12px}
+.about-links .menu{margin-top:0}
