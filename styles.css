@@ -429,3 +429,45 @@ button.chip{font-family:var(--sans);color:var(--ink);cursor:pointer}
 table.ins{width:100%;border-collapse:collapse;font-size:.76rem;background:#fff}
 table.ins th,table.ins td{border-bottom:1px solid var(--line);padding:6px 4px;text-align:left}
 @media print{.side-note,.appbar,.tabbar,.statusbar,.notch,#toast,.tour,.btn{display:none!important}.phone,.screen,.view{all:unset;display:block}}
+
+/* 7-item tab bar */
+.tabbar a{font-size:.58rem;padding:0 1px}
+.tabbar .ic{font-size:1.05rem}
+
+/* community comments */
+.cmt-list{padding:0 16px 8px;display:flex;flex-direction:column;gap:10px}
+.cmt-card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.cmt-card .who{display:flex;align-items:center;gap:8px;font-size:.76rem;font-weight:600;margin-bottom:6px}
+.cmt-card p{margin:0;font-size:.84rem;line-height:1.45}
+.cmt-phs{display:flex;gap:6px;margin-top:8px;overflow-x:auto}
+.cmt-phs span{flex:none;width:72px;height:72px;border-radius:8px;background:#ddd center/cover}
+.cmt-form{padding-top:0}
+.linkish{background:none;border:0;color:var(--red);font:inherit;font-size:.72rem;padding:0;cursor:pointer;text-decoration:underline}
+
+/* museum ticket stub */
+.ticket-wrap{padding:18px 16px 8px}
+.ticket{display:flex;background:#fffdf4;border:1px solid #d9c7a0;border-radius:10px;overflow:hidden;box-shadow:0 8px 20px rgba(80,50,10,.12)}
+.ticket-stub{width:72px;flex:none;background:var(--red);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:12px 6px;
+  background-image:radial-gradient(circle at 0 12px,#fffdf4 6px,transparent 7px),radial-gradient(circle at 0 36px,#fffdf4 6px,transparent 7px),radial-gradient(circle at 0 60px,#fffdf4 6px,transparent 7px),radial-gradient(circle at 0 84px,#fffdf4 6px,transparent 7px),radial-gradient(circle at 0 108px,#fffdf4 6px,transparent 7px),radial-gradient(circle at 0 132px,#fffdf4 6px,transparent 7px),radial-gradient(circle at 0 156px,#fffdf4 6px,transparent 7px),radial-gradient(circle at 0 180px,#fffdf4 6px,transparent 7px);
+  border-right:2px dashed #e8d7b0}
+.ticket-admit{writing-mode:vertical-rl;transform:rotate(180deg);font-family:var(--sans);font-size:.62rem;font-weight:700;letter-spacing:.2em}
+.ticket-stub-id{writing-mode:vertical-rl;transform:rotate(180deg);font-size:.58rem;letter-spacing:.08em;opacity:.9}
+.ticket-body{flex:1;padding:14px 14px 12px}
+.ticket-body h1{font-family:var(--serif);font-size:1.28rem;font-weight:600;line-height:1.15;margin:0 0 8px}
+.ticket-name{font-family:var(--serif);font-size:1.15rem;font-weight:600;margin:0 0 10px}
+.ticket-meta{margin:0;display:grid;gap:6px}
+.ticket-meta div{display:flex;justify-content:space-between;gap:10px;font-size:.78rem;border-bottom:1px dotted var(--line);padding-bottom:4px}
+.ticket-meta dt{color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.08em;font-size:.62rem}
+.ticket-meta dd{margin:0;font-weight:600}
+.ticket-fine{margin:10px 0 0;font-size:.68rem;color:var(--muted);line-height:1.4}
+
+/* upcoming events */
+.event-list{padding:0 16px 8px;display:flex;flex-direction:column;gap:12px}
+.event-card-app{padding:14px 14px 16px}
+.event-card-app h3{font-family:var(--serif);font-size:1.25rem;font-weight:600;margin:0 0 6px;line-height:1.2}
+.event-card-app p{margin:0 0 8px;font-size:.84rem;line-height:1.45;color:var(--ink-soft)}
+.event-place{font-weight:600;color:var(--ink)!important}
+.sale-tease{display:flex;gap:10px;padding:12px 16px 0}
+.sale-tease .lgt{flex:1;height:90px;border-radius:12px;background:linear-gradient(90deg,#ece7de,#e0dbd2,#ece7de);background-size:200% 100%;opacity:.7}
+
+@media print{.ticket-wrap,.ticket{box-shadow:none}}

@@ -50,18 +50,18 @@ Five pieces, in the order to do them:
 | `config.js` | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `STRIPE_CHECKOUT`, `STRIPE_PAYMENT_LINK`, `STRIPE_PORTAL_LINK`, `SITE_URL`, `SHOW_SAMPLE_DATA`. Empty Supabase keys mean demo mode. Set `STRIPE_CHECKOUT` to `true` after the Checkout function is deployed. Payment Link / portal login links are fallbacks only. The anon key is public by design. **Never** put the service_role key or a Stripe secret key here. |
 | `cloud.js` | Sign-in (6-digit email code, or the magic link on the same phone), membership role from the server, an offline **outbox** (saves go to the phone first, then upload when online), photo upload to Storage, pulling the member's sleds onto any device, shared sleds from other Premium members, public sale ads, admin corrections, account deletion, Checkout and Customer Portal session starts. |
 | `app.js` | Account screen (`#/account`), real paywall (Join opens a server-created Checkout Session), Profile shows `@handle`. The "Viewing as" switcher is gone for members and kept for the admin as a screen-only preview. Sample collectors and ads are hidden when live. |
-| `docs/supabase-schema.sql` | Tables `profiles` (including `stripe_subscription_status`), `sleds`, `listings`, `stripe_events`, a `photos` storage bucket, and all RLS policies. Safe to re-run. If the project already exists, also run `docs/migrations/2026-11-20-stripe-subscription-status.sql` in the SQL editor of project `cpmieqcsbvozwrbjagqm` (do not run it from this machine). |
+| `docs/supabase-schema.sql` | Tables `profiles` (including `stripe_subscription_status` and `display_name`), `sleds` and `listings` (including `sled_type`, with **Flexy Racer**), `photo_posts`, `comments`, `articles` (magazine vs exclusive), `stripe_events`, a `photos` storage bucket, and all RLS policies. Safe to re-run. If the project already exists, run the migrations in `docs/migrations/` in the SQL editor of project `cpmieqcsbvozwrbjagqm` (do not run them from this machine): first `2026-11-20-stripe-subscription-status.sql` if it hasn't been run, then `2026-11-21-community-articles-ticket-sale.sql`. |
 | `supabase/functions/create-checkout` | JWT-required. Creates a Stripe Checkout Session for the signed-in member (or sends them to the Customer Portal if they already have an active or past-due subscription). |
 | `supabase/functions/create-portal-session` | JWT-required. Opens a Customer Portal session for the signed-in member. |
 | `supabase/functions/stripe-webhook` | Sets `premium_until` and Stripe ids from Stripe events. Signature-verified; idempotent. |
 | `supabase/functions/delete-account` | In-app account deletion (required by Apple and Google). Does not delete the login if Stripe cancel fails and the subscription still exists. |
 | `tests/schema` | RLS checks against real Postgres (PGlite): free users can't post, lapsed members are hidden, members can't grant themselves Premium or change Stripe columns, etc. |
-| `tests/e2e` | Browser checks: the demo is unchanged, sign-in, migration, Checkout session start, payment refresh, portal for an open subscription, offline then back online, second phone, other member's view, delete, sign-out, account deletion. |
+| `tests/e2e` | Browser checks: the demo is unchanged, Flexy Racer as a type, community photos, exclusive articles vs the magazine, upcoming events, the museum ticket, Sleds for Sale locked for free users, sign-in, migration, Checkout session start, payment refresh, portal for an open subscription, offline then back online, second phone, other member's view, delete, sign-out, account deletion. |
 | `tests/stripe` | Unit checks for membership helpers (trusted user id, paid-only grants, refunds, disputes, cancel errors, return URLs). |
 
 **Rules the server enforces** (not just the app)
 
-- Anyone can browse active sale ads. Only **Premium/admin** can post sleds, post ads, upload photos, or edit their own posts.
+- **Sleds for Sale** is Premium-only to browse and to post. Free, lapsed and signed-out visitors cannot read others' listings. Only **Premium/admin** can post sleds, post ads, upload community photos, or edit their own posts.
 - Premium members see other members' **shared** sleds. **Private** sleds are visible only to their owner (and the admin).
 - When a membership lapses, that member's shared sleds and ads disappear for others. They come back on renewal. The owner always keeps their own data and can delete it.
 - Only the server (the Stripe webhook or the SQL editor) can change `premium_until` or `is_admin`.
@@ -78,11 +78,12 @@ are still waiting to upload.
 
 **Known limits / next steps (not built yet)**
 
-- Likes and comments aren't synced (they're still demo buttons).
+- Likes are still demo-only (they are not synced). Comments on community photo posts and sleds, including optional photos, sync for Premium members.
 - Shared sleds are cached on the phone (up to 1,000 newest). Past that, search and the map need server-side queries.
 - If the admin adds new *photos* while correcting someone else's post, only the text changes are uploaded.
 - The Drive training sync still uploads from the admin's phone. Later, the Apps Script can read from Supabase Storage instead.
-- Sale-ad contact email is shown publicly, as in the demo. Consider a "contact seller" form instead.
+- Sale-ad contact email is shown to paid members only, as listings themselves are. Consider a "contact seller" form later.
+- Upcoming Events are a copy of https://rosebudsledmuseum.com/#upcoming (see `events.js`). Keep that file in sync when the website events section changes. A later `events.json` on the museum site can be fetched automatically.
 
 ---
 
@@ -110,7 +111,7 @@ If the Checkout function is not turned on (`STRIPE_CHECKOUT` is false) and a Pay
 
 Do this in **Test mode** (or a sandbox) first. Do not create live products until a test payment has upgraded a test account.
 
-1. If the Supabase project already exists, run `docs/migrations/2026-11-20-stripe-subscription-status.sql` in the SQL editor of project `cpmieqcsbvozwrbjagqm`. (A brand-new run of `docs/supabase-schema.sql` already includes the column.) Do not run this from the agent machine.
+1. If the Supabase project already exists, run these in the SQL editor of project `cpmieqcsbvozwrbjagqm` (do not run them from this machine): `docs/migrations/2026-11-20-stripe-subscription-status.sql` if it hasn't been run, then `docs/migrations/2026-11-21-community-articles-ticket-sale.sql`. (A brand-new run of `docs/supabase-schema.sql` already includes everything.)
 2. Stripe → Product catalog → **Add product** "Sled Finder Premium", **Recurring, Yearly, $15.00 USD**. Copy the price id (`price_...`). Do not enable Stripe Tax.
 3. Settings → Billing → **Customer portal** → activate. Allow payment-method updates, cancel at period end, and invoice history. Do not offer other plans. A portal login link can be copied into `STRIPE_PORTAL_LINK` as a fallback; the app prefers `create-portal-session`.
 4. Optional fallback: Payment Links → **New** for that price, redirect to `https://<domain>/#/upgrade` after payment, and paste the `https://buy.stripe.com/...` URL into `STRIPE_PAYMENT_LINK`. Not required once Checkout Sessions work.
@@ -229,6 +230,6 @@ Store requirements to plan for:
 **The agent can do after each sign-up** (no cost):
 - Run `docs/supabase-schema.sql`, paste the URL and anon key into `config.js`, and set up the auth URLs, the email template and SMTP.
 - Make Jonathan's account the admin (SQL at the bottom of the schema file).
-- Create the Stripe product and yearly price in **test mode**, deploy the four Edge Functions, set restricted-key secrets and the webhook events listed above, set `STRIPE_CHECKOUT: true`, and test end-to-end with card 4242 4242 4242 4242. After that, repeat with live keys. Remind Jonathan to run the subscription-status SQL migration in the project's SQL editor if it hasn't been run.
+- Create the Stripe product and yearly price in **test mode**, deploy the four Edge Functions, set restricted-key secrets and the webhook events listed above, set `STRIPE_CHECKOUT: true`, and test end-to-end with card 4242 4242 4242 4242. After that, repeat with live keys. Remind Jonathan to run any pending SQL migrations in `docs/migrations/` in the project's SQL editor if they haven't been run, especially `2026-11-21-community-articles-ticket-sale.sql`.
 - Wire up DNS and GitHub Pages for the domain.
 - Merge `backend` → `main` **only after Jonathan has tried it** on a preview.

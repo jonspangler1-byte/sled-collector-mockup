@@ -1,10 +1,11 @@
 // Sled Finder cloud layer: real accounts (Supabase Auth, email code / magic link), cloud sync of sleds,
-// sale ads and photos (Supabase Postgres + Storage), with an offline outbox.
+// sale ads, community photo posts, comments and photos (Supabase Postgres + Storage), with an offline outbox.
 //
 // Design: localStorage on the phone stays the working copy, so the app keeps working with no signal.
 // Every local save also queues an "outbox" entry; the outbox is pushed when signed in and online.
-// Pulls bring the member's own sleds/ads (from any device), other members' SHARED sleds (Premium only,
-// enforced by row-level security on the server) and public sale ads.
+// Pulls bring the member's own sleds/ads/photo posts (from any device), other members' SHARED sleds
+// and community photos (Premium only, enforced by row-level security on the server) and, for Premium
+// members, sale ads. Sleds for Sale is not public — only paying members can browse listings.
 //
 // With no SUPABASE_URL / SUPABASE_ANON_KEY in config.js, this file does nothing and the app runs as the demo.
 (function () {
@@ -22,7 +23,7 @@
   };
   window.SFCloud = Cloud;
   // In live mode the made-up sample collectors and sample sale ads are hidden unless config says otherwise.
-  if (enabled && !C.SHOW_SAMPLE_DATA) { window.SAMPLE_SLEDS = []; window.SALE_LISTINGS = []; }
+  if (enabled && !C.SHOW_SAMPLE_DATA) { window.SAMPLE_SLEDS = []; window.SALE_LISTINGS = []; window.SAMPLE_PHOTO_POSTS = []; window.SAMPLE_COMMENTS = []; }
 
   const emit = () => listeners.forEach(fn => { try { fn() } catch (e) { console.error(e) } });
   Cloud.onChange = fn => listeners.push(fn);
@@ -50,7 +51,7 @@
   // ───────── outbox ─────────
   const outbox = () => get("outbox", []);
   Cloud.pending = () => outbox().length;
-  // kind: "sled" | "listing"; op: "upsert" | "delete"; id: local id ("u…"/"ul…") or "c<uuid>" for others' posts (admin).
+  // kind: "sled" | "listing" | "photo" | "comment"; op: "upsert" | "delete"; id: local id or "c<uuid>" for others' posts (admin).
   Cloud.queue = (kind, id, op) => {
     if (!enabled) return;
     const q = outbox().filter(x => !(x.kind === kind && x.id === id));
@@ -60,12 +61,18 @@
   };
 
   // ───────── local stores ─────────
-  const localKey = kind => (kind === "sled" ? "sleds" : "listings");
+  const KINDS = { sled: "sleds", listing: "listings", photo: "photo_posts", comment: "comments" };
+  const localKey = kind => ({ sled: "sleds", listing: "listings", photo: "photoPosts", comment: "comments" }[kind]);
   const findLocal = (kind, id) => get(localKey(kind), []).find(x => String(x.id) === String(id));
-  const cacheKey = kind => (kind === "sled" ? "cloudShared" : "cloudListings");
+  const cacheKey = kind => ({ sled: "cloudShared", listing: "cloudListings", photo: "cloudPhotos", comment: "cloudComments" }[kind]);
   Cloud.sharedSleds = () => (enabled ? get("cloudShared", []) : []);
   Cloud.publicListings = () => (enabled ? get("cloudListings", []) : []);
+  Cloud.sharedPhotos = () => (enabled ? get("cloudPhotos", []) : []);
+  Cloud.sharedComments = () => (enabled ? get("cloudComments", []) : []);
+  Cloud.exclusives = () => (enabled ? get("cloudExclusives", null) : null);
   Cloud.isCloudId = id => /^c[0-9a-f-]{36}$/.test(String(id));
+  const SLED_TYPES = ["","Runner","Toboggan","Cutter","Bobsled","Saucer","Traverse","Flexy Racer","Other"];
+  const sledTypeOf = x => (SLED_TYPES.includes(x && (x.sledType || x.sled_type)) ? (x.sledType || x.sled_type) : "");
 
   // ───────── photos ─────────
   const resolvePhoto = u => (window.SFApp && window.SFApp.phURL ? window.SFApp.phURL(u) : u);
@@ -98,37 +105,55 @@
   const num = v => (v == null || v === "" || isNaN(+v) ? null : +v);
   function sledRow(s, photos) {
     return { client_id: String(s.id), maker: +s.maker || 0, brand: +s.maker === 2 ? (s.brand || "") : "", model: String(s.model || ""),
-      country: cc(s.country), region: s.locType === "na" ? "" : String(s.region || ""), town: s.locType === "na" ? "" : String(s.town || ""),
+      sled_type: sledTypeOf(s), country: cc(s.country), region: s.locType === "na" ? "" : String(s.region || ""), town: s.locType === "na" ? "" : String(s.town || ""),
       lat: num(s.lat), lng: num(s.lng), shared: !!s.shared, photos, data: strip(s), edited_by: s.editedBy || null };
   }
   function listingRow(l, photos) {
     return { client_id: String(l.id), title: String(l.title || "Sled for sale").slice(0, 140), maker: +l.maker || 0, brand: +l.maker === 2 ? (l.brand || "") : "",
-      model: String(l.model || ""), price: String(l.price || ""), country: cc(l.country), town: String(l.town || ""),
+      model: String(l.model || ""), sled_type: sledTypeOf(l), price: String(l.price || ""), country: cc(l.country), town: String(l.town || ""),
       contact_email: String(l.email || ""), photos, data: strip(l), edited_by: l.editedBy || null };
+  }
+  function photoRow(x, photos) {
+    return { client_id: String(x.id), caption: String(x.caption || ""), photos, data: strip(x), edited_by: x.editedBy || null };
+  }
+  function commentRow(x, photos) {
+    return { client_id: String(x.id), target_type: x.targetType === "sled" ? "sled" : "photo_post",
+      target_id: String(x.targetId || ""), body: String(x.body || "").slice(0, 2000), photos, data: strip(x) };
   }
   function fromRow(kind, r, mine) {
     const o = Object.assign({}, r.data || {}, {
       id: mine ? r.client_id : "c" + r.id, cloudId: r.id, user: mine ? "you" : (r.owner_handle || "member"),
-      mine, maker: r.maker, brand: r.brand, model: r.model, country: r.country, town: r.town,
+      mine, maker: r.maker, brand: r.brand, model: r.model, sledType: r.sled_type || (r.data && r.data.sledType) || "",
+      country: r.country, town: r.town,
       imgs: r.photos || [], img: (r.photos || [])[0] || "", editedBy: r.edited_by || undefined, updatedAt: Date.parse(r.updated_at) || 0,
+      created: Date.parse(r.created_at) || 0,
     });
     if (mine) o.cloudOwner = r.owner;
     if (kind === "sled") Object.assign(o, { userAdded: mine, likes: o.likes || 0, region: r.region, lat: r.lat, lng: r.lng, shared: r.shared });
-    else Object.assign(o, { title: r.title, price: r.price, email: r.contact_email });
+    else if (kind === "listing") Object.assign(o, { title: r.title, price: r.price, email: r.contact_email });
+    else if (kind === "photo") Object.assign(o, { caption: r.caption || "", userAdded: mine });
+    else if (kind === "comment") Object.assign(o, { targetType: r.target_type, targetId: r.target_id, body: r.body || "", userAdded: mine });
     return o;
   }
 
   // ───────── push ─────────
+  function toRow(kind, item, photos) {
+    if (kind === "sled") return sledRow(item, photos);
+    if (kind === "listing") return listingRow(item, photos);
+    if (kind === "photo") return photoRow(item, photos);
+    return commentRow(item, photos);
+  }
   async function pushOne(item) {
-    const table = item.kind === "sled" ? "sleds" : "listings";
+    const table = KINDS[item.kind];
+    if (!table) return;
     const db = Cloud.client;
     if (Cloud.isCloudId(item.id)) {               // admin correcting someone else's post
       const uuid = item.id.slice(1);
       if (item.op === "delete") { const { error } = await db.from(table).update({ deleted_at: new Date().toISOString() }).eq("id", uuid); if (error) throw error; return; }
       const cur = get(cacheKey(item.kind), []).find(x => x.id === item.id);
       if (!cur) return;
-      const photos = cur.imgs.map(resolvePhoto).filter(u => !/^data:/.test(u));
-      const row = item.kind === "sled" ? sledRow(cur, photos) : listingRow(cur, photos);
+      const photos = (cur.imgs || []).map(resolvePhoto).filter(u => !/^data:/.test(u));
+      const row = toRow(item.kind, cur, photos);
       delete row.client_id;
       const { error } = await db.from(table).update(row).eq("id", uuid); if (error) throw error; return;
     }
@@ -140,7 +165,7 @@
     if (!local) return;                            // deleted locally before it was ever pushed
     if (local.cloudOwner && local.cloudOwner !== Cloud.user.id) return; // belongs to another account on this phone
     const photos = await uploadPhotos(item.kind, item.id, local.imgs && local.imgs.length ? local.imgs : (local.img ? [local.img] : []));
-    const row = item.kind === "sled" ? sledRow(local, photos) : listingRow(local, photos);
+    const row = toRow(item.kind, local, photos);
     row.owner = Cloud.user.id; row.deleted_at = null;
     const { error } = await db.from(table).upsert(row, { onConflict: "owner,client_id" });
     if (error) throw error;
@@ -192,26 +217,55 @@
     }
     set(key, arr);
   }
+  const premNow = () => { const r = Cloud.realRole(); return r === "premium" || r === "admin" };
+  async function pullTable(kind, mineOnly) {
+    const table = KINDS[kind], uid = Cloud.user && Cloud.user.id, db = Cloud.client;
+    if (mineOnly) {
+      if (!uid) return;
+      const res = await db.from(table).select("*").eq("owner", uid).order("updated_at", { ascending: false }).limit(2000);
+      if (res.error) {
+        if (/could not find the table|schema cache|does not exist/i.test(res.error.message || "")) return;
+        throw res.error;
+      }
+      mergeMine(kind, res.data || []);
+      return;
+    }
+    if (!uid || !premNow()) { set(cacheKey(kind), []); return; }
+    let q = db.from(table).select("*").is("deleted_at", null).order("updated_at", { ascending: false }).limit(1000);
+    if (kind === "sled") q = q.neq("owner", uid).eq("shared", true);
+    else q = q.neq("owner", uid);
+    const res = await q;
+    if (res.error) {
+      if (/could not find the table|schema cache|does not exist/i.test(res.error.message || "")) { set(cacheKey(kind), []); return; }
+      throw res.error;
+    }
+    set(cacheKey(kind), (res.data || []).map(r => fromRow(kind, r, false)));
+  }
   Cloud.pull = async () => {
     if (!enabled || !Cloud.client || !navigator.onLine) return;
     const db = Cloud.client, uid = Cloud.user && Cloud.user.id;
     try {
       if (uid) {
-        const [ms, ml] = await Promise.all([
-          db.from("sleds").select("*").eq("owner", uid).order("updated_at", { ascending: false }).limit(2000),
-          db.from("listings").select("*").eq("owner", uid).order("updated_at", { ascending: false }).limit(500),
-        ]);
-        if (ms.error) throw ms.error; if (ml.error) throw ml.error;
-        mergeMine("sled", ms.data); mergeMine("listing", ml.data);
-        // Others' shared sleds: the server only returns rows if this member is Premium (or admin).
-        const sh = await db.from("sleds").select("*").neq("owner", uid).eq("shared", true).is("deleted_at", null).order("updated_at", { ascending: false }).limit(1000);
-        if (sh.error) throw sh.error;
-        set("cloudShared", sh.data.map(r => fromRow("sled", r, false)));
-      } else set("cloudShared", []);
-      let lq = db.from("listings").select("*").eq("status", "active").is("deleted_at", null).order("created_at", { ascending: false }).limit(500);
-      if (uid) lq = lq.neq("owner", uid);
-      const pl = await lq; if (pl.error) throw pl.error;
-      set("cloudListings", pl.data.map(r => fromRow("listing", r, false)));
+        await pullTable("sled", true);
+        await pullTable("listing", true);
+        await pullTable("photo", true);
+        await pullTable("comment", true);
+        await pullTable("sled", false);
+        await pullTable("photo", false);
+        await pullTable("comment", false);
+      } else {
+        set("cloudShared", []); set("cloudPhotos", []); set("cloudComments", []);
+      }
+      // Sale ads: Premium / admin only (RLS also hides them from free, lapsed and anon).
+      if (uid && premNow()) {
+        const pl = await db.from("listings").select("*").eq("status", "active").is("deleted_at", null).neq("owner", uid).order("created_at", { ascending: false }).limit(500);
+        if (pl.error) throw pl.error;
+        set("cloudListings", pl.data.map(r => fromRow("listing", r, false)));
+      } else set("cloudListings", []);
+      try {
+        const aq = await db.from("articles").select("*").eq("published", true).order("sort_order", { ascending: true }).limit(50);
+        if (!aq.error) set("cloudExclusives", (aq.data || []).filter(a => a.category === "exclusive"));
+      } catch (e) { /* table may not exist until the migration is run */ }
       Cloud.lastSync = Date.now(); set("lastSync", Cloud.lastSync);
       if (!outbox().length) Cloud.lastError = "";   // keep an upload problem visible until it's resolved
     } catch (e) { console.warn("cloud pull failed", e); Cloud.lastError = String(e.message || e); }
@@ -231,11 +285,11 @@
   };
 
   // ───────── migration of sleds saved on this phone before accounts existed ─────────
-  const unclaimed = kind => get(localKey(kind), []).filter(x => !x.cloudOwner && (kind === "sled" ? String(x.id).startsWith("u") : String(x.id).startsWith("ul")));
-  Cloud.unclaimedCount = () => (Cloud.user ? unclaimed("sled").length + unclaimed("listing").length : 0);
+  const unclaimed = kind => get(localKey(kind), []).filter(x => !x.cloudOwner && (kind === "sled" ? String(x.id).startsWith("u") : kind === "listing" ? String(x.id).startsWith("ul") : /^(pp|p|cm|cmt)/.test(String(x.id))));
+  Cloud.unclaimedCount = () => (Cloud.user ? unclaimed("sled").length + unclaimed("listing").length + unclaimed("photo").length + unclaimed("comment").length : 0);
   Cloud.claimLocal = () => {
     const q = outbox();
-    ["sled", "listing"].forEach(kind => unclaimed(kind).forEach(x => { if (!q.some(y => y.kind === kind && y.id === String(x.id))) q.push({ kind, id: String(x.id), op: "upsert", t: Date.now() }) }));
+    ["sled", "listing", "photo", "comment"].forEach(kind => unclaimed(kind).forEach(x => { if (!q.some(y => y.kind === kind && y.id === String(x.id))) q.push({ kind, id: String(x.id), op: "upsert", t: Date.now() }) }));
     set("outbox", q); set("migrationAsked", true);
     return Cloud.flush().then(Cloud.pull);
   };
@@ -246,7 +300,7 @@
   // that account's cloud). Anything not yet uploaded is kept and left alone.
   function forgetOtherAccounts(uid) {
     const pend = new Set(outbox().map(x => x.kind + ":" + x.id));
-    ["sled", "listing"].forEach(kind => {
+    ["sled", "listing", "photo", "comment"].forEach(kind => {
       const arr = get(localKey(kind), []);
       const keep = arr.filter(x => !x.cloudOwner || x.cloudOwner === uid || pend.has(kind + ":" + x.id));
       if (keep.length !== arr.length) set(localKey(kind), keep);
@@ -272,8 +326,8 @@
     const uid = Cloud.user && Cloud.user.id;
     await Cloud.client.auth.signOut();
     // Remove this account's synced copies from the phone; they come back on next sign-in.
-    ["sleds", "listings"].forEach(k => set(k, get(k, []).filter(x => !x.cloudOwner || x.cloudOwner !== uid)));
-    set("cloudShared", []); set("cloudProfile", null); set("adminViewAs", ""); set("migrationAsked", false);
+    ["sleds", "listings", "photoPosts", "comments"].forEach(k => set(k, get(k, []).filter(x => !x.cloudOwner || x.cloudOwner !== uid)));
+    set("cloudShared", []); set("cloudListings", []); set("cloudPhotos", []); set("cloudComments", []); set("cloudExclusives", null); set("cloudProfile", null); set("adminViewAs", ""); set("migrationAsked", false);
   };
   // Permanently deletes the account, its sleds, ads and photos, and cancels any Stripe subscription
   // (supabase/functions/delete-account). Sleds still on this phone are kept as local-only copies.
@@ -281,16 +335,16 @@
     const { data, error } = await Cloud.client.functions.invoke("delete-account", { method: "POST" });
     if (error || !data || !data.deleted) throw new Error((error && error.message) || (data && data.error) || "Couldn't delete the account");
     const uid = Cloud.user.id;
-    ["sleds", "listings"].forEach(k => set(k, get(k, []).map(x => { if (x.cloudOwner === uid) { const y = Object.assign({}, x); delete y.cloudOwner; return y } return x })));
-    set("outbox", []); set("cloudShared", []); set("cloudProfile", null); set("migrationAsked", true);
+    ["sleds", "listings", "photoPosts", "comments"].forEach(k => set(k, get(k, []).map(x => { if (x.cloudOwner === uid) { const y = Object.assign({}, x); delete y.cloudOwner; return y } return x })));
+    set("outbox", []); set("cloudShared", []); set("cloudListings", []); set("cloudPhotos", []); set("cloudComments", []); set("cloudExclusives", null); set("cloudProfile", null); set("migrationAsked", true);
     await Cloud.client.auth.signOut().catch(() => {});
   };
   Cloud.loadProfile = async () => {
     if (!Cloud.user) { Cloud.profile = null; set("cloudProfile", null); return; }
-    const cols = "id,handle,is_admin,premium_until,stripe_subscription_id,stripe_subscription_status";
+    const cols = "id,handle,display_name,is_admin,premium_until,stripe_subscription_id,stripe_subscription_status,created_at";
     let { data, error } = await Cloud.client.from("profiles").select(cols).eq("id", Cloud.user.id).maybeSingle();
-    // Older databases may not have stripe_subscription_status yet (run the migration in docs/migrations/).
-    if (error && /stripe_subscription_status|column/i.test(error.message)) {
+    // Older databases may not have newer profile columns yet (run the migration in docs/migrations/).
+    if (error && /stripe_subscription_status|display_name|created_at|column/i.test(error.message)) {
       ({ data, error } = await Cloud.client.from("profiles").select("id,handle,is_admin,premium_until,stripe_subscription_id").eq("id", Cloud.user.id).maybeSingle());
     }
     if (error) { Cloud.lastError = error.message; return; }     // offline: keep the cached profile
@@ -302,6 +356,20 @@
     const { error } = await Cloud.client.from("profiles").update({ handle: h }).eq("id", Cloud.user.id);
     if (error) throw new Error(/duplicate|unique/i.test(error.message) ? "That name is taken. Try another." : error.message);
     await Cloud.loadProfile(); emit();
+  };
+  Cloud.setDisplayName = async n => {
+    n = String(n || "").trim().replace(/\s+/g, " ").slice(0, 80);
+    if (n && !/^[\p{L}\p{M} .,'-]{1,80}$/u.test(n)) throw new Error("Use a name with letters, spaces or simple punctuation only.");
+    const { error } = await Cloud.client.from("profiles").update({ display_name: n }).eq("id", Cloud.user.id);
+    if (error) throw new Error(error.message);
+    await Cloud.loadProfile(); emit();
+  };
+  Cloud.displayName = () => (Cloud.profile && Cloud.profile.display_name) || "";
+  Cloud.memberSince = () => (Cloud.profile && Cloud.profile.created_at) || "";
+  Cloud.memberId = () => {
+    const id = Cloud.user && Cloud.user.id;
+    if (!id) return "";
+    return "SF-" + String(id).replace(/-/g, "").slice(0, 8).toUpperCase();
   };
   // An active / past_due / trialing / unpaid subscription should go to the Customer Portal, not a new Checkout.
   Cloud.hasOpenSubscription = () => {
