@@ -7,6 +7,21 @@ Clipper split, the country fields and the Drive sync).
 With `config.js` left empty, the branch still behaves as the demo. Filling in the Supabase URL and anon key
 turns on the real app.
 
+**Preview (so Jonathan can try the real app before `main` changes):** a review copy of this branch is at
+https://jonspangler1-byte.github.io/sled-finder-preview/ (repo `jonspangler1-byte/sled-finder-preview`, built from
+`backend`). The public demo on `main` is unchanged. Preferred later host is a **separate** free Netlify site such as
+`sledfinder-preview.netlify.app` (same account as rosebudsledmuseum.netlify.app), using `netlify.toml` in this branch.
+Do not point the existing GitHub Pages site at `backend`.
+
+For magic-link sign-in to work on the preview, add these to the Supabase project `cpmieqcsbvozwrbjagqm`
+(Authentication → URL Configuration → Redirect URLs), and keep any URLs already listed:
+
+- `https://jonspangler1-byte.github.io/sled-finder-preview/`
+- `https://jonspangler1-byte.github.io/sled-finder-preview/**`
+
+Leave the Site URL as it is unless you want every default redirect to go to the preview. `config.js` `SITE_URL` is
+empty, so the app asks Supabase to return the user to the page they signed in from.
+
 Five pieces, in the order to do them:
 
 1. Accounts and a shared database (Supabase). The code is done and tested offline. It needs a Supabase project.
@@ -192,12 +207,18 @@ Already on this branch (from `drive-sync`). One-time browser steps in Jonathan's
 
 ## 4. Custom domain
 
-Checked 20 Nov 2026. Availability is from the registries' RDAP lookups, where "not registered" means nobody owns it today.
-Prices are Porkbun's public price list (the same registrar as raisasballoons.com). **Nothing was bought.**
+`sledfinder.com` was registered at Porkbun on 20 Nov 2026 (auto-renew through 20 Nov 2027). As of 21 Nov 2026, 9:59 PM
+America/Chicago, Porkbun URL forwarding is in place: the apex and `www` answer on Porkbun IPs (`207.207.210.36`,
+`.23`, `.50`; `www` is a CNAME to `uixie.porkbun.com`) and both HTTP and HTTPS return 302 to the GitHub Pages demo,
+`https://jonspangler1-byte.github.io/sled-collector-mockup/`. Nameservers are Porkbun's. `sledfinder.app` is not
+registered. When the real app launches, change that forwarding (or add GitHub Pages / Netlify DNS as in the setup
+below) so the domain serves the app instead of only bouncing to the demo.
+
+Earlier availability check (20 Nov 2026, before the purchase). Prices are Porkbun's public price list (the same registrar as raisasballoons.com):
 
 | Domain | Status | 1st year | Renewal/yr | Notes |
 |---|---|---|---|---|
-| **sledfinder.com** | not registered | **$11.81** | $11.81 | Best choice; same price as raisasballoons.com |
+| **sledfinder.com** | **registered 20 Nov 2026 at Porkbun** (renews 20 Nov 2027) | paid **$11.81** | $11.81 | Bought. Currently URL-forwards to the GitHub Pages demo |
 | sledfinder.app | not registered | $8.75 | $14.93 | HTTPS-only by design (fine on GitHub Pages) |
 | sledfinder.org | not registered | $7.98 | $11.84 | |
 | sledfinder.net | not registered | $12.52 | $12.52 | |

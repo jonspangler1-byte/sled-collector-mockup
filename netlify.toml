@@ -1,0 +1,8 @@
+# Free Netlify config for a preview (or later production) of this branch.
+# Does not affect the GitHub Pages demo published from main.
+# After `npx netlify login`, create a separate site (e.g. sledfinder-preview)
+# and deploy only the backend branch: `npx netlify deploy --prod --dir=www`
+# (run scripts/build-www.sh first, or let this build command do it).
+[build]
+  command = "bash scripts/build-www.sh"
+  publish = "www"
