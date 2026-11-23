@@ -32,19 +32,19 @@ export function categoryEnabled(settings, kind) {
   return settings[col] !== false;
 }
 
-// Who may receive a notice of this kind (membership gating). Signed-in free users
-// get article notices only; sale / shared-sled / photo notices are members only.
+// Who may receive a notice of this kind (membership gating). Signed-in free and
+// lapsed users get article and sale notices; shared-sled and photo notices stay paid-only.
 export function canReceiveKind(profile, kind, now = Date.now()) {
   if (!profile) return false;
-  if (kind === "article") return true;
-  if (kind === "sled" || kind === "photo" || kind === "listing") return isPremiumProfile(profile, now);
+  if (kind === "article" || kind === "listing") return true;
+  if (kind === "sled" || kind === "photo") return isPremiumProfile(profile, now);
   return false;
 }
 
 export function shouldNotifyUser(notification, profile, settings, now = Date.now()) {
   if (!notification || !profile) return false;
   if (notification.actor_id && notification.actor_id === profile.id) return false;
-  if (notification.kind !== "article") {
+  if (notification.kind === "sled" || notification.kind === "photo") {
     const actor = notification.actor_profile;
     if (actor && !isPremiumProfile(actor, now) && !notification.actor_is_premium) return false;
     if (notification.actor_is_premium === false) return false;

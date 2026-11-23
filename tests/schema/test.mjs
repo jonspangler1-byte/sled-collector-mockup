@@ -36,15 +36,15 @@ await expectOk("prem cannot read other profiles","prem",`select * from profiles`
 await expectOk("prem posts listing","prem",`insert into listings(client_id,title,price) values('ul1','Flexible Flyer 3C','$200')`);
 await db.exec(`insert into listings(owner,client_id,title) values('${ids.lapsed}','ul2','Lapsed ad')`);
 await expectErr("anon cannot read sale listings","anon",`select title from listings`);
-await expectOk("free cannot read sale listings","free",`select title from listings`, r=>r.rows.length===0);
+await expectOk("free can read active sale listings","free",`select title from listings`, r=>r.rows.some(x=>x.title==="Flexible Flyer 3C")&&r.rows.some(x=>x.title==="Lapsed ad"));
 await expectOk("prem sees own listing","prem",`select title from listings`, r=>r.rows.some(x=>x.title==="Flexible Flyer 3C"));
-await expectOk("prem2 sees prem's active listing","prem2",`select title from listings`, r=>r.rows.length===1&&r.rows[0].title==="Flexible Flyer 3C");
-await expectOk("lapsed cannot see others' listings","lapsed",`select title from listings`, r=>r.rows.length===1&&r.rows[0].title==="Lapsed ad");
-await expectErr("free cannot post listing","free",`insert into listings(client_id,title) values('ul3','x')`);
+await expectOk("prem2 sees prem's and lapsed members' active listings","prem2",`select title from listings`, r=>r.rows.some(x=>x.title==="Flexible Flyer 3C")&&r.rows.some(x=>x.title==="Lapsed ad"));
+await expectOk("lapsed can see others' listings","lapsed",`select title from listings`, r=>r.rows.some(x=>x.title==="Flexible Flyer 3C")&&r.rows.some(x=>x.title==="Lapsed ad"));
+await expectOk("free can post listing","free",`insert into listings(client_id,title) values('ul3','Free ad')`);
 await expectErr("anon cannot post listing","anon",`insert into listings(client_id,title) values('ul3','x')`);
 await expectOk("prem uploads to own folder","prem",`insert into storage.objects(bucket_id,name) values('photos','${ids.prem}/u1/a.jpg')`);
 await expectErr("prem cannot upload to other folder","prem",`insert into storage.objects(bucket_id,name) values('photos','${ids.prem2}/u1/a.jpg')`);
-await expectErr("free cannot upload","free",`insert into storage.objects(bucket_id,name) values('photos','${ids.free}/u1/a.jpg')`);
+await expectOk("free can upload to own folder","free",`insert into storage.objects(bucket_id,name) values('photos','${ids.free}/u1/a.jpg')`);
 await expectErr("anyone cannot touch stripe_events","prem",`insert into stripe_events(id,type) values('e','t')`);
 await expectErr("prem cannot change stripe subscription status","prem",`update profiles set stripe_subscription_status='active' where id='${ids.prem}'`);
 
@@ -74,9 +74,9 @@ await expectOk("shared sled insert created a notification","prem2",`select kind,
 await expectOk("poster cannot read their own sled notification","prem",`select * from notifications where kind='sled' and body like '%Speedster%'`, r=>r.rows.length===0);
 await expectOk("free cannot read shared-sled notifications","free",`select * from notifications where kind='sled'`, r=>r.rows.length===0);
 await expectOk("private sled created no notification","admin",`select * from notifications where target_id=(select id::text from sleds where client_id='u2')`, r=>r.rows.length===0);
-await expectOk("sale listing created a notification","prem2",`select kind,title from notifications where kind='listing'`, r=>r.rows.length===1&&r.rows[0].title==="New sled for sale");
-await expectOk("free cannot read sale notifications","free",`select * from notifications where kind='listing'`, r=>r.rows.length===0);
-await expectOk("lapsed poster listing notice is hidden from others","prem2",`select * from notifications where kind='listing' and target_id=(select id::text from listings where client_id='ul2')`, r=>r.rows.length===0);
+await expectOk("sale listing created a notification","prem2",`select kind,title from notifications where kind='listing' and target_id=(select id::text from listings where client_id='ul1')`, r=>r.rows.length===1&&r.rows[0].title==="New sled for sale");
+await expectOk("free can read sale notifications","free",`select * from notifications where kind='listing'`, r=>r.rows.length>=1);
+await expectOk("lapsed poster listing notice is visible to others","prem2",`select * from notifications where kind='listing' and target_id=(select id::text from listings where client_id='ul2')`, r=>r.rows.length===1);
 await expectOk("community photo created a notification","prem2",`select kind from notifications where kind='photo' and body like '%Flexy Racer%'`, r=>r.rows.length===1);
 await expectOk("free cannot read photo notifications","free",`select * from notifications where kind='photo'`, r=>r.rows.length===0);
 await expectOk("placeholder articles did not notify","admin",`select * from notifications where kind='article'`, r=>r.rows.length===0);

@@ -2,11 +2,12 @@
 -- Run once in Supabase → SQL Editor → New query → paste → Run. Safe to re-run (idempotent where practical).
 --
 -- Rules this encodes (from the demo's membership rules):
---   * Anyone (even signed out) can browse active Sleds for Sale.
---   * Only Premium members (or admin) can post sleds, post sale ads, upload photos, and edit their own posts.
+--   * Signed-in members (free, paid, or lapsed) can browse and post Sleds for Sale ads. Signed-out visitors cannot.
+--     A later per-listing "members only" flag may restrict some ads to paid members; it is not in this schema yet.
+--   * Only Premium members (or admin) can post sleds to the catalog, post community photos, and edit those posts.
 --   * Premium members can see other members' SHARED sleds (search + Sled Picker Map). Private sleds: owner only.
---   * When a membership lapses, that member's shared sleds and ads are hidden from others and come back on renewal.
---     The owner can always see (and delete) their own data.
+--   * When a membership lapses, that member's shared sleds are hidden from others and come back on renewal.
+--     Sale ads stay visible. The owner can always see (and delete) their own data.
 --   * Admin (Sled Finder / Jonathan) can read, correct or remove any post or ad.
 --   * Membership (premium_until) and admin can ONLY be changed by the server (Stripe webhook / SQL editor),
 --     never by the app: the anon/authenticated roles have no UPDATE right on those columns.
@@ -173,19 +174,23 @@ drop trigger if exists listings_touch on public.listings;
 create trigger listings_touch before insert or update on public.listings
   for each row execute function public.touch_row();
 
+-- Active listings are visible to any signed-in member. Room is left for a later
+-- per-listing "members only" flag; do not add that column here.
 drop policy if exists "listings: read" on public.listings;
 create policy "listings: read" on public.listings for select using (
   owner = auth.uid()
   or public.is_admin(auth.uid())
-  or (status = 'active' and deleted_at is null and public.is_premium(auth.uid()) and public.is_premium(owner))
+  or (status = 'active' and deleted_at is null and auth.uid() is not null)
 );
 drop policy if exists "listings: insert (premium)" on public.listings;
-create policy "listings: insert (premium)" on public.listings for insert
-  with check (owner = auth.uid() and public.is_premium(auth.uid()));
+drop policy if exists "listings: insert (signed-in)" on public.listings;
+create policy "listings: insert (signed-in)" on public.listings for insert
+  with check (owner = auth.uid() and auth.uid() is not null);
 drop policy if exists "listings: update own (premium) or admin" on public.listings;
-create policy "listings: update own (premium) or admin" on public.listings for update
-  using ((owner = auth.uid() and public.is_premium(auth.uid())) or public.is_admin(auth.uid()))
-  with check ((owner = auth.uid() and public.is_premium(auth.uid())) or public.is_admin(auth.uid()));
+drop policy if exists "listings: update own or admin" on public.listings;
+create policy "listings: update own or admin" on public.listings for update
+  using (owner = auth.uid() or public.is_admin(auth.uid()))
+  with check (owner = auth.uid() or public.is_admin(auth.uid()));
 drop policy if exists "listings: delete own or admin" on public.listings;
 create policy "listings: delete own or admin" on public.listings for delete
   using (owner = auth.uid() or public.is_admin(auth.uid()));
@@ -217,9 +222,9 @@ on conflict (id) do update set public = excluded.public, file_size_limit = exclu
   allowed_mime_types = excluded.allowed_mime_types;
 
 drop policy if exists "photos: premium upload to own folder" on storage.objects;
-create policy "photos: premium upload to own folder" on storage.objects for insert to authenticated
-  with check (bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text
-              and public.is_premium(auth.uid()));
+drop policy if exists "photos: upload to own folder" on storage.objects;
+create policy "photos: upload to own folder" on storage.objects for insert to authenticated
+  with check (bucket_id = 'photos' and (storage.foldername(name))[1] = auth.uid()::text);
 drop policy if exists "photos: replace own" on storage.objects;
 create policy "photos: replace own" on storage.objects for update to authenticated
   using (bucket_id = 'photos' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin(auth.uid())));
@@ -452,8 +457,9 @@ create policy "notifications: read" on public.notifications for select using (
   and actor_id is distinct from auth.uid()
   and (
     kind = 'article'
+    or kind = 'listing'
     or (
-      kind in ('sled','photo','listing')
+      kind in ('sled','photo')
       and public.is_premium(auth.uid())
       and (actor_id is null or public.is_premium(actor_id))
     )

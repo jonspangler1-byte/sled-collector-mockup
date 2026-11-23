@@ -33,7 +33,8 @@ const photo = { id: "n3", kind: "photo", actor_id: ACTOR, title: "New community 
 const listing = { id: "n4", kind: "listing", actor_id: ACTOR, title: "New sled for sale", href: "#/listing/cx", actor_is_premium: true };
 
 ok(canReceiveKind(prem, "listing", now), "premium can receive sale notices");
-ok(!canReceiveKind(free, "listing", now), "free cannot receive sale notices");
+ok(canReceiveKind(free, "listing", now), "free can receive sale notices");
+ok(canReceiveKind(lapsed, "listing", now), "lapsed can receive sale notices");
 ok(!canReceiveKind(lapsed, "photo", now), "lapsed cannot receive photo notices");
 ok(canReceiveKind(free, "article", now), "free can receive article notices");
 ok(canReceiveKind(admin, "sled", now), "admin can receive shared-sled notices");
@@ -44,7 +45,7 @@ ok(!shouldNotifyUser(sled, free, on, now), "free does not get a shared-sled noti
 ok(shouldNotifyUser(article, free, on, now), "free receives an article notice");
 ok(!shouldNotifyUser(listing, prem, offListings, now), "category toggle off suppresses sale notices");
 ok(!shouldNotifyUser(listing, prem, { ...on, push_enabled: false }, now), "push_enabled false suppresses a push");
-ok(!shouldNotifyUser({ ...listing, actor_is_premium: false }, prem, on, now), "lapsed actor's sale notice is not pushed");
+ok(shouldNotifyUser({ ...listing, actor_is_premium: false }, prem, on, now), "lapsed actor's sale notice is still pushed");
 ok(shouldNotifyUser(photo, admin, on, now), "admin receives a community photo notice");
 
 const recips = recipientsForNotification(listing, [
@@ -53,7 +54,7 @@ const recips = recipientsForNotification(listing, [
   { profile: actor, settings: on, now },
   { profile: prem, settings: offListings, now },
 ]);
-ok(recips.length === 1 && recips[0].profile.id === PREM, "recipient list is premium, opted-in, not the poster");
+ok(recips.length === 2 && recips.some(x => x.profile.id === PREM) && recips.some(x => x.profile.id === FREE), "recipient list is opted-in signed-in members, not the poster");
 
 const payload = pushPayload(sled);
 ok(payload.title === "New shared sled" && payload.href === "#/sled/cx" && payload.kind === "sled", "push payload carries title, href and kind");
