@@ -28,7 +28,7 @@ function emitNotice(kind, row) {
   if (kind === "sled") { title = "New shared sled"; body = (handle ? "@" + handle + " shared " : "A member shared ") + (row.model || "a sled"); href = "#/sled/c" + row.id }
   else if (kind === "photo") { title = "New community photo"; body = (handle ? "@" + handle + " posted a photo" : "A member posted a photo"); href = "#/photopost/c" + row.id }
   else if (kind === "listing") { title = "New sled for sale"; body = (row.title || "A sled is for sale") + (row.price ? " · " + row.price : ""); href = "#/listing/c" + row.id }
-  else { title = row.category === "magazine" ? "New Vintage Runner article" : "New exclusive article"; body = row.title || "A new article is up"; href = (row.category === "magazine" ? "#/article/" : "#/exclusive/") + row.id }
+  else { title = row.source === "vintage-runner" ? "New Vintage Runner article" : (row.access === "exclusive" ? "New exclusive article" : "New article"); body = row.title || "A new article is up"; href = "#/article/" + row.id }
   S.notifications.push({ id: crypto.randomUUID(), kind, target_id: tid, actor_id: row.owner || null, title, body, href, created_at: new Date().toISOString() });
 }
 function query(q) {
@@ -80,6 +80,14 @@ function query(q) {
     if (q.op === "update") { const p = S.profiles[uid]; if (!p) return { data: null, error: null }; if (Object.keys(q.row).some(k => k !== "handle" && k !== "display_name")) return { error: { message: "permission denied for table profiles" } };
       if (q.row.handle && Object.values(S.profiles).some(x => x.handle === q.row.handle && x.id !== uid)) return { error: { message: "duplicate key value violates unique constraint" } }; if (q.row.handle) p.handle = q.row.handle; if ("display_name" in q.row) p.display_name = q.row.display_name; [...S.sleds, ...S.listings, ...S.photo_posts, ...S.comments].filter(r => r.owner === uid).forEach(r => r.owner_handle = p.handle); return { data: null, error: null } }
   }
+  if (q.table === "article_teasers") {
+    if (q.op !== "select") return { error: { message: "permission denied" } };
+    const rows = S.articles.filter(r => r.published && match(r, q.filters)).map(r => {
+      const { body, data, ...teaser } = r;
+      return JSON.parse(JSON.stringify(teaser));
+    });
+    return { data: rows, error: null };
+  }
   const T = S[q.table];
   if (!T) return { data: q.op === "select" ? [] : null, error: q.op === "select" ? null : { message: "unknown table " + q.table } };
   const visible = r => {
@@ -87,7 +95,7 @@ function query(q) {
     if (q.table === "sleds") return r.shared && !r.deleted_at && isPrem(uid) && isPrem(r.owner);
     if (q.table === "listings") return r.status === "active" && !r.deleted_at && isPrem(uid) && isPrem(r.owner);
     if (q.table === "photo_posts" || q.table === "comments") return !r.deleted_at && isPrem(uid) && isPrem(r.owner);
-    if (q.table === "articles") return r.published && isPrem(uid);
+    if (q.table === "articles") return r.published && (r.access === "free" || isPrem(uid));
     return false;
   };
   if (q.op === "select") return { data: T.filter(r => visible(r) && match(r, q.filters)).map(r => JSON.parse(JSON.stringify(r))), error: null };
@@ -209,7 +217,7 @@ async function addSled(page, model, shared) {
   ok(ev.includes("Gail Borden Public Library") && ev.includes("Ela Area Public Library") && ev.includes("Rolling Meadows") && ev.includes("rosebudsledmuseum.com") && ev.includes("January 2027"), "demo: events lists the three programs from the museum website");
   await go(page, "#/articles");
   const art = await page.textContent("#view");
-  ok(art.includes("Exclusive Articles") && art.includes("throughout the year") && /Thanksgiving/.test(art) && art.includes("Vintage Runner Magazine"), "demo: Exclusive Articles are separate from the annual magazine");
+  ok(art.includes("Vintage Runner Magazine") && /Thanksgiving/.test(art) && /exclusive articles/i.test(art) && art.includes("throughout the year"), "demo: articles page keeps magazine chrome and free vs exclusive copy");
   await go(page, "#/photos");
   ok((await page.textContent("#view")).includes("Post photos") && (await page.textContent("#view")).includes("Flexy Racer"), "demo: premium sees the community photo gallery");
   await go(page, "#/home");
@@ -245,6 +253,10 @@ async function addSled(page, model, shared) {
 
 // ════════ 2. Live mode ════════
 const oldSled = { id: "u1700000000000", user: "you", userAdded: true, mine: true, likes: 0, maker: 1, brand: "", makerText: "", model: "Pre-account Flyer", years: "1920s", condition: "Good", size: "—", found: "barn", notes: "", shared: true, locType: "na", country: "US", town: "NA", imgs: [DATAPIC], img: DATAPIC };
+S.articles.push(
+  { id: "free-one", access: "free", source: "online", title: "A free welcome", dek: "A teaser for everyone", body: "Hello free reader.", data: {}, published: true, example: false, sort_order: 1 },
+  { id: "ex-one", access: "exclusive", source: "vintage-runner", title: "An exclusive feature", dek: "Members-only teaser", body: "", data: { kicker: "Feature", blocks: [{ type: "p", text: "Secret exclusive body." }] }, published: true, example: false, sort_order: 2 }
+);
 const A = await device(true, { svc_sleds: [oldSled] });
 {
   const p = A.page;
@@ -253,6 +265,14 @@ const A = await device(true, { svc_sleds: [oldSled] });
   ok(await p.locator("#viewAs").count() === 0, "live: signed-out user has no role switcher");
   await go(p, "#/add"); ok((await p.textContent("#view")).includes("members"), "live: signed out cannot add (members gate)");
   await go(p, "#/sale"); ok((await p.textContent("#view")).includes("Sign in to see Sleds for Sale"), "live: signed out cannot browse sale listings");
+  await go(p, "#/articles");
+  const artsOut = await p.textContent("#view");
+  ok(artsOut.includes("A free welcome") && artsOut.includes("An exclusive feature") && artsOut.includes("Join to read"), "live: signed out sees free and exclusive teasers");
+  await go(p, "#/article/free-one");
+  ok((await p.textContent("#view")).includes("Hello free reader."), "live: signed out can read a free article");
+  await go(p, "#/article/ex-one");
+  const exOut = await p.textContent("#view");
+  ok(exOut.includes("Members-only teaser") && exOut.includes("Join to read") && !exOut.includes("Secret exclusive body."), "live: signed out sees exclusive teaser and Join, not the body");
   await go(p, "#/upgrade"); ok(await p.locator('a[href="#/account"]').count() > 0, "live: paywall asks to sign in first");
   await go(p, "#/account"); await p.fill("#signf [name=email]", "jonathan@example.test"); await p.click("#signf button"); await p.waitForTimeout(400);
   ok(await p.locator("#codef").count() === 1, "live: code entry shown after email");
@@ -267,6 +287,8 @@ const A = await device(true, { svc_sleds: [oldSled] });
   ok(/membership is active/.test(await p.evaluate(() => SFCloud.lastError)), "live: explains it uploads once membership is active");
   await go(p, "#/sale");
   ok((await p.textContent("#view")).includes("Post a sled for sale") && !(await p.textContent("#view")).includes("Sleds for Sale is for members"), "live: signed-in free member can browse and post listings");
+  await go(p, "#/article/ex-one");
+  ok((await p.textContent("#view")).includes("Join to read") && !(await p.textContent("#view")).includes("Secret exclusive body."), "live: signed-in free member cannot read exclusive body");
   await go(p, "#/upgrade");
   const uid = await p.evaluate(() => SFCloud.user.id);
   ok(await p.locator("#joinP").count() > 0, "live: join button shown");
@@ -287,6 +309,8 @@ const A = await device(true, { svc_sleds: [oldSled] });
   ok((await p.textContent("#museumTicket")).includes("Member Admission") && (await p.textContent("#museumTicket")).includes("Schaumburg"), "live: premium member can open the museum ticket");
   await go(p, "#/sale");
   ok((await p.textContent("#view")).includes("Post a sled for sale"), "live: premium member can browse Sleds for Sale");
+  await go(p, "#/article/ex-one");
+  ok((await p.textContent("#view")).includes("Secret exclusive body."), "live: premium member can read exclusive body");
   const portalUrl = await p.evaluate(() => SFCloud.startCheckout());
   ok(portalUrl && portalUrl.includes("billing.stripe.com") && portalUrl.includes("test_portal_" + uid), "live: existing active subscription opens the Customer Portal, not a new Checkout");
   ok(S.sleds.length === 1 && S.sleds[0].model === "Pre-account Flyer" && S.sleds[0].photos[0].startsWith("https://fake.supabase.co/") && S.uploads.length === 1, "live: migrated sled + photo uploaded");

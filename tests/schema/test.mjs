@@ -4,6 +4,8 @@ const db = new PGlite();
 await db.exec(fs.readFileSync(new URL("./stubs.sql", import.meta.url),"utf8"));
 const schema = fs.readFileSync(new URL("../../docs/supabase-schema.sql", import.meta.url),"utf8");
 await db.exec(schema); await db.exec(schema); console.log("schema ok (ran twice)");
+const artMig = fs.readFileSync(new URL("../../docs/migrations/2026-11-23-articles-free-exclusive.sql", import.meta.url),"utf8");
+await db.exec(artMig); await db.exec(artMig); console.log("articles migration ok (ran twice)");
 const ids = {};
 for (const n of ["free","prem","prem2","admin","lapsed"]) { const r = await db.query("insert into auth.users(email) values($1) returning id",[n+"@x.test"]); ids[n]=r.rows[0].id; }
 await db.exec(`update profiles set premium_until=now()+interval '1 year' where id in ('${ids.prem}','${ids.prem2}');
@@ -65,10 +67,12 @@ await expectOk("prem2 reads prem's comment","prem2",`select body from comments`,
 await expectOk("free sees no comments","free",`select * from comments`, r=>r.rows.length===0);
 await expectOk("handle still propagates to sleds","prem",`select owner_handle from sleds where client_id='u1'`, r=>r.rows[0].owner_handle==="flyer_fan");
 await expectOk("handle propagates to photo posts","prem",`select owner_handle from photo_posts where client_id='pp1'`, r=>r.rows[0].owner_handle==="flyer_fan");
-await expectOk("anon can read article teasers","anon",`select id,category,title from article_teasers where category='exclusive'`, r=>r.rows.length===3&&r.rows.every(x=>x.category==="exclusive"));
-await expectOk("free cannot read exclusive article body","free",`select body from articles`, r=>r.rows.length===0);
-await expectOk("prem can read exclusive article body","prem",`select body from articles where category='exclusive'`, r=>r.rows.length===3&&r.rows.every(x=>/example placeholder/i.test(x.body)));
-await expectErr("prem cannot write articles","prem",`insert into articles(id,category,title) values('x','exclusive','nope')`);
+await expectOk("anon can read article teasers","anon",`select id,access,source,title from article_teasers`, r=>r.rows.length>=13&&r.rows.every(x=>x.access==="exclusive")&&r.rows.some(x=>x.id==="placeholder-1"&&x.source==="online")&&r.rows.some(x=>x.id==="sleds-of-the-revolution"&&x.source==="vintage-runner"));
+await expectOk("free cannot read exclusive article body","free",`select id,body,data from articles`, r=>r.rows.length===0);
+await expectOk("lapsed cannot read exclusive article body","lapsed",`select id from articles`, r=>r.rows.length===0);
+await expectOk("anon cannot read exclusive article body","anon",`select id from articles`, r=>r.rows.length===0);
+await expectOk("prem can read exclusive article body","prem",`select id,body,data,access,source from articles`, r=>r.rows.length>=13&&r.rows.filter(x=>x.id.startsWith("placeholder-")).every(x=>/example placeholder/i.test(x.body))&&r.rows.some(x=>x.id==="sleds-of-the-revolution"&&x.source==="vintage-runner"&&(x.data.blocks||[]).length>0));
+await expectErr("prem cannot write articles","prem",`insert into articles(id,access,title) values('x','exclusive','nope')`);
 
 await expectOk("shared sled insert created a notification","prem2",`select kind,title,body from notifications where kind='sled' and body like '%Speedster%'`, r=>r.rows.length===1&&r.rows[0].title==="New shared sled");
 await expectOk("poster cannot read their own sled notification","prem",`select * from notifications where kind='sled' and body like '%Speedster%'`, r=>r.rows.length===0);
@@ -80,10 +84,14 @@ await expectOk("lapsed poster listing notice is visible to others","prem2",`sele
 await expectOk("community photo created a notification","prem2",`select kind from notifications where kind='photo' and body like '%Flexy Racer%'`, r=>r.rows.length===1);
 await expectOk("free cannot read photo notifications","free",`select * from notifications where kind='photo'`, r=>r.rows.length===0);
 await expectOk("placeholder articles did not notify","admin",`select * from notifications where kind='article'`, r=>r.rows.length===0);
-await db.exec(`insert into articles(id,category,title,body,published,example,sort_order) values('vr-test','exclusive','A real exclusive for members','Body of a real exclusive article.',true,false,10)`);
-await expectOk("published exclusive creates an article notification","free",`select title,href from notifications where kind='article'`, r=>r.rows.length===1&&r.rows[0].title==="New exclusive article"&&r.rows[0].href==="#/exclusive/vr-test");
-await expectOk("example article still does not notify","admin",`insert into articles(id,category,title,published,example) values('ex-test','exclusive','Just a placeholder',true,true) returning id`, r=>r.rows.length===1);
-await expectOk("still only one article notification","admin",`select * from notifications where kind='article'`, r=>r.rows.length===1);
+await db.exec(`insert into articles(id,access,source,title,body,published,example,sort_order) values('vr-test','exclusive','online','A real exclusive for members','Body of a real exclusive article.',true,false,10)`);
+await db.exec(`insert into articles(id,access,source,title,body,published,example,sort_order) values('free-test','free','online','A free welcome piece','Body of a free article.',true,false,11)`);
+await expectOk("published exclusive creates an article notification","free",`select title,href from notifications where kind='article' and target_id='vr-test'`, r=>r.rows.length===1&&r.rows[0].title==="New exclusive article"&&r.rows[0].href==="#/article/vr-test");
+await expectOk("published free article is also announced","free",`select title,href from notifications where kind='article' and target_id='free-test'`, r=>r.rows.length===1&&r.rows[0].title==="New article"&&r.rows[0].href==="#/article/free-test");
+await expectOk("anon can read a free article body","anon",`select body from articles where id='free-test'`, r=>r.rows.length===1&&r.rows[0].body==="Body of a free article.");
+await expectOk("free member can read a free article body","free",`select body from articles where id='free-test'`, r=>r.rows.length===1);
+await expectOk("example article still does not notify","admin",`insert into articles(id,access,title,published,example) values('ex-test','exclusive','Just a placeholder',true,true) returning id`, r=>r.rows.length===1);
+await expectOk("still only the real (non-example) article notifications","admin",`select * from notifications where kind='article'`, r=>r.rows.length===2&&r.rows.every(x=>x.target_id==="vr-test"||x.target_id==="free-test"));
 await expectOk("new user has default notification settings","prem",`select notify_sleds,notify_articles,notify_photos,notify_listings,push_enabled from notification_settings`, r=>r.rows.length===1&&r.rows[0].notify_sleds===true&&r.rows[0].push_enabled===false);
 await expectOk("prem can turn off sale notices","prem",`update notification_settings set notify_listings=false where user_id='`+ids.prem+`' returning notify_listings`, r=>r.rows.length===1&&r.rows[0].notify_listings===false);
 await expectErr("prem cannot read prem2 settings","prem",`select * from notification_settings where user_id='`+ids.prem2+`'`);

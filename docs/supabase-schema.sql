@@ -351,14 +351,16 @@ create policy "comments: delete own or admin" on public.comments for delete
 grant select, insert, update, delete on public.comments to authenticated;
 revoke all on public.comments from anon;
 
--- ───────────────────────── articles (magazine vs exclusive) ─────────────────────────
--- Magazine issue text stays in articles.js and is not copied here. This table holds
--- exclusive (online-only) articles, plus any future magazine-issue metadata.
--- Category 'magazine' = Vintage Runner (annual, around Thanksgiving / winter).
--- Category 'exclusive' = online-only pieces published throughout the year, not printed.
+-- ───────────────────────── articles (free vs exclusive) ─────────────────────────
+-- Access 'free' = anyone can read the body, including signed-out visitors.
+-- Access 'exclusive' = paid members (or admin) only. Titles and teasers stay public.
+-- Source 'vintage-runner' = from Vintage Runner Magazine; 'online' = online-only.
+-- Issue 1 magazine text is loaded by docs/migrations/2026-11-23-articles-free-exclusive.sql
+-- (not in this file) so exclusive bodies are not kept in the public JS bundle.
 create table if not exists public.articles (
   id text primary key,
-  category text not null check (category in ('magazine','exclusive')),
+  access text not null default 'exclusive' check (access in ('free','exclusive')),
+  source text not null default 'online' check (source in ('vintage-runner','online')),
   title text not null,
   dek text not null default '',
   body text not null default '',
@@ -372,37 +374,75 @@ create table if not exists public.articles (
 );
 alter table public.articles enable row level security;
 
--- Teasers (no body) are readable by anyone, so free and lapsed members can see titles.
-create or replace view public.article_teasers
+-- Re-run safety if an older copy of this file created the table with category.
+alter table public.articles add column if not exists access text;
+alter table public.articles add column if not exists source text;
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'articles' and column_name = 'category'
+  ) then
+    update public.articles
+       set access = coalesce(nullif(access, ''), 'exclusive'),
+           source = case
+             when category = 'magazine' then 'vintage-runner'
+             else coalesce(nullif(source, ''), 'online')
+           end;
+    alter table public.articles drop constraint if exists articles_category_check;
+    alter table public.articles drop column if exists category;
+  end if;
+end $$;
+update public.articles set access = 'exclusive' where access is null;
+update public.articles set source = 'online' where source is null;
+alter table public.articles alter column access set default 'exclusive';
+alter table public.articles alter column source set default 'online';
+alter table public.articles alter column access set not null;
+alter table public.articles alter column source set not null;
+alter table public.articles drop constraint if exists articles_access_check;
+alter table public.articles add constraint articles_access_check check (access in ('free','exclusive'));
+alter table public.articles drop constraint if exists articles_source_check;
+alter table public.articles add constraint articles_source_check check (source in ('vintage-runner','online'));
+
+-- Teasers (no body, no data) are readable by anyone, including signed-out visitors.
+drop view if exists public.article_teasers;
+create view public.article_teasers
 with (security_invoker = false) as
-  select id, category, title, dek, byline, published, example, sort_order, created_at
+  select id, access, source, title, dek, byline, published, example, sort_order, created_at
   from public.articles
   where published = true;
 grant select on public.article_teasers to anon, authenticated;
 
--- Full article body: Premium (or admin) only. Magazine issue text is not stored here.
+-- Full body: free articles for anyone; exclusive for Premium or admin.
 drop policy if exists "articles: read body (premium)" on public.articles;
-create policy "articles: read body (premium)" on public.articles for select
-  using (published and (public.is_premium(auth.uid()) or public.is_admin(auth.uid())));
+drop policy if exists "articles: read body" on public.articles;
+create policy "articles: read body" on public.articles for select
+  using (
+    published
+    and (
+      access = 'free'
+      or public.is_premium(auth.uid())
+      or public.is_admin(auth.uid())
+    )
+  );
 drop policy if exists "articles: admin write" on public.articles;
 create policy "articles: admin write" on public.articles for all
   using (public.is_admin(auth.uid()))
   with check (public.is_admin(auth.uid()));
-grant select on public.articles to authenticated;
+grant select on public.articles to anon, authenticated;
 grant insert, update, delete on public.articles to authenticated;  -- RLS limits writes to admin
-revoke all on public.articles from anon;
 
-insert into public.articles (id, category, title, dek, body, example, published, sort_order)
+insert into public.articles (id, access, source, title, dek, body, example, published, sort_order)
 values
-  ('placeholder-1','exclusive','Coming soon: online-only article 1',
+  ('placeholder-1','exclusive','online','Coming soon: online-only article 1',
    'A short exclusive for members, not printed in the magazine. Example placeholder.',
    'This exclusive article is still being written. When it is ready, paid members will read it here. It is online only and will not be printed in the magazine. This entry is an example placeholder.',
    true, true, 1),
-  ('placeholder-2','exclusive','Coming soon: online-only article 2',
+  ('placeholder-2','exclusive','online','Coming soon: online-only article 2',
    'A future short article that will not appear in the printed Vintage Runner. Example placeholder.',
    'This exclusive article is still being written. When it is ready, paid members will read it here. It is online only and will not be printed in the magazine. This entry is an example placeholder.',
    true, true, 2),
-  ('placeholder-3','exclusive','Coming soon: online-only article 3',
+  ('placeholder-3','exclusive','online','Coming soon: online-only article 3',
    'Another members-only short piece, being written now. Example placeholder.',
    'This exclusive article is still being written. When it is ready, paid members will read it here. It is online only and will not be printed in the magazine. This entry is an example placeholder.',
    true, true, 3)
@@ -641,9 +681,13 @@ begin
     visible := coalesce((n->>'published')::boolean, false) and not coalesce((n->>'example')::boolean, false);
     was_visible := coalesce((o->>'published')::boolean, false) and not coalesce((o->>'example')::boolean, false);
     go := visible and (tg_op = 'INSERT' or not was_visible);
-    ttl := case when n->>'category' = 'magazine' then 'New Vintage Runner article' else 'New exclusive article' end;
+    ttl := case
+      when coalesce(n->>'source', '') = 'vintage-runner' then 'New Vintage Runner article'
+      when coalesce(n->>'access', '') = 'exclusive' then 'New exclusive article'
+      else 'New article'
+    end;
     bdy := left(coalesce(nullif(n->>'title', ''), 'A new article is up'), 280);
-    ref := case when n->>'category' = 'magazine' then '#/article/' else '#/exclusive/' end || new.id;
+    ref := '#/article/' || new.id;
   else
     return null;
   end if;
