@@ -856,7 +856,7 @@ R.unknown=()=>{bar("Unknown / unconfirmed makers",{back:true,sub:"Not filed unde
 // ===== Suggestions to the developer. Delivered free with no keys in the app:
 // 1) a Google Form in Sled Finder's Google account (set SUGGEST_FORM.action + entry ids once the form exists), posted
 //    straight from the app so the existing Google Form alert catches it; 2) otherwise a pre-filled email to the museum.
-const APP_VER="b14";
+const APP_VER="b15";
 const SUGGEST_FORM={action:"https://docs.google.com/forms/d/e/1FAIpQLSeL5-bPPHkSnMlo-utOtZdRJfQN5yUCQRQOt19Bgt4VAjkmBA/formResponse",fields:{category:"entry.1937538793",message:"entry.790371823",name:"entry.1603670551",email:"entry.1586826346",context:"entry.1782360007"}};
 let lastScreen="#/home";window.addEventListener("hashchange",e=>{try{const h=new URL(e.oldURL).hash||"#/home";if(!/^#\/suggest/.test(h))lastScreen=h}catch(x){}});
 const SUGGEST_EMAIL="rbsledmuseum@gmail.com";
@@ -984,7 +984,7 @@ R.account=()=>{bar("Account",{back:true,sub:CLOUD&&CLOUD.user?"@"+me():"Sign in"
     const k=$("#skipmig");if(k)k.onclick=()=>{CLOUD.skipMigration();route()};
     const y=$("#syncnow");if(y)y.onclick=async()=>{y.disabled=true;y.textContent="Syncing…";await CLOUD.syncNow();toast(CLOUD.lastError?"Sync problem: "+CLOUD.lastError:"Synced");route()};
     const mp=$("#manageP");if(mp)mp.onclick=()=>openStripeUrl(mp,"portal");
-    const dl=$("#delacct");if(dl)dl.onclick=async()=>{if(!confirm("Delete your Sled Finder account? This removes your account, your shared sleds, sale ads and uploaded photos from Sled Finder for good, and cancels your membership. Sleds on this phone stay on this phone."))return;if(prompt("Type DELETE to confirm")!=="DELETE")return;dl.disabled=true;try{await CLOUD.deleteAccount();toast("Account deleted",4000);location.hash="#/profile"}catch(err){dl.disabled=false;toast(err.message,6000)}};
+    const dl=$("#delacct");if(dl)dl.onclick=async()=>{if(!confirm("Delete your Sled Finder account? This cancels any membership and permanently removes all your sleds on the server, shared and private, plus your sale ads and uploaded photos. Sleds saved only on this phone stay on this phone. This can't be undone."))return;if(prompt("Type DELETE to confirm")!=="DELETE")return;dl.disabled=true;try{await CLOUD.deleteAccount();toast("Account deleted",4000);location.hash="#/profile"}catch(err){dl.disabled=false;toast(err.message,6000)}};
     const o=$("#signout");if(o)o.onclick=async()=>{if(!confirm("Sign out of Sled Finder on this phone?"))return;try{await CLOUD.signOut();toast("Signed out");location.hash="#/profile"}catch(err){toast(err.message,6000)}}});
   return `<div class="form">
   <h3 class="sec" style="margin:0">Membership</h3><p style="margin:0"><b>${esc(memberLine())}</b></p>
