@@ -408,7 +408,8 @@ alter table public.articles add constraint articles_source_check check (source i
 drop view if exists public.article_teasers;
 create view public.article_teasers
 with (security_invoker = false) as
-  select id, access, source, title, dek, byline, published, example, sort_order, created_at
+  select id, access, source, title, dek, byline, published, example, sort_order, created_at,
+         coalesce((data->>'comingSoon')::boolean, false) as coming_soon
   from public.articles
   where published = true;
 grant select on public.article_teasers to anon, authenticated;
@@ -432,20 +433,20 @@ create policy "articles: admin write" on public.articles for all
 grant select on public.articles to anon, authenticated;
 grant insert, update, delete on public.articles to authenticated;  -- RLS limits writes to admin
 
-insert into public.articles (id, access, source, title, dek, body, example, published, sort_order)
+insert into public.articles (id, access, source, title, dek, body, example, published, sort_order, data)
 values
-  ('placeholder-1','exclusive','online','Coming soon: online-only article 1',
-   'A short exclusive for members, not printed in the magazine. Example placeholder.',
+  ('placeholder-1','exclusive','online','Collector Focus',
+   'Exclusive, online only.',
    'This exclusive article is still being written. When it is ready, paid members will read it here. It is online only and will not be printed in the magazine. This entry is an example placeholder.',
-   true, true, 1),
-  ('placeholder-2','exclusive','online','Coming soon: online-only article 2',
-   'A future short article that will not appear in the printed Vintage Runner. Example placeholder.',
+   true, true, 101, '{"comingSoon": true}'::jsonb),
+  ('placeholder-2','exclusive','online','Paris Racers',
+   'Exclusive, online only.',
    'This exclusive article is still being written. When it is ready, paid members will read it here. It is online only and will not be printed in the magazine. This entry is an example placeholder.',
-   true, true, 2),
-  ('placeholder-3','exclusive','online','Coming soon: online-only article 3',
-   'Another members-only short piece, being written now. Example placeholder.',
+   true, true, 102, '{"comingSoon": true}'::jsonb),
+  ('placeholder-3','exclusive','online','Big Sleds!',
+   'Exclusive, online only.',
    'This exclusive article is still being written. When it is ready, paid members will read it here. It is online only and will not be printed in the magazine. This entry is an example placeholder.',
-   true, true, 3)
+   true, true, 103, '{"comingSoon": true}'::jsonb)
 on conflict (id) do nothing;
 
 -- Handle changes also propagate to community photo posts and comments (tables exist by this point).

@@ -84,6 +84,7 @@ function query(q) {
     if (q.op !== "select") return { error: { message: "permission denied" } };
     const rows = S.articles.filter(r => r.published && match(r, q.filters)).map(r => {
       const { body, data, ...teaser } = r;
+      teaser.coming_soon = !!(r.coming_soon || (data && (data.comingSoon || data.coming_soon)));
       return JSON.parse(JSON.stringify(teaser));
     });
     return { data: rows, error: null };
@@ -255,7 +256,10 @@ async function addSled(page, model, shared) {
 const oldSled = { id: "u1700000000000", user: "you", userAdded: true, mine: true, likes: 0, maker: 1, brand: "", makerText: "", model: "Pre-account Flyer", years: "1920s", condition: "Good", size: "—", found: "barn", notes: "", shared: true, locType: "na", country: "US", town: "NA", imgs: [DATAPIC], img: DATAPIC };
 S.articles.push(
   { id: "free-one", access: "free", source: "online", title: "A free welcome", dek: "A teaser for everyone", body: "Hello free reader.", data: {}, published: true, example: false, sort_order: 1 },
-  { id: "ex-one", access: "exclusive", source: "vintage-runner", title: "An exclusive feature", dek: "Members-only teaser", body: "", data: { kicker: "Feature", blocks: [{ type: "p", text: "Secret exclusive body." }] }, published: true, example: false, sort_order: 2 }
+  { id: "ex-one", access: "exclusive", source: "vintage-runner", title: "An exclusive feature", dek: "Members-only teaser", body: "", data: { kicker: "Feature", blocks: [{ type: "p", text: "Secret exclusive body." }] }, published: true, example: false, sort_order: 2 },
+  { id: "placeholder-1", access: "exclusive", source: "online", title: "Collector Focus", dek: "Exclusive, online only.", body: "This exclusive article is still being written.", data: { comingSoon: true }, published: true, example: true, sort_order: 101 },
+  { id: "placeholder-2", access: "exclusive", source: "online", title: "Paris Racers", dek: "Exclusive, online only.", body: "This exclusive article is still being written.", data: { comingSoon: true }, published: true, example: true, sort_order: 102 },
+  { id: "placeholder-3", access: "exclusive", source: "online", title: "Big Sleds!", dek: "Exclusive, online only.", body: "This exclusive article is still being written.", data: { comingSoon: true }, published: true, example: true, sort_order: 103 }
 );
 const A = await device(true, { svc_sleds: [oldSled] });
 {
@@ -267,12 +271,16 @@ const A = await device(true, { svc_sleds: [oldSled] });
   await go(p, "#/sale"); ok((await p.textContent("#view")).includes("Sign in to see Sleds for Sale"), "live: signed out cannot browse sale listings");
   await go(p, "#/articles");
   const artsOut = await p.textContent("#view");
-  ok(artsOut.includes("Free articles") && artsOut.includes("Exclusive articles") && artsOut.includes("A free welcome") && artsOut.includes("An exclusive feature") && artsOut.includes("Join to read"), "live: signed out sees Free and Exclusive sections with teasers");
+  ok(artsOut.includes("Free articles") && artsOut.includes("Exclusive articles") && artsOut.includes("A free welcome") && artsOut.includes("An exclusive feature") && artsOut.includes("Collector Focus") && artsOut.includes("Paris Racers") && artsOut.includes("Big Sleds!") && artsOut.includes("Coming soon") && artsOut.includes("Join to read"), "live: signed out sees Free and Exclusive sections with teasers");
+  ok(await p.locator('a[href="#/article/placeholder-1"]').count()===0 && await p.locator('a[href="#/article/ex-one"]').count()===1, "live: coming-soon teasers are not links; real exclusive teasers are");
   await go(p, "#/article/free-one");
   ok((await p.textContent("#view")).includes("Hello free reader."), "live: signed out can read a free article");
   await go(p, "#/article/ex-one");
   const exOut = await p.textContent("#view");
   ok(exOut.includes("Members-only teaser") && exOut.includes("Join to read") && !exOut.includes("Secret exclusive body."), "live: signed out sees exclusive teaser and Join, not the body");
+  await go(p, "#/article/placeholder-1");
+  const soonOut = await p.textContent("#view");
+  ok(/coming soon/i.test(soonOut) && !soonOut.includes("still being written"), "live: coming-soon article has no body");
   await go(p, "#/upgrade"); ok(await p.locator('a[href="#/account"]').count() > 0, "live: paywall asks to sign in first");
   await go(p, "#/account"); await p.fill("#signf [name=email]", "jonathan@example.test"); await p.click("#signf button"); await p.waitForTimeout(400);
   ok(await p.locator("#codef").count() === 1, "live: code entry shown after email");

@@ -6,6 +6,8 @@ const schema = fs.readFileSync(new URL("../../docs/supabase-schema.sql", import.
 await db.exec(schema); await db.exec(schema); console.log("schema ok (ran twice)");
 const artMig = fs.readFileSync(new URL("../../docs/migrations/2026-11-23-articles-free-exclusive.sql", import.meta.url),"utf8");
 await db.exec(artMig); await db.exec(artMig); console.log("articles migration ok (ran twice)");
+const soonMig = fs.readFileSync(new URL("../../docs/migrations/2026-11-23-articles-coming-soon.sql", import.meta.url),"utf8");
+await db.exec(soonMig); await db.exec(soonMig); console.log("coming soon migration ok (ran twice)");
 const ids = {};
 for (const n of ["free","prem","prem2","admin","lapsed"]) { const r = await db.query("insert into auth.users(email) values($1) returning id",[n+"@x.test"]); ids[n]=r.rows[0].id; }
 await db.exec(`update profiles set premium_until=now()+interval '1 year' where id in ('${ids.prem}','${ids.prem2}');
@@ -67,7 +69,7 @@ await expectOk("prem2 reads prem's comment","prem2",`select body from comments`,
 await expectOk("free sees no comments","free",`select * from comments`, r=>r.rows.length===0);
 await expectOk("handle still propagates to sleds","prem",`select owner_handle from sleds where client_id='u1'`, r=>r.rows[0].owner_handle==="flyer_fan");
 await expectOk("handle propagates to photo posts","prem",`select owner_handle from photo_posts where client_id='pp1'`, r=>r.rows[0].owner_handle==="flyer_fan");
-await expectOk("anon can read article teasers","anon",`select id,access,source,title from article_teasers`, r=>r.rows.length>=13&&r.rows.some(x=>x.id==="samuel-leeds-allen"&&x.access==="free"&&x.source==="vintage-runner")&&r.rows.filter(x=>x.id!=="samuel-leeds-allen").every(x=>x.access==="exclusive")&&r.rows.some(x=>x.id==="placeholder-1"&&x.source==="online"));
+await expectOk("anon can read article teasers","anon",`select id,access,source,title,coming_soon,dek from article_teasers`, r=>r.rows.length>=13&&r.rows.some(x=>x.id==="samuel-leeds-allen"&&x.access==="free"&&x.source==="vintage-runner"&&!x.coming_soon)&&r.rows.filter(x=>x.id!=="samuel-leeds-allen").every(x=>x.access==="exclusive")&&r.rows.some(x=>x.id==="placeholder-1"&&x.title==="Collector Focus"&&x.source==="online"&&x.coming_soon===true)&&r.rows.some(x=>x.id==="placeholder-2"&&x.title==="Paris Racers"&&x.coming_soon===true)&&r.rows.some(x=>x.id==="placeholder-3"&&x.title==="Big Sleds!"&&x.coming_soon===true));
 await expectOk("free can read only the free magazine article body","free",`select id,access from articles`, r=>r.rows.length===1&&r.rows[0].id==="samuel-leeds-allen"&&r.rows[0].access==="free");
 await expectOk("lapsed can read only the free magazine article body","lapsed",`select id from articles`, r=>r.rows.length===1&&r.rows[0].id==="samuel-leeds-allen");
 await expectOk("anon can read only the free magazine article body","anon",`select id from articles`, r=>r.rows.length===1&&r.rows[0].id==="samuel-leeds-allen");
