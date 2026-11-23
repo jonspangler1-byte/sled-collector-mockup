@@ -14,6 +14,7 @@
 -- backfill does not send "new article" notices.
 
 -- ── columns, backfill from the old category, drop category ──────────────
+drop view if exists public.article_teasers;  -- must go before dropping category (view depends on it)
 alter table public.articles add column if not exists access text;
 alter table public.articles add column if not exists source text;
 
@@ -303,3 +304,6 @@ on conflict (id) do update set
   updated_at = now();
 
 alter table public.articles enable trigger articles_notify;
+
+-- Jonathan's pick (23 Nov 2026): this article is free.
+update public.articles set access = 'free', updated_at = now() where id = 'samuel-leeds-allen';
