@@ -306,4 +306,6 @@ on conflict (id) do update set
 alter table public.articles enable trigger articles_notify;
 
 -- Jonathan's pick (23 Nov 2026): this article is free.
+alter table public.articles disable trigger articles_notify;
 update public.articles set access = 'free', updated_at = now() where id = 'samuel-leeds-allen';
+alter table public.articles enable trigger articles_notify;
