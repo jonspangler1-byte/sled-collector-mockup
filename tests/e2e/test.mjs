@@ -217,7 +217,7 @@ async function addSled(page, model, shared) {
   ok(ev.includes("Gail Borden Public Library") && ev.includes("Ela Area Public Library") && ev.includes("Rolling Meadows") && ev.includes("rosebudsledmuseum.com") && ev.includes("January 2027"), "demo: events lists the three programs from the museum website");
   await go(page, "#/articles");
   const art = await page.textContent("#view");
-  ok(art.includes("Vintage Runner Magazine") && /Thanksgiving/.test(art) && /exclusive articles/i.test(art) && art.includes("throughout the year"), "demo: articles page keeps magazine chrome and free vs exclusive copy");
+  ok(art.includes("Vintage Runner Magazine") && /Thanksgiving/.test(art) && art.includes("Free articles") && art.includes("Exclusive articles") && art.includes("Coming soon."), "demo: articles page has Free and Exclusive sections plus magazine chrome");
   await go(page, "#/photos");
   ok((await page.textContent("#view")).includes("Post photos") && (await page.textContent("#view")).includes("Flexy Racer"), "demo: premium sees the community photo gallery");
   await go(page, "#/home");
@@ -267,7 +267,7 @@ const A = await device(true, { svc_sleds: [oldSled] });
   await go(p, "#/sale"); ok((await p.textContent("#view")).includes("Sign in to see Sleds for Sale"), "live: signed out cannot browse sale listings");
   await go(p, "#/articles");
   const artsOut = await p.textContent("#view");
-  ok(artsOut.includes("A free welcome") && artsOut.includes("An exclusive feature") && artsOut.includes("Join to read"), "live: signed out sees free and exclusive teasers");
+  ok(artsOut.includes("Free articles") && artsOut.includes("Exclusive articles") && artsOut.includes("A free welcome") && artsOut.includes("An exclusive feature") && artsOut.includes("Join to read"), "live: signed out sees Free and Exclusive sections with teasers");
   await go(p, "#/article/free-one");
   ok((await p.textContent("#view")).includes("Hello free reader."), "live: signed out can read a free article");
   await go(p, "#/article/ex-one");

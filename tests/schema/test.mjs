@@ -67,10 +67,11 @@ await expectOk("prem2 reads prem's comment","prem2",`select body from comments`,
 await expectOk("free sees no comments","free",`select * from comments`, r=>r.rows.length===0);
 await expectOk("handle still propagates to sleds","prem",`select owner_handle from sleds where client_id='u1'`, r=>r.rows[0].owner_handle==="flyer_fan");
 await expectOk("handle propagates to photo posts","prem",`select owner_handle from photo_posts where client_id='pp1'`, r=>r.rows[0].owner_handle==="flyer_fan");
-await expectOk("anon can read article teasers","anon",`select id,access,source,title from article_teasers`, r=>r.rows.length>=13&&r.rows.every(x=>x.access==="exclusive")&&r.rows.some(x=>x.id==="placeholder-1"&&x.source==="online")&&r.rows.some(x=>x.id==="sleds-of-the-revolution"&&x.source==="vintage-runner"));
-await expectOk("free cannot read exclusive article body","free",`select id,body,data from articles`, r=>r.rows.length===0);
-await expectOk("lapsed cannot read exclusive article body","lapsed",`select id from articles`, r=>r.rows.length===0);
-await expectOk("anon cannot read exclusive article body","anon",`select id from articles`, r=>r.rows.length===0);
+await expectOk("anon can read article teasers","anon",`select id,access,source,title from article_teasers`, r=>r.rows.length>=13&&r.rows.some(x=>x.id==="samuel-leeds-allen"&&x.access==="free"&&x.source==="vintage-runner")&&r.rows.filter(x=>x.id!=="samuel-leeds-allen").every(x=>x.access==="exclusive")&&r.rows.some(x=>x.id==="placeholder-1"&&x.source==="online"));
+await expectOk("free can read only the free magazine article body","free",`select id,access from articles`, r=>r.rows.length===1&&r.rows[0].id==="samuel-leeds-allen"&&r.rows[0].access==="free");
+await expectOk("lapsed can read only the free magazine article body","lapsed",`select id from articles`, r=>r.rows.length===1&&r.rows[0].id==="samuel-leeds-allen");
+await expectOk("anon can read only the free magazine article body","anon",`select id from articles`, r=>r.rows.length===1&&r.rows[0].id==="samuel-leeds-allen");
+await expectOk("anon cannot read exclusive article bodies","anon",`select id from articles where access='exclusive'`, r=>r.rows.length===0);
 await expectOk("prem can read exclusive article body","prem",`select id,body,data,access,source from articles`, r=>r.rows.length>=13&&r.rows.filter(x=>x.id.startsWith("placeholder-")).every(x=>/example placeholder/i.test(x.body))&&r.rows.some(x=>x.id==="sleds-of-the-revolution"&&x.source==="vintage-runner"&&(x.data.blocks||[]).length>0));
 await expectErr("prem cannot write articles","prem",`insert into articles(id,access,title) values('x','exclusive','nope')`);
 
