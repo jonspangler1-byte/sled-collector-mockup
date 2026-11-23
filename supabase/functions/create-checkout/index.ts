@@ -14,6 +14,17 @@ import {
 const OPEN = ["active", "past_due", "trialing", "unpaid"];
 
 Deno.serve(async (req) => {
+  try {
+    return await handle(req);
+  } catch (e) {
+    // Stripe errors carry type/code/message but never the API key.
+    const err = e as { type?: string; code?: string; param?: string; message?: string; statusCode?: number };
+    console.error("create-checkout failed", err.type ?? "", err.code ?? "", err.param ?? "", err.statusCode ?? "", err.message ?? String(e));
+    return json({ error: "Checkout could not start: " + (err.message ?? "unknown error") }, 502);
+  }
+});
+
+async function handle(req: Request): Promise<Response> {
   const auth = await requireUser(req);
   if ("preflight" in auth) return auth.preflight!;
   if ("error" in auth) return auth.error!;
@@ -29,7 +40,10 @@ Deno.serve(async (req) => {
   const { data: prof, error: pErr } = await db.from("profiles")
     .select("stripe_customer_id,stripe_subscription_id,stripe_subscription_status")
     .eq("id", user.id).maybeSingle();
-  if (pErr) return json({ error: pErr.message }, 500);
+  if (pErr) {
+    console.error("create-checkout: profiles read failed", pErr.code, pErr.message);
+    return json({ error: "Could not read your membership record: " + pErr.message }, 500);
+  }
 
   const stripe = stripeClient();
 
@@ -89,4 +103,4 @@ Deno.serve(async (req) => {
   });
   if (!session.url) return json({ error: "Checkout did not return a URL" }, 500);
   return json({ url: session.url });
-});
+}

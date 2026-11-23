@@ -668,3 +668,18 @@ create trigger listings_notify after insert or update on public.listings
 drop trigger if exists articles_notify on public.articles;
 create trigger articles_notify after insert or update on public.articles
   for each row execute function public.emit_content_notification();
+
+-- ───────────────────────── server (Edge Function) access ─────────────────────────
+-- Newer projects don't grant table access to service_role automatically. The Edge Functions
+-- use service_role (server-only, bypasses RLS), so grant it explicitly.
+-- Same as docs/migrations/2026-11-23-service-role-grants.sql.
+grant usage on schema public to service_role;
+grant select, insert, update, delete on all tables in schema public to service_role;
+grant usage, select on all sequences in schema public to service_role;
+grant execute on all functions in schema public to service_role;
+alter default privileges for role postgres in schema public
+  grant select, insert, update, delete on tables to service_role;
+alter default privileges for role postgres in schema public
+  grant usage, select on sequences to service_role;
+alter default privileges for role postgres in schema public
+  grant execute on functions to service_role;
