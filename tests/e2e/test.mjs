@@ -385,5 +385,22 @@ const Cm = await device(true);
   const after = (await ls(p, "sleds")) || [];
   ok(after.length === before && after.every(x => !x.cloudOwner) && await p.evaluate(() => !SFCloud.user), "delete account: phone keeps sleds as local-only copies, signed out");
 }
+
+// Android TWA: no Stripe checkout / Join Premium CTA (Play Payments policy).
+{
+  const { ctx, page, errors } = await device(true);
+  await page.goto(BASE + "?src=twa#/upgrade"); await page.waitForTimeout(800);
+  const up = await page.textContent("#view");
+  ok(await page.locator("#joinP").count() === 0, "twa: no Join Premium checkout button");
+  ok(/available on the Sled Finder website/.test(up) && !/Secure checkout by Stripe/.test(up) && !/Sign in to join/.test(up), "twa: upgrade page explains website signup with no Stripe checkout");
+  ok(await page.locator('a[href="#/account"]').count() > 0, "twa: signed-out users can still sign in");
+  ok(await page.evaluate(() => !!(window.SF_isAndroidTwa && window.SF_isAndroidTwa())), "twa: ?src=twa is detected");
+  // Flag persists after the query string is gone (hash navigations).
+  await go(page, "#/home");
+  await go(page, "#/upgrade");
+  ok(await page.locator("#joinP").count() === 0 && await page.evaluate(() => window.SF_isAndroidTwa()), "twa: detection survives in-app navigation");
+  ok(!errors.length, "twa: no JS errors " + JSON.stringify(errors));
+  await ctx.close();
+}
 await browser.close(); srv.close();
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
