@@ -187,9 +187,25 @@ async function addSled(page, model, shared) {
   const { ctx, page, errors } = await device(false);
   ok(await page.title() === "Sled Finder — clickable mockup" || (await page.title()).includes("clickable mockup"), "demo: title still says clickable mockup");
   ok((await ls(page, "outbox")) === null, "demo: no outbox / no cloud activity");
-  for (const h of ["#/home", "#/collection", "#/makers", "#/maker/1", "#/sale", "#/profile", "#/upgrade", "#/account", "#/map", "#/identify", "#/search", "#/suggest", "#/events", "#/ticket", "#/photos", "#/articles", "#/notifications"]) { await go(page, h); }
+  for (const h of ["#/home", "#/collection", "#/makers", "#/maker/1", "#/sale", "#/profile", "#/upgrade", "#/account", "#/map", "#/identify", "#/search", "#/database", "#/suggest", "#/events", "#/ticket", "#/photos", "#/articles", "#/notifications"]) { await go(page, h); }
   ok(await page.locator("#viewAs").count() === 1, "demo: Viewing-as switcher still shown");
   ok((await page.textContent("#view")).length > 0, "demo: screens render");
+  const tabOrder = await page.locator("#tabbar a").evaluateAll(els => els.map(a => a.dataset.tab));
+  ok(tabOrder.join(",") === "home,collection,add,sale,events,makers,database,profile", "demo: tab bar order is Home, My Sleds, Add, For Sale, Events, Makers, Database, Profile");
+  ok(await page.locator('#tabbar a[data-tab="database"]').getAttribute("href") === "#/database", "demo: Database tab opens the Sled Maker and Model Database view");
+  ok(await page.locator('#tabbar a[data-tab="database"] svg').count() === 1 && /Database/.test(await page.locator('#tabbar a[data-tab="database"]').innerText()), "demo: Database tab is labeled Database and has a magnifier icon");
+  await page.setViewportSize({ width: 390, height: 844 });
+  const layout = await page.locator("#tabbar a").evaluateAll(els => els.map(a => { const b = a.getBoundingClientRect(); return { tab: a.dataset.tab, x: b.x, w: b.width, h: b.height, r: b.right }; }));
+  ok(layout.length === 8 && layout.every(t => t.w >= 36 && t.h >= 32 && t.x >= 0 && t.r <= 391), "demo: all 8 tabs are visible and tappable on a 390px iPhone width");
+  ok(layout.every((t, i) => i === 0 || t.x >= layout[i - 1].x + 2), "demo: tab bar items do not overlap at 390px");
+  await go(page, "#/database");
+  ok(await page.locator('#tabbar a[data-tab="database"]').evaluate(el => el.classList.contains("on")) && await page.locator('#tabbar a[data-tab="home"]').evaluate(el => !el.classList.contains("on")), "demo: Database tab is active on #/database");
+  ok(await page.locator("#database").count() === 1, "demo: Database tab shows the Sled Maker and Model Database section");
+  await go(page, "#/search");
+  ok(await page.locator('#tabbar a[data-tab="database"]').evaluate(el => el.classList.contains("on")) && await page.locator("#q").count() === 1, "demo: Database tab stays active on the search view");
+  await go(page, "#/home");
+  ok(await page.locator('#tabbar a[data-tab="home"]').evaluate(el => el.classList.contains("on")) && await page.locator('#tabbar a[data-tab="database"]').evaluate(el => !el.classList.contains("on")), "demo: Home tab is active again on #/home");
+  await page.setViewportSize({ width: 420, height: 900 });
   await page.evaluate(() => { localStorage.setItem("svc_role", JSON.stringify("premium")) });
   await addSled(page, "Demo Flyer", false);
   const sl = await ls(page, "sleds");
