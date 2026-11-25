@@ -1,6 +1,6 @@
 // End-to-end check of Sled Finder in demo mode and live (cloud) mode with a fake Supabase backend.
 // Run: npm i (in this folder) then `node test.mjs`. Needs a Chromium for playwright-core (npx playwright install chromium-headless-shell).
-import { chromium } from "playwright-core";
+import { chromium, webkit, devices } from "playwright-core";
 import http from "http"; import fs from "fs"; import path from "path"; import crypto from "crypto";
 const ROOT = path.resolve(new URL("../..", import.meta.url).pathname);
 const FAKE = fs.readFileSync(new URL("./fake-supabase.js", import.meta.url), "utf8");
@@ -209,7 +209,7 @@ async function addSled(page, model, shared) {
   for (const t of ["Ski Sled","Steerable Sled","Cutter","Clipper","Sleigh","Tri-Runner"]) {
     ok(await page.locator(`#addf [name=sledType] option[value="${t}"]`).count() === 1, `demo: ${t} is a sled type on the add form`);
   }
-  // Photo picker: large always-visible ✕, confirm, cover promotion, persists on save
+  // Photo picker: large always-visible ✕, undo toast (no native confirm), cover promotion, persists on save
   const help = await page.textContent("#addpk .pk-help");
   ok(/✕/.test(help) && /cover/i.test(help), "demo: photo hint mentions the cover and the ✕");
   await page.click("#addpk .pk-demo"); await page.click("#addpk .pk-demo"); await page.click("#addpk .pk-demo");
@@ -218,13 +218,18 @@ async function addSled(page, model, shared) {
   ok(xBox && xBox.width >= 32 && xBox.height >= 32, "demo: photo delete control is at least 32px");
   ok(await page.locator("#addpk .pk-t").first().locator(".pk-cover").count() === 1, "demo: first photo shows the cover badge");
   const bgs = await page.$$eval("#addpk .pk-t", els => els.map(e => e.style.backgroundImage));
-  page.once("dialog", d => d.accept());
   await page.locator("#addpk .pk-t").first().locator(".pk-x").click();
   const afterCoverDel = await page.$$eval("#addpk .pk-t", els => els.map(e => e.style.backgroundImage));
   ok(afterCoverDel.length === 2 && afterCoverDel[0] === bgs[1] && afterCoverDel[1] === bgs[2], "demo: deleting the cover promotes the next photo");
+  ok((await page.textContent("#toast")).includes("Photo removed") && await page.locator("#toast .toast-act").count() === 1, "demo: delete shows an Undo toast, not a native confirm");
+  await page.click("#toast .toast-act");
+  const afterUndo = await page.$$eval("#addpk .pk-t", els => els.map(e => e.style.backgroundImage));
+  ok(afterUndo.length === 3 && afterUndo[0] === bgs[0] && afterUndo[1] === bgs[1], "demo: Undo restores the removed cover photo");
+  await page.locator("#addpk .pk-t").first().locator(".pk-x").click();
+  const afterRedo = await page.$$eval("#addpk .pk-t", els => els.map(e => e.style.backgroundImage));
+  ok(afterRedo.length === 2 && afterRedo[0] === bgs[1], "demo: deleting the cover again after Undo still promotes the next photo");
   ok(await page.locator("#addpk .pk-t").first().locator(".pk-cover").count() === 1, "demo: new first photo keeps the cover badge");
   const coverBg = afterCoverDel[0];
-  page.once("dialog", d => d.accept());
   await page.locator("#addpk .pk-t").nth(1).locator(".pk-x").click();
   const afterNonCover = await page.$$eval("#addpk .pk-t", els => els.map(e => e.style.backgroundImage));
   ok(afterNonCover.length === 1 && afterNonCover[0] === coverBg, "demo: deleting a non-cover photo does not change the cover");
@@ -243,7 +248,6 @@ async function addSled(page, model, shared) {
     const u = (el.style.backgroundImage || "").replace(/^url\(["']?/, "").replace(/["']?\)$/, "");
     return u.split("/").pop();
   });
-  page.once("dialog", d => d.accept());
   await page.locator("#addpk .pk-t").first().locator(".pk-x").click();
   await page.check("#addf [name=ack]");
   await page.click("#addf button[type=submit]"); await page.waitForTimeout(900);
@@ -449,5 +453,57 @@ const Cm = await device(true);
   ok(!errors.length, "twa: no JS errors " + JSON.stringify(errors));
   await ctx.close();
 }
+
+// ════════ iPhone WebKit: tap ✕, photo disappears and stays gone after save ════════
+{
+  let wk = null;
+  try { wk = await webkit.launch(); } catch (e) { ok(false, "webkit: could not launch (" + (e && e.message || e) + ")"); }
+  if (wk) {
+    const iPhone = devices["iPhone 13"];
+    const ctx = await wk.newContext({ ...iPhone });
+    await ctx.route("**/config.js*", r => r.fulfill({ contentType: "application/javascript", body: `window.SF_CONFIG={SUPABASE_URL:"",SUPABASE_ANON_KEY:"",STRIPE_CHECKOUT:false,STRIPE_PAYMENT_LINK:"",STRIPE_PORTAL_LINK:"",SHOW_SAMPLE_DATA:true};` }));
+    await ctx.route(/nominatim|photon|geocod|rosebudsledmuseum\.com|events\.json/i, r => r.fulfill({ status: 404, body: "" }));
+    const errors = [];
+    const page = await ctx.newPage();
+    page.on("pageerror", e => errors.push(e.message));
+    page.on("dialog", d => { errors.push("unexpected native dialog: " + d.message()); d.dismiss(); });
+    await page.goto(BASE + "#/home"); await page.waitForTimeout(800);
+    await page.evaluate(() => { localStorage.setItem("svc_role", JSON.stringify("premium")); });
+    await go(page, "#/add"); await page.waitForSelector("#addpk .pk-demo");
+    await page.locator("#addpk .pk-demo").tap();
+    await page.locator("#addpk .pk-demo").tap();
+    ok(await page.locator("#addpk .pk-t").count() === 2, "webkit iPhone: two demo photos appear");
+    const bgs = await page.$$eval("#addpk .pk-t", els => els.map(e => e.style.backgroundImage));
+    await page.locator("#addpk .pk-t").first().locator(".pk-x").tap();
+    const after = await page.$$eval("#addpk .pk-t", els => els.map(e => e.style.backgroundImage));
+    ok(after.length === 1 && after[0] === bgs[1], "webkit iPhone: tapping ✕ removes the cover and promotes the next photo, no confirm dialog");
+    ok(await page.locator("#addpk .pk-t").first().locator(".pk-cover").count() === 1, "webkit iPhone: remaining photo shows the cover badge");
+    ok((await page.textContent("#toast")).includes("Photo removed"), "webkit iPhone: Undo toast appears after delete");
+    await page.fill("#addf [name=model]", "iPhone Delete Flyer");
+    await page.check("#addf input[name=locType][value=na]");
+    await page.check("#addf [name=ack]");
+    await page.locator("#addf button[type=submit]").tap(); await page.waitForTimeout(900);
+    const saved = ((await ls(page, "sleds")) || []).find(s => s.model === "iPhone Delete Flyer");
+    ok(saved && saved.imgs && saved.imgs.length === 1, "webkit iPhone: remaining photo is saved with the new sled");
+    await go(page, "#/edit/" + saved.id); await page.waitForSelector("#addpk .pk-t");
+    ok(await page.locator("#addpk .pk-t").count() === 1, "webkit iPhone: edit form loads the one saved photo");
+    await page.locator("#addpk .pk-demo").tap();
+    ok(await page.locator("#addpk .pk-t").count() === 2, "webkit iPhone: a second photo can be added when editing");
+    const keepFile = await page.evaluate(() => {
+      const el = document.querySelectorAll("#addpk .pk-t")[1];
+      const u = (el.style.backgroundImage || "").replace(/^url\(["']?/, "").replace(/["']?\)$/, "");
+      return u.split("/").pop();
+    });
+    await page.locator("#addpk .pk-t").first().locator(".pk-x").tap();
+    ok(await page.locator("#addpk .pk-t").count() === 1, "webkit iPhone: tapping ✕ on the cover while editing removes it");
+    await page.check("#addf [name=ack]");
+    await page.locator("#addf button[type=submit]").tap(); await page.waitForTimeout(900);
+    const saved2 = ((await ls(page, "sleds")) || []).find(s => s.model === "iPhone Delete Flyer");
+    ok(saved2 && saved2.imgs && saved2.imgs.length === 1 && String(saved2.imgs[0]).includes(keepFile), "webkit iPhone: deletion on an existing sled persists after save");
+    ok(errors.length === 0, "webkit iPhone: no JS errors or native dialogs " + JSON.stringify(errors));
+    await ctx.close(); await wk.close();
+  }
+}
+
 await browser.close(); srv.close();
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
