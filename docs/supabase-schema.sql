@@ -103,7 +103,7 @@ create table if not exists public.sleds (
   maker int not null default 0,              -- matrix row number; 0 = unknown/custom
   brand text not null default '',            -- "Fire Fly" / "Yankee Clipper" for maker 2
   model text not null default '',
-  sled_type text not null default '' check (sled_type in ('','Runner','Toboggan','Cutter','Bobsled','Saucer','Traverse','Flexy Racer','Other')),
+  sled_type text not null default '' check (sled_type in ('','Runner','Toboggan','Cutter','Bobsled','Saucer','Traverse','Flexy Racer','Ski Sled','Steerable Sled','Clipper','Sleigh','Tri-Runner','Other')),
   country text not null default 'US' check (country in ('US','CA','GB','IE')),
   region text not null default '',           -- state / province / county
   town text not null default '',             -- town level only
@@ -153,7 +153,7 @@ create table if not exists public.listings (
   maker int not null default 0,
   brand text not null default '',
   model text not null default '',
-  sled_type text not null default '' check (sled_type in ('','Runner','Toboggan','Cutter','Bobsled','Saucer','Traverse','Flexy Racer','Other')),
+  sled_type text not null default '' check (sled_type in ('','Runner','Toboggan','Cutter','Bobsled','Saucer','Traverse','Flexy Racer','Ski Sled','Steerable Sled','Clipper','Sleigh','Tri-Runner','Other')),
   price text not null default '',
   country text not null default 'US' check (country in ('US','CA','GB','IE')),
   town text not null default '',
@@ -244,11 +244,11 @@ alter table public.sleds add column if not exists sled_type text not null defaul
 alter table public.listings add column if not exists sled_type text not null default '';
 do $$ begin
   alter table public.sleds add constraint sleds_sled_type_check
-    check (sled_type in ('','Runner','Toboggan','Cutter','Bobsled','Saucer','Traverse','Flexy Racer','Other'));
+    check (sled_type in ('','Runner','Toboggan','Cutter','Bobsled','Saucer','Traverse','Flexy Racer','Ski Sled','Steerable Sled','Clipper','Sleigh','Tri-Runner','Other'));
 exception when duplicate_object then null; end $$;
 do $$ begin
   alter table public.listings add constraint listings_sled_type_check
-    check (sled_type in ('','Runner','Toboggan','Cutter','Bobsled','Saucer','Traverse','Flexy Racer','Other'));
+    check (sled_type in ('','Runner','Toboggan','Cutter','Bobsled','Saucer','Traverse','Flexy Racer','Ski Sled','Steerable Sled','Clipper','Sleigh','Tri-Runner','Other'));
 exception when duplicate_object then null; end $$;
 
 -- Shared touch trigger for community posts and comments (no lat/lng rounding).

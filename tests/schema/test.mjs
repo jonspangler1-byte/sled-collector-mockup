@@ -8,6 +8,8 @@ const artMig = fs.readFileSync(new URL("../../docs/migrations/2026-11-23-article
 await db.exec(artMig); await db.exec(artMig); console.log("articles migration ok (ran twice)");
 const soonMig = fs.readFileSync(new URL("../../docs/migrations/2026-11-23-articles-coming-soon.sql", import.meta.url),"utf8");
 await db.exec(soonMig); await db.exec(soonMig); console.log("coming soon migration ok (ran twice)");
+const typeMig = fs.readFileSync(new URL("../../docs/migrations/2026-11-24-sled-types.sql", import.meta.url),"utf8");
+await db.exec(typeMig); await db.exec(typeMig); console.log("sled types migration ok (ran twice)");
 const ids = {};
 for (const n of ["free","prem","prem2","admin","lapsed"]) { const r = await db.query("insert into auth.users(email) values($1) returning id",[n+"@x.test"]); ids[n]=r.rows[0].id; }
 await db.exec(`update profiles set premium_until=now()+interval '1 year' where id in ('${ids.prem}','${ids.prem2}');
@@ -53,6 +55,9 @@ await expectErr("anyone cannot touch stripe_events","prem",`insert into stripe_e
 await expectErr("prem cannot change stripe subscription status","prem",`update profiles set stripe_subscription_status='active' where id='${ids.prem}'`);
 
 await expectOk("prem can set Flexy Racer type","prem",`insert into sleds(client_id,model,sled_type,shared) values('u-flexy','Flexy Racer 200','Flexy Racer',true) returning sled_type`, r=>r.rows[0].sled_type==="Flexy Racer");
+await expectOk("prem can set Ski Sled type","prem",`insert into sleds(client_id,model,sled_type,shared) values('u-ski','Steermaster','Ski Sled',false) returning sled_type`, r=>r.rows[0].sled_type==="Ski Sled");
+await expectOk("prem can set Clipper type on a listing","prem",`insert into listings(client_id,title,sled_type) values('ul-clip','A clipper','Clipper') returning sled_type`, r=>r.rows[0].sled_type==="Clipper");
+await expectOk("prem can set Sleigh type on a listing","prem",`insert into listings(client_id,title,sled_type) values('ul-sleigh','A sleigh','Sleigh') returning sled_type`, r=>r.rows[0].sled_type==="Sleigh");
 await expectErr("prem cannot set made-up sled type","prem",`insert into sleds(client_id,model,sled_type) values('u-bad','X','Flying Saucer')`);
 await expectOk("prem sets display name","prem",`update profiles set display_name='Sam Collector' where id='${ids.prem}' returning display_name`, r=>r.rows[0].display_name==="Sam Collector");
 await expectErr("free cannot post photo","free",`insert into photo_posts(client_id,caption,photos) values('pp1','x',array['https://example/a.jpg'])`);

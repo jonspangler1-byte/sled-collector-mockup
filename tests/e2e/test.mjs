@@ -206,10 +206,17 @@ async function addSled(page, model, shared) {
   await page.evaluate(() => { localStorage.setItem("svc_role", JSON.stringify("premium")) });
   await go(page, "#/add");
   ok(await page.locator('#addf [name=sledType] option[value="Flexy Racer"]').count() === 1, "demo: Flexy Racer is a sled type on the add form");
+  for (const t of ["Ski Sled","Steerable Sled","Cutter","Clipper","Sleigh","Tri-Runner"]) {
+    ok(await page.locator(`#addf [name=sledType] option[value="${t}"]`).count() === 1, `demo: ${t} is a sled type on the add form`);
+  }
   await go(page, "#/sale");
   const sale = await page.textContent("#view");
   ok(sale.includes("Post a sled for sale") && !sale.includes("Sleds for Sale is for members"), "demo: premium can browse sale listings");
-  ok((await page.locator("#typef").textContent()).includes("Flexy Racer"), "demo: sale type filter includes Flexy Racer");
+  const typef = await page.locator("#typef").textContent();
+  ok(typef.includes("Flexy Racer"), "demo: sale type filter includes Flexy Racer");
+  for (const t of ["Ski Sled","Steerable Sled","Cutter","Clipper","Sleigh","Tri-Runner"]) {
+    ok(typef.includes(t), `demo: sale type filter includes ${t}`);
+  }
   await go(page, "#/ticket");
   const ticket = await page.textContent("#museumTicket");
   ok(ticket.includes("Rosebud Sled Museum — Member Admission") && ticket.includes("Schaumburg") && ticket.includes("Sample Member") && ticket.includes("SF-DEMO-P") && ticket.includes("Valid through") && !/Berkshire|719|Lane/.test(ticket), "demo: premium ticket shows name, dates, member ID and Schaumburg only");
