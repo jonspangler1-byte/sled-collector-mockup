@@ -209,6 +209,46 @@ async function addSled(page, model, shared) {
   for (const t of ["Ski Sled","Steerable Sled","Cutter","Clipper","Sleigh","Tri-Runner"]) {
     ok(await page.locator(`#addf [name=sledType] option[value="${t}"]`).count() === 1, `demo: ${t} is a sled type on the add form`);
   }
+  // Photo picker: large always-visible ✕, confirm, cover promotion, persists on save
+  const help = await page.textContent("#addpk .pk-help");
+  ok(/✕/.test(help) && /cover/i.test(help), "demo: photo hint mentions the cover and the ✕");
+  await page.click("#addpk .pk-demo"); await page.click("#addpk .pk-demo"); await page.click("#addpk .pk-demo");
+  ok(await page.locator("#addpk .pk-t").count() === 3 && await page.locator("#addpk .pk-x").count() === 3, "demo: three thumbnails each have a delete control");
+  const xBox = await page.locator("#addpk .pk-x").first().boundingBox();
+  ok(xBox && xBox.width >= 32 && xBox.height >= 32, "demo: photo delete control is at least 32px");
+  ok(await page.locator("#addpk .pk-t").first().locator(".pk-cover").count() === 1, "demo: first photo shows the cover badge");
+  const bgs = await page.$$eval("#addpk .pk-t", els => els.map(e => e.style.backgroundImage));
+  page.once("dialog", d => d.accept());
+  await page.locator("#addpk .pk-t").first().locator(".pk-x").click();
+  const afterCoverDel = await page.$$eval("#addpk .pk-t", els => els.map(e => e.style.backgroundImage));
+  ok(afterCoverDel.length === 2 && afterCoverDel[0] === bgs[1] && afterCoverDel[1] === bgs[2], "demo: deleting the cover promotes the next photo");
+  ok(await page.locator("#addpk .pk-t").first().locator(".pk-cover").count() === 1, "demo: new first photo keeps the cover badge");
+  const coverBg = afterCoverDel[0];
+  page.once("dialog", d => d.accept());
+  await page.locator("#addpk .pk-t").nth(1).locator(".pk-x").click();
+  const afterNonCover = await page.$$eval("#addpk .pk-t", els => els.map(e => e.style.backgroundImage));
+  ok(afterNonCover.length === 1 && afterNonCover[0] === coverBg, "demo: deleting a non-cover photo does not change the cover");
+  await page.fill("#addf [name=model]", "Photo Delete Flyer");
+  await page.check("#addf input[name=locType][value=na]");
+  await page.check("#addf [name=ack]");
+  await page.click("#addf button[type=submit]"); await page.waitForTimeout(900);
+  const saved = ((await ls(page, "sleds")) || []).find(s => s.model === "Photo Delete Flyer");
+  ok(saved && saved.imgs && saved.imgs.length === 1, "demo: remaining photo is saved with the sled");
+  await go(page, "#/edit/" + saved.id); await page.waitForSelector("#addpk .pk-t");
+  ok(await page.locator("#addpk .pk-t").count() === 1, "demo: edit form loads the saved photo");
+  await page.click("#addpk .pk-demo");
+  ok(await page.locator("#addpk .pk-t").count() === 2, "demo: a second photo can be added when editing");
+  const keepFile = await page.evaluate(() => {
+    const el = document.querySelectorAll("#addpk .pk-t")[1];
+    const u = (el.style.backgroundImage || "").replace(/^url\(["']?/, "").replace(/["']?\)$/, "");
+    return u.split("/").pop();
+  });
+  page.once("dialog", d => d.accept());
+  await page.locator("#addpk .pk-t").first().locator(".pk-x").click();
+  await page.check("#addf [name=ack]");
+  await page.click("#addf button[type=submit]"); await page.waitForTimeout(900);
+  const saved2 = ((await ls(page, "sleds")) || []).find(s => s.model === "Photo Delete Flyer");
+  ok(saved2 && saved2.imgs && saved2.imgs.length === 1 && String(saved2.imgs[0]).includes(keepFile), "demo: deleting a photo on edit persists after save");
   await go(page, "#/sale");
   const sale = await page.textContent("#view");
   ok(sale.includes("Post a sled for sale") && !sale.includes("Sleds for Sale is for members"), "demo: premium can browse sale listings");
