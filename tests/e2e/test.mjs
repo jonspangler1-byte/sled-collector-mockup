@@ -738,5 +738,85 @@ FREE_PROMO = true;
 }
 FREE_PROMO = false;
 
+// ════════ iOS 390x844: no horizontal overflow, tab bar stays after a photo comment, no + Demo photo ════════
+{
+  const iosUA = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1";
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, userAgent: iosUA, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
+  const errors = [];
+  await ctx.route("**/config.js*", r => r.fulfill({ contentType: "application/javascript", body: `window.SF_CONFIG={SUPABASE_URL:"",SUPABASE_ANON_KEY:"",STRIPE_CHECKOUT:false,STRIPE_PAYMENT_LINK:"",STRIPE_PORTAL_LINK:"",SHOW_SAMPLE_DATA:true,FREE_ACCESS_PROMO:true};` }));
+  await ctx.route(/nominatim|photon|geocod|rosebudsledmuseum\.com|events\.json/i, r => r.fulfill({ status: 404, body: "" }));
+  await ctx.addInitScript(() => { localStorage.setItem("svc_role", JSON.stringify("premium")); });
+  const page = await ctx.newPage();
+  page.on("pageerror", e => errors.push(e.message));
+  const layout = () => page.evaluate(() => {
+    const vw = (window.visualViewport && window.visualViewport.width) || window.innerWidth;
+    const vh = (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+    const skip = el => el.closest && el.closest(".chips,.hscroll,.gal-track,.pk-thumbs,.cmt-phs,.side-note");
+    let maxRight = 0, culprit = "";
+    for (const el of document.querySelectorAll("body *")) {
+      const st = getComputedStyle(el);
+      if (st.display === "none" || st.visibility === "hidden" || skip(el)) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 && r.height === 0) continue;
+      if (r.right > maxRight + 0.5) { maxRight = r.right; culprit = (el.className && String(el.className).slice(0, 60)) || el.tagName; }
+    }
+    const tab = document.getElementById("tabbar");
+    const tr = tab.getBoundingClientRect();
+    const view = document.getElementById("view");
+    const back = document.querySelector(".appbar .back");
+    const ta = document.querySelector("form.cmt-form textarea");
+    return {
+      vw, vh, maxRight, culprit,
+      overflow: maxRight > vw + 1,
+      back: !!(back && back.getBoundingClientRect().width > 0),
+      tabVisible: !!(tab && tr.width > 8 && tr.bottom <= vh + 2 && tr.top < vh && getComputedStyle(tab).display !== "none"),
+      tabLabels: tab ? tab.innerText.replace(/\s+/g, " ").trim() : "",
+      demo: !!document.querySelector(".pk-demo"),
+      font: ta ? parseFloat(getComputedStyle(ta).fontSize) : 0,
+      canScroll: view ? view.scrollHeight > view.clientHeight + 4 : false,
+      scrolled: 0
+    };
+  });
+  await page.goto(BASE + "?src=ios#/sled/s1"); await page.waitForTimeout(900);
+  ok(await page.evaluate(() => window.SF_isIosApp()), "ios layout: ?src=ios is detected");
+  let L = await layout();
+  ok(L.back, "ios layout: sled page has a back control");
+  ok(L.tabVisible && /Home/.test(L.tabLabels) && /Database/.test(L.tabLabels), "ios layout: bottom nav is visible");
+  ok(!L.demo, "ios layout: + Demo photo is hidden");
+  ok(!L.overflow, "ios layout: no horizontal overflow on the sled page (" + L.culprit + " right=" + L.maxRight.toFixed(1) + " vw=" + L.vw + ")");
+  ok(L.font >= 16, "ios layout: comment field is at least 16px so iOS will not zoom on focus (got " + L.font + ")");
+  await page.fill("form.cmt-form textarea[name=body]", "Test comment after photo");
+  const picBuf = Buffer.from(DATAPIC.split(",")[1], "base64");
+  await page.setInputFiles("form.cmt-form input[type=file]", { name: "sled.jpg", mimeType: "image/jpeg", buffer: picBuf });
+  await page.waitForTimeout(500);
+  ok(await page.locator("form.cmt-form .pk-t").count() === 1, "ios layout: chosen photo appears in the picker");
+  await page.click("form.cmt-form button[type=submit]"); await page.waitForTimeout(900);
+  ok((await page.textContent(".cmt-list")).includes("Test comment after photo"), "ios layout: comment posted");
+  ok(await page.locator(".cmt-list .cmt-phs span").count() >= 1, "ios layout: comment photo is shown");
+  L = await layout();
+  ok(!L.demo, "ios layout: + Demo photo stays hidden after posting");
+  ok(!L.overflow, "ios layout: no horizontal overflow after posting a photo comment (" + L.culprit + " right=" + L.maxRight.toFixed(1) + " vw=" + L.vw + ")");
+  ok(L.tabVisible, "ios layout: bottom nav is still visible after posting");
+  const scroll = await page.evaluate(() => {
+    const v = document.getElementById("view");
+    v.scrollTop = 240;
+    const mid = v.scrollTop;
+    v.scrollTop = 0;
+    return { mid, scrollHeight: v.scrollHeight, clientHeight: v.clientHeight };
+  });
+  ok(scroll.mid > 0, "ios layout: the sled page scrolls after posting (mid=" + scroll.mid + ")");
+  await page.click('#tabbar a[data-tab="database"]'); await page.waitForTimeout(400);
+  ok(await page.evaluate(() => location.hash) === "#/database", "ios layout: bottom nav is tappable after posting");
+  ok(!errors.length, "ios layout: no JS errors " + JSON.stringify(errors));
+  await ctx.close();
+}
+{
+  const { ctx, page } = await device(false);
+  await page.evaluate(() => localStorage.setItem("svc_role", JSON.stringify("premium")));
+  await go(page, "#/add");
+  ok(await page.locator("#addpk .pk-demo").count() === 1, "web: + Demo photo is still shown outside the iOS app");
+  await ctx.close();
+}
+
 await browser.close(); srv.close();
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);
