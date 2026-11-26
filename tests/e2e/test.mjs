@@ -127,6 +127,7 @@ function query(q) {
 }
 async function fakeOp(op, a) {
   if (op === "otp") return { error: null };
+  if (op === "password") { if (a.password !== "review-pass-1") return { data: { session: null }, error: { message: "Invalid login credentials" } }; return fakeOp("verify", { email: a.email, token: "123456" }) }
   if (op === "verify") { if (a.token !== "123456") return { error: { message: "Token has expired or is invalid" } };
     let u = Object.values(S.users).find(x => x.email === a.email);
     if (!u) { u = { id: crypto.randomUUID(), email: a.email }; S.users[u.id] = u; S.profiles[u.id] = { id: u.id, handle: "collector_" + u.id.replace(/-/g, "").slice(0, 8), display_name: "", is_admin: false, premium_until: null, created_at: new Date().toISOString() }; S.notification_settings[u.id] = { user_id: u.id, notify_sleds: true, notify_articles: true, notify_photos: true, notify_listings: true, push_enabled: false } }
@@ -507,6 +508,19 @@ const Cm = await device(true);
   }
   ok(await page.evaluate(() => window.SF_isIosApp()), "ios: detection survives in-app navigation");
   ok(!errors.length, "ios: no JS errors " + JSON.stringify(errors));
+  await ctx.close();
+}
+// Password sign-in (App Store review demo account).
+{
+  const { ctx, page, errors } = await device(true);
+  await page.goto(BASE + "?src=ios#/account"); await page.waitForTimeout(800);
+  await page.click("#pwbox summary");
+  await page.fill('#pwf input[name="email"]', "reviewer@example.test"); await page.fill('#pwf input[name="password"]', "wrong");
+  await page.click('#pwf button'); await page.waitForTimeout(600);
+  ok(await page.evaluate(() => !SFCloud.user), "password: wrong password does not sign in");
+  await page.fill('#pwf input[name="password"]', "review-pass-1"); await page.click('#pwf button'); await page.waitForTimeout(1200);
+  ok(await page.evaluate(() => !!SFCloud.user && SFCloud.email() === "reviewer@example.test"), "password: correct password signs in");
+  ok(!errors.length, "password: no JS errors " + JSON.stringify(errors));
   await ctx.close();
 }
 // Plain web still shows the paywall price.

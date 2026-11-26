@@ -25,6 +25,7 @@
         onAuthStateChange(cb) { cbs.push(cb); return { data: { subscription: { unsubscribe() {} } } } },
         async signInWithOtp({ email }) { return call("otp", { email }) },
         async verifyOtp({ email, token }) { const r = await call("verify", { email, token }); if (r.error) return r; session = r.data.session; localStorage.setItem(KEY, JSON.stringify(session)); setTimeout(() => fire("SIGNED_IN")); return r },
+        async signInWithPassword({ email, password }) { const r = await call("password", { email, password }); if (r.error) return r; session = r.data.session; localStorage.setItem(KEY, JSON.stringify(session)); setTimeout(() => fire("SIGNED_IN")); return r },
         async signOut() { session = null; localStorage.removeItem(KEY); setTimeout(() => fire("SIGNED_OUT")); return { error: null } },
       },
       from: builder,
