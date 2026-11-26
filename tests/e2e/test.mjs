@@ -480,7 +480,7 @@ const Cm = await device(true);
   await page.goto(BASE + "?src=twa#/upgrade"); await page.waitForTimeout(800);
   const up = await page.textContent("#view");
   ok(await page.locator("#joinP").count() === 0, "twa: no Join Premium checkout button");
-  ok(/available on the Sled Finder website/.test(up) && !/Secure checkout by Stripe/.test(up) && !/Sign in to join/.test(up), "twa: upgrade page explains website signup with no Stripe checkout");
+  ok(/does not sell memberships/.test(up) && !/Secure checkout by Stripe/.test(up) && !/Sign in to join/.test(up), "twa: upgrade page explains website signup with no Stripe checkout");
   ok(await page.locator('a[href="#/account"]').count() > 0, "twa: signed-out users can still sign in");
   ok(await page.evaluate(() => !!(window.SF_isAndroidTwa && window.SF_isAndroidTwa())), "twa: ?src=twa is detected");
   // Flag persists after the query string is gone (hash navigations).
@@ -488,6 +488,32 @@ const Cm = await device(true);
   await go(page, "#/upgrade");
   ok(await page.locator("#joinP").count() === 0 && await page.evaluate(() => window.SF_isAndroidTwa()), "twa: detection survives in-app navigation");
   ok(!errors.length, "twa: no JS errors " + JSON.stringify(errors));
+  await ctx.close();
+}
+
+// iOS App Store wrapper (?src=ios): no prices, Join/Upgrade buttons or Stripe checkout (guideline 3.1.1).
+{
+  const { ctx, page, errors } = await device(true);
+  await page.goto(BASE + "?src=ios#/upgrade"); await page.waitForTimeout(800);
+  const up = await page.textContent("#view");
+  ok(await page.locator("#joinP").count() === 0 && !/\$15/.test(up) && !/Secure checkout|Stripe|website/i.test(up), "ios: upgrade page has no price, Stripe or website pointer");
+  ok(/does not sell memberships/.test(up) && await page.locator('a[href="#/account"]').count() > 0, "ios: upgrade page explains and offers sign-in");
+  ok(await page.evaluate(() => window.SF_isIosApp() && window.SF_isAndroidTwa()), "ios: ?src=ios is detected");
+  for (const h of ["#/home", "#/maker/25", "#/makers", "#/map", "#/identify", "#/database", "#/articles", "#/add", "#/profile"]) {
+    await go(page, h);
+    const t = await page.textContent("#view"), bar = await page.textContent("#appbar");
+    const ctas = await page.locator('#view a.btn[href="#/upgrade"], #view a.promo[href="#/upgrade"], #view a.nudge[href="#/upgrade"]').count();
+    ok(!/\$15/.test(t + bar) && ctas === 0 && !/checkout\.stripe|buy\.stripe/.test(await page.innerHTML("#view")), "ios: no price or upgrade CTA on " + h);
+  }
+  ok(await page.evaluate(() => window.SF_isIosApp()), "ios: detection survives in-app navigation");
+  ok(!errors.length, "ios: no JS errors " + JSON.stringify(errors));
+  await ctx.close();
+}
+// Plain web still shows the paywall price.
+{
+  const { ctx, page } = await device(true);
+  await page.goto(BASE + "#/upgrade"); await page.waitForTimeout(800);
+  ok(/\$15/.test(await page.textContent("#view")) && !(await page.evaluate(() => window.SF_isIosApp())), "web: upgrade page still shows the price");
   await ctx.close();
 }
 
