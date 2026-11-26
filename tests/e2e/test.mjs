@@ -14,6 +14,7 @@ let pass = 0, fail = 0; const ok = (c, m) => { c ? pass++ : fail++; console.log(
 // ───── fake server state ─────
 const S = { users: {}, profiles: {}, sleds: [], listings: [], photo_posts: [], comments: [], articles: [], notifications: [], notification_reads: [], notification_settings: {}, push_subscriptions: [], uploads: [] };
 const isPrem = uid => { const p = S.profiles[uid]; return !!p && (p.is_admin || (p.premium_until && Date.parse(p.premium_until) > Date.now())) };
+let FREE_PROMO = false;
 const match = (r, f) => f.every(([op, c, v]) => op === "eq" ? r[c] === v : op === "neq" ? r[c] !== v : op === "is" ? (r[c] ?? null) === v : true);
 function emitNotice(kind, row) {
   if (!kind || !row || !row.id) return;
@@ -72,7 +73,7 @@ function query(q) {
   }
   if (q.table === "notifications") {
     if (q.op !== "select") return { error: { message: "permission denied" } };
-    const rows = S.notifications.filter(n => n.actor_id !== uid && (n.kind === "article" || (isPrem(uid) && (!n.actor_id || isPrem(n.actor_id)))));
+    const rows = S.notifications.filter(n => n.actor_id !== uid && (n.kind === "article" || (n.kind === "sled" && FREE_PROMO) || (isPrem(uid) && (!n.actor_id || isPrem(n.actor_id)))));
     return { data: rows.map(r => JSON.parse(JSON.stringify(r))), error: null };
   }
   if (q.table === "profiles") {
@@ -93,7 +94,7 @@ function query(q) {
   if (!T) return { data: q.op === "select" ? [] : null, error: q.op === "select" ? null : { message: "unknown table " + q.table } };
   const visible = r => {
     if (r.owner === uid) return true;
-    if (q.table === "sleds") return r.shared && !r.deleted_at && isPrem(uid) && isPrem(r.owner);
+    if (q.table === "sleds") return r.shared && !r.deleted_at && (FREE_PROMO || (isPrem(uid) && isPrem(r.owner)));
     if (q.table === "listings") return r.status === "active" && !r.deleted_at && isPrem(uid) && isPrem(r.owner);
     if (q.table === "photo_posts" || q.table === "comments") return !r.deleted_at && isPrem(uid) && isPrem(r.owner);
     if (q.table === "articles") return r.published && (r.access === "free" || isPrem(uid));
@@ -102,7 +103,7 @@ function query(q) {
   if (q.op === "select") return { data: T.filter(r => visible(r) && match(r, q.filters)).map(r => JSON.parse(JSON.stringify(r))), error: null };
   if (!uid) return { error: { message: "permission denied" } };
   if (q.op === "upsert") {
-    if (!isPrem(uid) || q.row.owner !== uid) return { error: { message: 'new row violates row-level security policy for table "' + q.table + '"' } };
+    if (q.row.owner !== uid || !(isPrem(uid) || (q.table === "sleds" && FREE_PROMO))) return { error: { message: 'new row violates row-level security policy for table "' + q.table + '"' } };
     if (q.table === "photo_posts" && !(q.row.photos && q.row.photos.length)) return { error: { message: "photo_posts require at least one photo" } };
     if (q.table === "comments" && !(String(q.row.body||"").length || (q.row.photos && q.row.photos.length))) return { error: { message: "comment needs text or a photo" } };
     let r = T.find(x => x.owner === uid && x.client_id === q.row.client_id);
@@ -110,7 +111,7 @@ function query(q) {
     Object.assign(r, q.row, { owner_handle: S.profiles[uid].handle, updated_at: new Date().toISOString() }); emitNotice({ sleds: "sled", listings: "listing", photo_posts: "photo", articles: "article" }[q.table], r); return { data: null, error: null };
   }
   if (q.op === "update") {
-    const rows = T.filter(r => match(r, q.filters) && ((r.owner === uid && isPrem(uid)) || S.profiles[uid].is_admin));
+    const rows = T.filter(r => match(r, q.filters) && ((r.owner === uid && (isPrem(uid) || (q.table === "sleds" && FREE_PROMO))) || (S.profiles[uid] && S.profiles[uid].is_admin)));
     const kind = { sleds: "sled", listings: "listing", photo_posts: "photo", articles: "article" }[q.table];
     rows.forEach(r => {
       Object.assign(r, q.row, { updated_at: new Date().toISOString() });
@@ -130,7 +131,7 @@ async function fakeOp(op, a) {
     let u = Object.values(S.users).find(x => x.email === a.email);
     if (!u) { u = { id: crypto.randomUUID(), email: a.email }; S.users[u.id] = u; S.profiles[u.id] = { id: u.id, handle: "collector_" + u.id.replace(/-/g, "").slice(0, 8), display_name: "", is_admin: false, premium_until: null, created_at: new Date().toISOString() }; S.notification_settings[u.id] = { user_id: u.id, notify_sleds: true, notify_articles: true, notify_photos: true, notify_listings: true, push_enabled: false } }
     return { data: { session: { user: u, access_token: "t" } }, error: null } }
-  if (op === "upload") { if (!a.uid || !isPrem(a.uid) || !a.path.startsWith(a.uid + "/")) return { error: { message: "new row violates row-level security policy" } }; S.uploads.push(a.path); return { error: null } }
+  if (op === "upload") { if (!a.uid || !(isPrem(a.uid) || FREE_PROMO) || !a.path.startsWith(a.uid + "/")) return { error: { message: "new row violates row-level security policy" } }; S.uploads.push(a.path); return { error: null } }
   if (op === "query") return query(a);
   if (op === "fn" && a.name === "create-checkout") {
     if (!a.uid) return { data: null, error: { message: "not signed in" } };
@@ -150,16 +151,24 @@ async function fakeOp(op, a) {
 }
 
 const browser = await chromium.launch({ executablePath: fs.existsSync("/usr/bin/google-chrome") ? "/usr/bin/google-chrome" : undefined });
-async function device(live, seed) {
+async function device(live, seed, extraCfg) {
   const ctx = await browser.newContext({ viewport: { width: 420, height: 900 } });
   const errors = [];
   // Always stub config.js: the backend branch may have a real Supabase URL, which would turn the "demo" tests into live mode.
+  // Default FREE_ACCESS_PROMO is false so existing paywall tests stay flag-off.
+  const cfg = Object.assign({
+    SUPABASE_URL: live ? "https://fake.supabase.co" : "",
+    SUPABASE_ANON_KEY: live ? "anon" : "",
+    STRIPE_CHECKOUT: !!live,
+    STRIPE_PAYMENT_LINK: live ? "https://buy.stripe.com/test_123" : "",
+    STRIPE_PORTAL_LINK: live ? "https://billing.stripe.com/p/login/test_1" : "",
+    SHOW_SAMPLE_DATA: !live,
+    FREE_ACCESS_PROMO: false
+  }, extraCfg || {});
+  await ctx.route("**/config.js*", r => r.fulfill({ contentType: "application/javascript", body: "window.SF_CONFIG=" + JSON.stringify(cfg) + ";" }));
   if (live) {
-    await ctx.route("**/config.js*", r => r.fulfill({ contentType: "application/javascript", body: `window.SF_CONFIG={SUPABASE_URL:"https://fake.supabase.co",SUPABASE_ANON_KEY:"anon",STRIPE_CHECKOUT:true,STRIPE_PAYMENT_LINK:"https://buy.stripe.com/test_123",STRIPE_PORTAL_LINK:"https://billing.stripe.com/p/login/test_1",SHOW_SAMPLE_DATA:false};` }));
     await ctx.route("**/vendor/supabase-*.js", r => r.fulfill({ contentType: "application/javascript", body: FAKE }));
     await ctx.exposeFunction("__fake", fakeOp);
-  } else {
-    await ctx.route("**/config.js*", r => r.fulfill({ contentType: "application/javascript", body: `window.SF_CONFIG={SUPABASE_URL:"",SUPABASE_ANON_KEY:"",STRIPE_CHECKOUT:false,STRIPE_PAYMENT_LINK:"",STRIPE_PORTAL_LINK:"",SHOW_SAMPLE_DATA:true};` }));
   }
   await ctx.route(/nominatim|photon|geocod|rosebudsledmuseum\.com|events\.json/i, r => r.fulfill({ status: 404, body: "" }));
   if (seed) await ctx.addInitScript(s => { if (!localStorage.getItem("seeded")) { for (const [k, v] of Object.entries(s)) localStorage.setItem(k, JSON.stringify(v)); localStorage.setItem("seeded", "1") } }, seed);
@@ -532,6 +541,61 @@ const Cm = await device(true);
     await ctx.close(); await wk.close();
   }
 }
+
+// ════════ limited-time free access promo ════════
+{
+  const { ctx, page, errors } = await device(false, null, { FREE_ACCESS_PROMO: true });
+  await go(page, "#/home");
+  const home = await page.textContent("#view");
+  ok(home.includes("Free for a limited time"), "demo promo: banner is shown");
+  ok(!home.includes("The Sled Maker and Model Database is for members"), "demo promo: database members gate is hidden");
+  ok(!home.includes("Become a member"), "demo promo: Become a member card is hidden");
+  ok(await page.locator(".db-links .db-link").count() === 4, "demo promo: all four database tiles including Add a sled");
+  ok(!(await page.locator(".db-links").textContent()).includes("🔒"), "demo promo: Photo ID and Map have no lock");
+  await go(page, "#/add");
+  ok(await page.locator("#addf").count() === 1, "demo promo: free (no account) can open the add-sled form");
+  await go(page, "#/map");
+  ok(!(await page.textContent("#view")).includes("Preview · members can use the map"), "demo promo: map is unlocked");
+  ok(!errors.length, "demo promo: no JS errors " + JSON.stringify(errors));
+  await ctx.close();
+}
+
+FREE_PROMO = true;
+{
+  const friendId = crypto.randomUUID();
+  S.users[friendId] = { id: friendId, email: "friend@example.test" };
+  S.profiles[friendId] = { id: friendId, handle: "friend_col", display_name: "Friend", is_admin: false, premium_until: new Date(Date.now() + 365 * 864e5).toISOString(), created_at: new Date().toISOString() };
+  S.sleds.push({ id: crypto.randomUUID(), owner: friendId, client_id: "c-promo-friend", model: "Promo Clipper", shared: true, deleted_at: null, photos: ["https://example/s.jpg"], owner_handle: "friend_col", updated_at: new Date().toISOString() });
+  const { ctx, page, errors } = await device(true, null, { FREE_ACCESS_PROMO: true });
+  const p = page;
+  const home = await p.textContent("#view");
+  ok(home.includes("Free for a limited time"), "live promo: signed-out visitor sees the banner");
+  ok(!home.includes("The Sled Maker and Model Database is for members"), "live promo: signed-out visitor is not shown the members gate");
+  ok(!home.includes("Become a member"), "live promo: Become a member card is hidden");
+  ok(await p.locator(".db-links .db-link").count() === 4, "live promo: signed-out visitor sees Add a sled tile");
+  ok(!(await p.locator(".db-links").textContent()).includes("🔒"), "live promo: Photo ID and Map have no lock");
+  ok(home.includes("Promo Clipper"), "live promo: signed-out visitor can see another collector's shared sled");
+  await go(p, "#/add");
+  const addTxt = await p.textContent("#view");
+  ok(addTxt.includes("Sign in to add a sled") && !addTxt.includes("Posting sleds is for members"), "live promo: signed-out add shows sign-in gate, not membership gate");
+  await go(p, "#/photos");
+  ok((await p.textContent("#view")).includes("Community photos are for members"), "live promo: community photos stay members-only");
+  await go(p, "#/article/ex-one");
+  ok((await p.textContent("#view")).includes("Join to read") && !(await p.textContent("#view")).includes("Secret exclusive body."), "live promo: exclusive articles stay members-only");
+  await go(p, "#/account"); await p.fill("#signf [name=email]", "promo.friend@example.test"); await p.click("#signf button"); await p.waitForTimeout(400);
+  await p.fill("#codef [name=code]", "123456"); await p.click("#codef button[type=submit]"); await p.waitForTimeout(1200);
+  ok(await p.evaluate(() => !!SFCloud.user && SFCloud.realRole() === "free" && SFCloud.freeAccessPromo === true), "live promo: signed in as free with promo on");
+  const before = S.sleds.length;
+  await addSled(p, "Free Friend Flyer", true);
+  ok(S.sleds.some(s => s.model === "Free Friend Flyer" && s.shared && s.owner), "live promo: signed-in free account can upload a shared sled");
+  ok(((await ls(p, "outbox")) || []).length === 0, "live promo: uploaded sled is not left in the outbox");
+  ok(S.sleds.length === before + 1, "live promo: one new sled row was saved");
+  await go(p, "#/timeline");
+  ok((await p.textContent("#view")).includes("The full timeline is part of Premium") || (await p.textContent("#view")).includes("Preview · Premium"), "live promo: timeline stays members-only");
+  ok(!errors.length, "live promo: no JS errors " + JSON.stringify(errors));
+  await ctx.close();
+}
+FREE_PROMO = false;
 
 await browser.close(); srv.close();
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail ? 1 : 0);

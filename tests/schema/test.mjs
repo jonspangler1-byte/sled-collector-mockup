@@ -10,6 +10,11 @@ const soonMig = fs.readFileSync(new URL("../../docs/migrations/2026-11-23-articl
 await db.exec(soonMig); await db.exec(soonMig); console.log("coming soon migration ok (ran twice)");
 const typeMig = fs.readFileSync(new URL("../../docs/migrations/2026-11-24-sled-types.sql", import.meta.url),"utf8");
 await db.exec(typeMig); await db.exec(typeMig); console.log("sled types migration ok (ran twice)");
+const promoMig = fs.readFileSync(new URL("../../docs/migrations/2026-11-25-free-access-promo.sql", import.meta.url),"utf8");
+await db.exec(promoMig); await db.exec(promoMig); console.log("free access promo migration ok (ran twice)");
+// The migration turns the promo ON. Existing paywall tests describe the flag-off
+// behavior, so switch it off first and turn it back on for the promo cases at the end.
+await db.exec(`update public.app_settings set value_bool = false where key = 'free_access_promo'`);
 const ids = {};
 for (const n of ["free","prem","prem2","admin","lapsed"]) { const r = await db.query("insert into auth.users(email) values($1) returning id",[n+"@x.test"]); ids[n]=r.rows[0].id; }
 await db.exec(`update profiles set premium_until=now()+interval '1 year' where id in ('${ids.prem}','${ids.prem2}');
@@ -23,12 +28,11 @@ await expectOk("premium inserts shared sled","prem",`insert into sleds(client_id
 await expectOk("premium inserts private sled","prem",`insert into sleds(client_id,model,shared) values('u2','Private',false)`);
 await expectOk("lapsed owns old sled (seeded as admin)","admin",`select 1`);
 await db.exec(`insert into sleds(owner,client_id,model,shared) values('${ids.lapsed}','u9','LapsedShared',true)`);
-await expectOk("prem2 sees prem's shared only","prem2",`select model from sleds`, r=>r.rows.length===1&&r.rows[0].model==="Speedster");
+await expectOk("prem2 sees shared sleds including a lapsed owner's","prem2",`select model from sleds`, r=>r.rows.length===2&&r.rows.some(x=>x.model==="Speedster")&&r.rows.some(x=>x.model==="LapsedShared"));
 await expectOk("free sees no sleds","free",`select * from sleds`, r=>r.rows.length===0);
 await expectOk("lapsed sees only own","lapsed",`select model from sleds`, r=>r.rows.length===1&&r.rows[0].model==="LapsedShared");
 await expectOk("admin sees all 3","admin",`select * from sleds`, r=>r.rows.length===3);
-await expectOk("anon sees no sleds (no grant)","anon",`select 1`);
-try{await as("anon","select * from sleds"); fail++; console.log("FAIL anon read sleds allowed");}catch(e){pass++;console.log("PASS anon cannot read sleds");}
+await expectOk("anon sees no sleds when promo is off","anon",`select * from sleds`, r=>r.rows.length===0);
 await expectErr("prem2 cannot edit prem's sled","prem2",`update sleds set model='hack' where client_id='u1'`);
 await expectErr("lapsed cannot edit own sled","lapsed",`update sleds set model='x' where client_id='u9'`);
 await expectOk("lapsed can delete own sled","lapsed",`delete from sleds where client_id='u9' returning id`, r=>r.rows.length===1);
@@ -115,5 +119,29 @@ await expectOk("unshared Flexy Racer notice is gone","prem2",`select * from noti
 await expectOk("resharing creates the notice again","prem",`update sleds set shared=true where client_id='u-flexy' returning id`, r=>r.rows.length===1);
 await expectOk("reshared sled is visible as a notice again","prem2",`select title from notifications where target_id=(select id::text from sleds where client_id='u-flexy')`, r=>r.rows.length===1&&r.rows[0].title==="New shared sled");
 
+
+// ───────── limited-time free access promo ─────────
+await db.exec(`update public.app_settings set value_bool = true where key = 'free_access_promo'`);
+await expectOk("promo on: free_access_promo() is true","anon",`select public.free_access_promo() as on`, r=>r.rows[0].on===true);
+await expectOk("promo on: anon can read shared sleds","anon",`select model,shared from sleds`, r=>r.rows.length>=1&&r.rows.every(x=>x.shared===true));
+await expectOk("promo on: free can read shared sleds","free",`select model from sleds where shared=true`, r=>r.rows.length>=1);
+await expectOk("promo on: free can insert own sled","free",`insert into sleds(client_id,model,shared) values('u-promo','FriendFlyer',true) returning model,owner`, r=>r.rows[0].model==="FriendFlyer"&&r.rows[0].owner===ids.free);
+await expectOk("promo on: free can update own sled","free",`update sleds set model='FriendFlyer 2' where client_id='u-promo' returning model`, r=>r.rows.length===1&&r.rows[0].model==="FriendFlyer 2");
+await expectErr("promo on: free cannot edit someone else's sled","free",`update sleds set model='hack' where client_id='u1'`);
+await expectOk("promo on: prem still sees friends' shared posts","prem",`select model from sleds where client_id='u-promo'`, r=>r.rows.length===1&&r.rows[0].model==="FriendFlyer 2");
+await expectOk("promo on: free can read shared-sled notifications","free",`select kind from notifications where kind='sled'`, r=>r.rows.length>=1);
+await expectOk("promo on: free still cannot read photo notifications","free",`select * from notifications where kind='photo'`, r=>r.rows.length===0);
+await expectErr("promo on: free still cannot insert a community photo","free",`insert into photo_posts(client_id,caption,photos) values('pp-promo','x',array['https://example/c.jpg'])`);
+await expectOk("promo on: exclusive article bodies stay members-only","free",`select id from articles where access='exclusive'`, r=>r.rows.length===0);
+
+await db.exec(`update public.app_settings set value_bool = false where key = 'free_access_promo'`);
+await expectOk("promo off: free_access_promo() is false","anon",`select public.free_access_promo() as on`, r=>r.rows[0].on===false);
+await expectOk("promo off: anon cannot read sleds again","anon",`select * from sleds`, r=>r.rows.length===0);
+await expectOk("promo off: free cannot read others' sleds","free",`select * from sleds where owner <> '${ids.free}'`, r=>r.rows.length===0);
+await expectOk("promo off: free still sees their own promo post","free",`select model from sleds where client_id='u-promo'`, r=>r.rows.length===1);
+await expectErr("promo off: free cannot insert a new sled","free",`insert into sleds(client_id,model) values('u-promo-2','Nope')`);
+await expectErr("promo off: free cannot edit their promo post","free",`update sleds set model='locked' where client_id='u-promo'`);
+await expectOk("promo off: prem can still read the friend's leftover post","prem",`select model from sleds where client_id='u-promo'`, r=>r.rows.length===1&&r.rows[0].model==="FriendFlyer 2");
+await expectOk("promo off: free cannot read sled notifications","free",`select * from notifications where kind='sled'`, r=>r.rows.length===0);
 
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail?1:0);
