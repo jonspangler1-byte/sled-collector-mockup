@@ -144,4 +144,37 @@ await expectErr("promo off: free cannot edit their promo post","free",`update sl
 await expectOk("promo off: prem can still read the friend's leftover post","prem",`select model from sleds where client_id='u-promo'`, r=>r.rows.length===1&&r.rows[0].model==="FriendFlyer 2");
 await expectOk("promo off: free cannot read sled notifications","free",`select * from notifications where kind='sled'`, r=>r.rows.length===0);
 
+// ───────── report & block (guideline 1.2) ─────────
+const rbMig = fs.readFileSync(new URL("../../docs/migrations/2026-11-26-report-block.sql", import.meta.url),"utf8");
+await db.exec(rbMig); await db.exec(rbMig); console.log("report/block migration ok (ran twice)");
+await db.exec(`update public.app_settings set value_bool = true where key = 'free_access_promo'`);
+const promoSled = (await db.query(`select id from sleds where client_id='u1'`)).rows[0].id;
+await expectOk("report: free member can file a report","free",`insert into content_reports(kind,target_id,target_owner,reason,details) values('sled','${promoSled}','${ids.prem}','spam','test') returning id,status`, r=>r.rows[0].status==="open");
+await expectErr("report: anon cannot file a report","anon",`insert into content_reports(kind,target_id,reason) values('sled','${promoSled}','spam')`);
+await expectErr("report: cannot file as someone else","free",`insert into content_reports(reporter,kind,target_id,reason) values('${ids.prem2}','sled','${promoSled}','spam')`);
+await expectErr("report: cannot pre-resolve a report","free",`insert into content_reports(kind,target_id,reason,status) values('sled','${promoSled}','spam','hidden')`);
+await expectOk("report: reporter sees own report","free",`select * from content_reports`, r=>r.rows.length===1);
+await expectOk("report: others cannot see it","prem2",`select * from content_reports`, r=>r.rows.length===0);
+await expectOk("report: admin sees it","admin",`select * from content_reports`, r=>r.rows.length===1);
+await expectErr("report: non-admin cannot resolve","free",`update content_reports set status='dismissed'`);
+await expectErr("report: non-admin cannot moderate","free",`select public.moderate_report((select id from content_reports limit 1),'hide')`);
+await expectErr("hide: owner cannot set hidden flag","prem",`update sleds set hidden_by_admin=true where client_id='u1' and hidden_by_admin=true`);
+await expectOk("hide: owner edit keeps flag false","prem",`update sleds set hidden_by_admin=true where client_id='u1' returning hidden_by_admin`, r=>r.rows[0].hidden_by_admin===false);
+const rid = (await db.query(`select id from content_reports limit 1`)).rows[0].id;
+await expectOk("moderate: admin hides reported sled","admin",`select public.moderate_report('${rid}','hide') as a`, r=>r.rows[0].a==="hide");
+await expectOk("hide: others no longer see hidden sled","prem2",`select * from sleds where client_id='u1'`, r=>r.rows.length===0);
+await expectOk("hide: anon no longer sees hidden sled","anon",`select * from sleds where client_id='u1'`, r=>r.rows.length===0);
+await expectOk("hide: owner still sees it","prem",`select hidden_by_admin from sleds where client_id='u1'`, r=>r.rows.length===1&&r.rows[0].hidden_by_admin===true);
+await expectOk("hide: owner edit cannot unhide","prem",`update sleds set hidden_by_admin=false where client_id='u1' returning hidden_by_admin`, r=>r.rows[0].hidden_by_admin===true);
+await expectOk("moderate: report marked hidden","admin",`select status from content_reports where id='${rid}'`, r=>r.rows[0].status==="hidden");
+await expectOk("moderate: admin unhides","admin",`select public.moderate_report('${rid}','unhide') as a`, r=>r.rows[0].a==="unhide");
+await expectOk("hide: visible again after unhide","prem2",`select * from sleds where client_id='u1'`, r=>r.rows.length===1);
+await expectOk("block: free blocks prem","free",`insert into user_blocks(blocked,blocked_handle) values('${ids.prem}','prem') returning blocker`, r=>r.rows[0].blocker===ids.free);
+await expectErr("block: cannot block yourself","free",`insert into user_blocks(blocked) values('${ids.free}')`);
+await expectErr("block: cannot block on behalf of others","free",`insert into user_blocks(blocker,blocked) values('${ids.prem2}','${ids.prem}')`);
+await expectOk("block: list is private","prem2",`select * from user_blocks`, r=>r.rows.length===0);
+await expectOk("block: blocker sees own list","free",`select blocked from user_blocks`, r=>r.rows.length===1);
+await expectOk("block: unblock","free",`delete from user_blocks where blocked='${ids.prem}' returning blocked`, r=>r.rows.length===1);
+await db.exec(`update public.app_settings set value_bool = false where key = 'free_access_promo'`);
+
 console.log(`\n${pass} passed, ${fail} failed`); process.exit(fail?1:0);

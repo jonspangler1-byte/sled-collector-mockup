@@ -32,8 +32,23 @@ function emitNotice(kind, row) {
   else { title = row.source === "vintage-runner" ? "New Vintage Runner article" : (row.access === "exclusive" ? "New exclusive article" : "New article"); body = row.title || "A new article is up"; href = "#/article/" + row.id }
   S.notifications.push({ id: crypto.randomUUID(), kind, target_id: tid, actor_id: row.owner || null, title, body, href, created_at: new Date().toISOString() });
 }
+// Report/Block tables exist only once the migration is "run" (RB = true).
+let RB = false; const REPORTS = [], BLOCKS = [];
+const RB_MISSING = { data: null, error: { message: "Could not find the table in the schema cache", code: "PGRST205" } };
 function query(q) {
   const uid = q.uid;
+  if (q.table === "content_reports") {
+    if (!RB) return RB_MISSING;
+    if (q.op === "insert") { if (!uid || q.row.reporter !== uid) return { error: { message: "new row violates row-level security policy" } }; REPORTS.push(Object.assign({ id: crypto.randomUUID(), status: "open", created_at: new Date().toISOString() }, q.row)); return { data: null, error: null } }
+    if (q.op === "select") { const adm = uid && S.profiles[uid] && S.profiles[uid].is_admin; return { data: REPORTS.filter(r => (adm || r.reporter === uid) && q.filters.every(([op, c, v]) => op !== "eq" || r[c] === v)), error: null } }
+  }
+  if (q.table === "user_blocks") {
+    if (!RB) return RB_MISSING;
+    if (!uid) return { error: { message: "permission denied" } };
+    if (q.op === "upsert") { if (q.row.blocker !== uid) return { error: { message: "rls" } }; if (!BLOCKS.some(b => b.blocker === uid && b.blocked === q.row.blocked)) BLOCKS.push(Object.assign({}, q.row)); return { data: null, error: null } }
+    if (q.op === "select") return { data: BLOCKS.filter(b => b.blocker === uid), error: null };
+    if (q.op === "delete") { const blocked = (q.filters.find(f => f[1] === "blocked") || [])[2]; for (let i = BLOCKS.length - 1; i >= 0; i--) if (BLOCKS[i].blocker === uid && BLOCKS[i].blocked === blocked) BLOCKS.splice(i, 1); return { data: null, error: null } }
+  }
   if (q.table === "notification_settings") {
     if (q.op === "select") { const row = uid ? S.notification_settings[uid] : null; return { data: q.single ? row || null : (row ? [row] : []), error: null } }
     if (q.op === "upsert" || q.op === "update") {
@@ -94,6 +109,7 @@ function query(q) {
   if (!T) return { data: q.op === "select" ? [] : null, error: q.op === "select" ? null : { message: "unknown table " + q.table } };
   const visible = r => {
     if (r.owner === uid) return true;
+    if (r.hidden_by_admin && !(uid && S.profiles[uid] && S.profiles[uid].is_admin)) return false;
     if (q.table === "sleds") return r.shared && !r.deleted_at && (FREE_PROMO || (isPrem(uid) && isPrem(r.owner)));
     if (q.table === "listings") return r.status === "active" && !r.deleted_at && isPrem(uid) && isPrem(r.owner);
     if (q.table === "photo_posts" || q.table === "comments") return !r.deleted_at && isPrem(uid) && isPrem(r.owner);
@@ -127,6 +143,15 @@ function query(q) {
 }
 async function fakeOp(op, a) {
   if (op === "otp") return { error: null };
+  if (op === "rpc" && a.name === "moderate_report") {
+    if (!RB) return RB_MISSING;
+    if (!(a.uid && S.profiles[a.uid] && S.profiles[a.uid].is_admin)) return { data: null, error: { message: "admin only" } };
+    const r = REPORTS.find(x => x.id === a.args.report_id); if (!r) return { data: null, error: { message: "report not found" } };
+    const tbl = { sled: "sleds", listing: "listings", photo: "photo_posts", comment: "comments" }[r.kind];
+    if (a.args.action === "hide") { (S[tbl] || []).forEach(x => { if (x.id === r.target_id) x.hidden_by_admin = true }); REPORTS.forEach(x => { if (x.kind === r.kind && x.target_id === r.target_id) x.status = "hidden" }) }
+    else r.status = "dismissed";
+    return { data: a.args.action, error: null };
+  }
   if (op === "password") { if (a.password !== "review-pass-1") return { data: { session: null }, error: { message: "Invalid login credentials" } }; return fakeOp("verify", { email: a.email, token: "123456" }) }
   if (op === "verify") { if (a.token !== "123456") return { error: { message: "Token has expired or is invalid" } };
     let u = Object.values(S.users).find(x => x.email === a.email);
@@ -152,6 +177,7 @@ async function fakeOp(op, a) {
 }
 
 const browser = await chromium.launch({ executablePath: fs.existsSync("/usr/bin/google-chrome") ? "/usr/bin/google-chrome" : undefined });
+const FORM_POSTS = [];
 async function device(live, seed, extraCfg) {
   const ctx = await browser.newContext({ viewport: { width: 420, height: 900 } });
   const errors = [];
@@ -172,6 +198,7 @@ async function device(live, seed, extraCfg) {
     await ctx.exposeFunction("__fake", fakeOp);
   }
   await ctx.route(/nominatim|photon|geocod|rosebudsledmuseum\.com|events\.json/i, r => r.fulfill({ status: 404, body: "" }));
+  await ctx.route(/docs\.google\.com\/forms/, r => { FORM_POSTS.push(r.request().postData() || ""); r.fulfill({ status: 200, body: "" }) });
   if (seed) await ctx.addInitScript(s => { if (!localStorage.getItem("seeded")) { for (const [k, v] of Object.entries(s)) localStorage.setItem(k, JSON.stringify(v)); localStorage.setItem("seeded", "1") } }, seed);
   const page = await ctx.newPage();
   page.on("pageerror", e => errors.push(e.message));
@@ -634,6 +661,80 @@ FREE_PROMO = true;
   ok((await p.textContent("#view")).includes("The full timeline is part of Premium") || (await p.textContent("#view")).includes("Preview · Premium"), "live promo: timeline stays members-only");
   ok(!errors.length, "live promo: no JS errors " + JSON.stringify(errors));
   await ctx.close();
+}
+// ════════ Report & Block (guideline 1.2) ════════
+{
+  const badId = crypto.randomUUID(), badRow = crypto.randomUUID();
+  S.users[badId] = { id: badId, email: "bad@example.test" };
+  S.profiles[badId] = { id: badId, handle: "bad_actor", display_name: "", is_admin: false, premium_until: null, created_at: new Date().toISOString() };
+  S.sleds.push({ id: badRow, owner: badId, client_id: "u-bad", model: "Rude Runner", shared: true, deleted_at: null, photos: ["https://example/b.jpg"], owner_handle: "bad_actor", updated_at: new Date().toISOString() });
+  // 1) Before the migration: report falls back to the feedback form, block is kept on the phone.
+  RB = false;
+  const A = await device(true, null, { FREE_ACCESS_PROMO: true }); const p = A.page;
+  await go(p, "#/account"); await p.fill("#signf [name=email]", "reporter@example.test"); await p.click("#signf button"); await p.waitForTimeout(400);
+  await p.fill("#codef [name=code]", "123456"); await p.click("#codef button[type=submit]"); await p.waitForTimeout(1500);
+  await go(p, "#/sled/c" + badRow); await p.waitForTimeout(300);
+  ok(await p.locator('[data-report="sled"]').count() === 1 && await p.locator('[data-blockh="bad_actor"]').count() === 1, "report: shared sled shows Report and Block");
+  const formsBefore = FORM_POSTS.length;
+  await p.click('[data-report="sled"]'); await p.selectOption("#repf [name=reason]", "abusive"); await p.fill("#repf [name=details]", "Rude caption"); await p.click("#repf button[type=submit]"); await p.waitForTimeout(800);
+  ok(await p.locator("#sheet").count() === 0 && REPORTS.length === 0, "report: without the migration nothing is stored and the sheet closes");
+  ok(FORM_POSTS.length === formsBefore + 1 && /REPORT/.test(decodeURIComponent(FORM_POSTS[FORM_POSTS.length - 1])), "report: forwarded to the developer's feedback form");
+  await p.click('[data-blockh="bad_actor"]'); await p.click("#blky"); await p.waitForTimeout(600);
+  await go(p, "#/database"); await p.waitForTimeout(300);
+  ok(!(await p.textContent("#view")).includes("Rude Runner"), "block: blocked member's sled is hidden (local block)");
+  await go(p, "#/blocked");
+  ok((await p.textContent("#view")).includes("@bad_actor"), "block: listed under Blocked users");
+  await p.click('[data-uh="bad_actor"]'); await p.waitForTimeout(400);
+  await go(p, "#/database"); await p.waitForTimeout(300);
+  ok((await p.textContent("#view")).includes("Rude Runner"), "block: unblock shows the sled again");
+  ok(!A.errors.length, "report/block (no migration): no JS errors " + JSON.stringify(A.errors));
+  // 2) After the migration: report is stored, block syncs to the server.
+  RB = true;
+  await go(p, "#/sled/c" + badRow);
+  await p.click('[data-report="sled"]'); await p.selectOption("#repf [name=reason]", "spam"); await p.check("#repf [name=block]"); await p.click("#repf button[type=submit]"); await p.waitForTimeout(1000);
+  const rep = REPORTS[0] || {};
+  ok(REPORTS.length === 1 && rep.kind === "sled" && rep.target_id === badRow && rep.reason === "spam" && rep.target_owner === badId, "report: stored in content_reports after the migration");
+  ok(BLOCKS.some(b => b.blocked === badId), "block: 'also block' saved to user_blocks");
+  await go(p, "#/database"); await p.waitForTimeout(300);
+  ok(!(await p.textContent("#view")).includes("Rude Runner"), "block: hidden after report + block");
+  await A.ctx.close();
+  // 3) Admin hides the reported sled for everyone.
+  const adminId = crypto.randomUUID();
+  S.users[adminId] = { id: adminId, email: "admin-mod@example.test" };
+  S.profiles[adminId] = { id: adminId, handle: "sf_admin", display_name: "", is_admin: true, premium_until: null, created_at: new Date().toISOString() };
+  const B = await device(true, null, { FREE_ACCESS_PROMO: true }); const q = B.page;
+  await go(q, "#/account"); await q.fill("#signf [name=email]", "admin-mod@example.test"); await q.click("#signf button"); await q.waitForTimeout(400);
+  await q.fill("#codef [name=code]", "123456"); await q.click("#codef button[type=submit]"); await q.waitForTimeout(1500);
+  await go(q, "#/profile");
+  ok(await q.locator('a[href="#/reports"]').count() === 1, "admin: Reports link in the profile menu");
+  await go(q, "#/reports"); await q.waitForTimeout(800);
+  ok((await q.textContent("#view")).includes("Spam or advertising"), "admin: open report is listed");
+  await q.click('[data-mod="hide"]'); await q.waitForTimeout(1200);
+  ok(S.sleds.find(r => r.id === badRow).hidden_by_admin === true && REPORTS[0].status === "hidden", "admin: Hide for everyone hides the sled and closes the report");
+  ok(!B.errors.length, "admin moderation: no JS errors " + JSON.stringify(B.errors));
+  await B.ctx.close();
+  const C = await device(true, null, { FREE_ACCESS_PROMO: true });
+  await go(C.page, "#/database"); await C.page.waitForTimeout(300);
+  ok(!(await C.page.textContent("#view")).includes("Rude Runner"), "hidden: signed-out visitors no longer see the hidden sled");
+  await C.ctx.close();
+  // 4) iOS app: Photo ID and the demo map are hidden; the web keeps them.
+  const I = await device(true, null, { FREE_ACCESS_PROMO: true });
+  await I.page.goto(BASE + "?src=ios#/home"); await I.page.waitForTimeout(800);
+  for (const h of ["#/home", "#/database", "#/add", "#/profile"]) { await go(I.page, h); ok(await I.page.locator('#view a[href="#/identify"], #view a[href="#/map"]').count() === 0, "ios: no Photo ID or Map link on " + h) }
+  await go(I.page, "#/identify"); await I.page.waitForTimeout(300);
+  ok(await I.page.evaluate(() => location.hash) === "#/database", "ios: #/identify redirects to the database");
+  await go(I.page, "#/map"); await I.page.waitForTimeout(300);
+  ok(await I.page.evaluate(() => location.hash) === "#/database", "ios: #/map redirects to the database");
+  ok(await I.page.locator('#tabbar a[href="#/identify"], #tabbar a[href="#/map"]').count() === 0, "ios: no Photo ID or Map in the bottom bar");
+  ok(!I.errors.length, "ios hide: no JS errors " + JSON.stringify(I.errors));
+  await I.ctx.close();
+  const W = await device(true, null, { FREE_ACCESS_PROMO: true });
+  await go(W.page, "#/database");
+  ok(await W.page.locator('#view a[href="#/identify"]').count() >= 1 && await W.page.locator('#view a[href="#/map"]').count() >= 1, "web: Photo ID and Map links are unchanged");
+  await go(W.page, "#/map"); await W.page.waitForTimeout(300);
+  ok(await W.page.evaluate(() => location.hash) === "#/map", "web: map route still works");
+  await W.ctx.close();
+  RB = false;
 }
 FREE_PROMO = false;
 

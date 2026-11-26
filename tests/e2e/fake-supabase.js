@@ -13,7 +13,7 @@
       select() { return b }, eq(c, v) { q.filters.push(["eq", c, v]); return b }, neq(c, v) { q.filters.push(["neq", c, v]); return b },
       is(c, v) { q.filters.push(["is", c, v]); return b }, order() { return b }, limit() { return b },
       maybeSingle() { q.single = true; return b },
-      update(row) { q.op = "update"; q.row = row; return b }, upsert(row, opts) { q.op = "upsert"; q.row = row; q.opts = opts; return b }, delete() { q.op = "delete"; return b },
+      update(row) { q.op = "update"; q.row = row; return b }, insert(row) { q.op = "insert"; q.row = row; return b }, upsert(row, opts) { q.op = "upsert"; q.row = row; q.opts = opts; return b }, delete() { q.op = "delete"; return b },
       then(res, rej) { return call("query", Object.assign({ uid: session && session.user.id }, q)).then(res, rej) },
     };
     return b;
@@ -29,6 +29,7 @@
         async signOut() { session = null; localStorage.removeItem(KEY); setTimeout(() => fire("SIGNED_OUT")); return { error: null } },
       },
       from: builder,
+      async rpc(name, args) { return call("rpc", { name, args, uid: session && session.user.id }) },
       functions: { async invoke(name, opts) { const r = await call("fn", { name, uid: session && session.user.id, body: opts && opts.body }); return r } },
       storage: { from(bucket) { return {
         async upload(path, blob) { return call("upload", { path, uid: session && session.user.id, size: blob.size }) },
